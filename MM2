@@ -1,5 +1,10 @@
 --// Kaynak Kodu Paylaşmayın 
 
+-- Added Hide Coins
+-- Kill All & Sherif
+-- Added FPS Tab
+-- Optimized
+
 
 -- Services
 local Players = game:GetService("Players")

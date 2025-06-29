@@ -33,30 +33,23 @@ local attackedPlayers = {}
 local canAttack = true
 
 
-
--- Bir oyuncunun hayatta olup olmadığını kontrol eder
-
-
--- Fonksiyonu çağırarak saldırıyı başlatabilirsin:
  
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 
--- Hedef oyuncunun hayatta olup olmadığını kontrol eder
 local function OyuncuHayattaMi(player)
     return player and player.Character and player.Character:FindFirstChild("Humanoid")
        and player.Character.Humanoid.Health > 0
 end
 
--- Bıçakla saldırı işlemi (KnifeServer.Stab)
+
 local function BicakSaldir(knifeServer)
     if knifeServer and knifeServer:FindFirstChild("Stab") then
         knifeServer.Stab:FireServer("Slash")
     end
 end
 
--- Tek seferlik otomatik saldırı
 local function TekSeferlikSaldiri()
     if not LocalPlayer.Character then return end
     local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
@@ -89,10 +82,8 @@ local function TekSeferlikSaldiri()
             if targetPlayer and OyuncuHayattaMi(targetPlayer) and targetPlayer.Character and not attacked[playerName] then
                 local targetHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
                 if targetHRP then
-                    -- 🔁 Hedef oyuncu sana ışınlanır (3 birim önüne)
                     targetHRP.CFrame = hrp.CFrame * CFrame.new(0, 0, 3)
 
-                    -- 🔪 Saldırı gönderilir
                     BicakSaldir(knifeServer)
                     print("[AutoKill] " .. playerName .. " saldırıldı.")
                     attacked[playerName] = true
@@ -106,8 +97,7 @@ local function TekSeferlikSaldiri()
     print("[AutoKill] Tüm Sherifflere saldırı tamamlandı. Artık çalışmayacak.")
 end
 
--- İstediğin yere bunu yazarak çalıştırabilirsin:
--- TekSeferlikSaldiri()
+
 
 
 local function isAlive(player)
@@ -151,10 +141,8 @@ local function attackAllOnce()
             if targetPlayer and isAlive(targetPlayer) and targetPlayer.Character and not attackedPlayers[playerName] then
                 local targetHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
                 if targetHRP then
-                    -- Hedefi sana ışınla (hafif önünde)
                     targetHRP.CFrame = hrp.CFrame * CFrame.new(0, 0, -3)
 
-                    -- Bıçağı saldırı moduna geçir ve saldır
                     if canAttack then
                         canAttack = false
                         slash(knifeServer)
@@ -171,7 +159,6 @@ local function attackAllOnce()
     print("[AutoKill] Tüm Innocent ve Sherifflere saldırı tamamlandı. Artık çalışmayacak.")
 end
 
--- Çalıştırmak için sadece bu satırı çağır
 
 
 -- Global toggles with default values

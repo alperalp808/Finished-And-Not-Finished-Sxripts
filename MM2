@@ -1,10 +1,6 @@
---// Kaynak Kodu Paylaşmayın 
 
--- Added Hide Coins
--- Kill All & Sherif
--- Added FPS Tab
--- Optimized
-
+-- Kodu Paylaşmayın 
+-- Yakında Daha D@ss@kli bi Gui Gelicek
 
 -- Services
 local Players = game:GetService("Players")
@@ -13,6 +9,9 @@ local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
+local LP = Players.LocalPlayer
+
+
 
 local BioLab = game.Workspace:FindFirstChild("BioLab")
 local Bank2 = game.Workspace:FindFirstChild("Bank2")
@@ -42,7 +41,6 @@ local function OyuncuHayattaMi(player)
     return player and player.Character and player.Character:FindFirstChild("Humanoid")
        and player.Character.Humanoid.Health > 0
 end
-
 
 local function BicakSaldir(knifeServer)
     if knifeServer and knifeServer:FindFirstChild("Stab") then
@@ -82,8 +80,9 @@ local function TekSeferlikSaldiri()
             if targetPlayer and OyuncuHayattaMi(targetPlayer) and targetPlayer.Character and not attacked[playerName] then
                 local targetHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
                 if targetHRP then
-                    targetHRP.CFrame = hrp.CFrame * CFrame.new(0, 0, 3)
-
+                    
+                    targetHRP.CFrame = hrp.CFrame * CFrame.new(0, 0, -2)
+                    
                     BicakSaldir(knifeServer)
                     print("[AutoKill] " .. playerName .. " saldırıldı.")
                     attacked[playerName] = true
@@ -142,7 +141,7 @@ local function attackAllOnce()
                 local targetHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
                 if targetHRP then
                     targetHRP.CFrame = hrp.CFrame * CFrame.new(0, 0, -3)
-
+                    
                     if canAttack then
                         canAttack = false
                         slash(knifeServer)
@@ -161,7 +160,12 @@ end
 
 
 
--- Global toggles with default values
+getgenv().CMurd    = getgenv().CMurd or false   
+getgenv().CSherif  = getgenv().CSherif or false 
+getgenv().CHero    = getgenv().CHero or false
+getgenv().CInno    = getgenv().CInno or false
+getgenv().GunCharm = getgenv().GunCharm or false
+
 getgenv().Sherif = getgenv().Sherif or false
 getgenv().Murderer = getgenv().Murderer or false
 getgenv().Inno = getgenv().Inno or false
@@ -170,6 +174,8 @@ getgenv().Sesp = getgenv().Sesp or false
 getgenv().Mesp = getgenv().Mesp or false
 getgenv().Aesp = getgenv().Aesp or false
 getgenv().gunesp = getgenv().gunesp or false
+
+
 getgenv().DCoins = getgenv().DCoins or false
 getgenv().DWepon = getgenv().DWepon or false
 getgenv().HeadInvisible = getgenv().HeadInvisible or false
@@ -178,11 +184,9 @@ getgenv().infjump = getgenv().infjump or false
 getgenv().hcharm = getgenv().hcharm or false
 getgenv().HEsp = getgenv().HEsp or false
 
--- Roles table
 local roles = {}
 local Murder, Sheriff, Hero
 
--- Update roles every 0.5 seconds
 task.spawn(function()
 	while task.wait(0.5) do
 		local data = ReplicatedStorage:FindFirstChild("GetPlayerData", true)
@@ -198,13 +202,130 @@ task.spawn(function()
 	end
 end)
 
--- Check if player is alive
 local function IsAlive(plr)
 	local data = roles[plr.Name]
 	return data and not data.Killed and not data.Dead
 end
 
--- Highlight system for players
+
+local function isAlive(plr)
+    local info = roles[plr.Name]
+    return info and not info.Killed and not info.Dead
+end
+
+local function addBox(part, name, color)
+    if part:IsA("BasePart") and not part:FindFirstChild(name) then
+        local b = Instance.new("BoxHandleAdornment")
+        b.Name           = name
+        b.Adornee        = part
+        b.AlwaysOnTop    = true
+        b.ZIndex         = 0
+        b.Size           = part.Size
+        b.Transparency   = 0.7
+        b.Color3         = color
+        b.Parent         = part
+    end
+end
+
+local function clearBoxes(model, name)
+    if not model then return end
+    for _, p in pairs(model:GetChildren()) do
+        local b = p:FindFirstChild(name)
+        if b then b:Destroy() end
+    end
+end
+
+local function applyCharm(plr)
+    if plr == LP or not plr.Character then return end
+
+    local roleColor, enabled
+    if     plr.Name == Murder  then enabled, roleColor = getgenv().CMurd,   Color3.fromRGB(255,  0,  0)
+    elseif plr.Name == Sheriff then enabled, roleColor = getgenv().CSherif, Color3.fromRGB(  0,  0,255)
+    elseif plr.Name == Hero    then enabled, roleColor = getgenv().CHero,   Color3.fromRGB(255,255,  0)
+    else                          enabled, roleColor = getgenv().CInno,    Color3.fromRGB(  0,255,  0)
+    end
+
+    if enabled and isAlive(plr) then
+        for _, part in ipairs(plr.Character:GetChildren()) do
+            addBox(part, "CharmESP", roleColor)
+        end
+    else
+        clearBoxes(plr.Character, "CharmESP")
+    end
+end
+
+local function hookPlayer(plr)
+    if plr == LP then return end
+    plr.CharacterAdded:Connect(function()
+        task.wait(0.15)
+        applyCharm(plr)
+    end)
+end
+
+local mapNames = {
+    "BioLab","Bank2","Factory","Hospital3","Hotel2","House2",
+    "Mansion2","MilBase","Office3","PoliceStation",
+    "ResearchFacility","Workplace"
+}
+
+local function charmGun(part)
+    if part.Name=="GunDrop" and part:IsA("BasePart") then
+        if getgenv().GunCharm then
+            addBox(part, "GunCharm", Color3.fromRGB(255, 0, 255))
+        else
+            clearBoxes(part, "GunCharm")
+        end
+    end
+end
+
+Workspace.ChildAdded:Connect(function(model)
+    if not getgenv().GunCharm then return end
+    if model:IsA("Model") then
+        for _, obj in ipairs(model:GetDescendants()) do
+            charmGun(obj)
+        end
+    end
+end)
+
+task.spawn(function()
+    while true do
+        local getter = ReplicatedStorage:FindFirstChild("GetPlayerData", true)
+        if getter then
+            roles = getter:InvokeServer()
+            Murder, Sheriff, Hero = nil, nil, nil
+            for name, info in pairs(roles) do
+                if info.Role == "Murderer" then Murder = name
+                elseif info.Role == "Sheriff" then Sheriff = name
+                elseif info.Role == "Hero"    then Hero    = name end
+            end
+        end
+        
+        for _, plr in ipairs(Players:GetPlayers()) do
+            applyCharm(plr)
+        end
+        
+        if getgenv().GunCharm then
+            for _, mapName in ipairs(mapNames) do
+                local map = Workspace:FindFirstChild(mapName)
+                if map then
+                    for _, obj in ipairs(map:GetChildren()) do
+                        charmGun(obj)
+                    end
+                end
+            end
+        end
+
+        task.wait(0.5)
+    end
+end)
+
+
+for _, plr in ipairs(Players:GetPlayers()) do hookPlayer(plr) end
+Players.PlayerAdded:Connect(hookPlayer)
+
+
+
+
 local function UpdateHighlights()
 	for _, plr in ipairs(Players:GetPlayers()) do
 		if plr ~= LocalPlayer and plr.Character then
@@ -231,14 +352,13 @@ local function UpdateHighlights()
 	end
 end
 
--- Loop for highlight updates
 task.spawn(function()
 	while task.wait(0.5) do
 		UpdateHighlights()
 	end
 end)
 
--- Drawing ESP for players
+
 local function CreateESP(plr, char)
 	local hum = char:WaitForChild("Humanoid")
 	local head = char:WaitForChild("Head")
@@ -265,7 +385,7 @@ local function CreateESP(plr, char)
 		local pos, onscreen = Camera:WorldToViewportPoint(head.Position)
 		if onscreen then
 			text.Position = Vector2.new(pos.X, pos.Y - 35)
-			text.Text = " [ " .. plr.Name .. " ] "
+			text.Text = "  " .. plr.Name .. "  "
 
 			if plr.Name == Murder and IsAlive(plr) then
 				text.Color = Color3.fromRGB(255, 0, 0)
@@ -298,7 +418,7 @@ local function CreateESP(plr, char)
 	end)
 end
 
--- Hook ESP on player join/character add
+
 local function OnPlayerAdded(plr)
 	if plr == LocalPlayer then return end
 	if plr.Character then
@@ -317,7 +437,6 @@ Players.PlayerAdded:Connect(OnPlayerAdded)
 
 	
 
--- GunDrop ESP + Highlight
 local function HandleGunDropESP(part)
 	if not getgenv().gunesp then return end
 
@@ -359,14 +478,14 @@ local function HandleGunDropESP(part)
 	end)
 end
 
--- GunDrop Highlight on maps if enabled
+
 
 	local mapNames = {
 		"BioLab", "Bank2", "Factory", "Hospital3", "Hotel", "House2",
 		"Mansion2", "MilBase", "Office3", "PoliceStation", "ResearchFacility", "Workplace"
 	}
 	
--- Hem gchsrm hem gunesp toggle değişimini dinle
+
 RunService.Heartbeat:Connect(function()
     if getgenv().gchsrm or getgenv().gunesp then
         for _, mapName in ipairs(mapNames) do
@@ -374,7 +493,6 @@ RunService.Heartbeat:Connect(function()
             if map then
                 for _, part in ipairs(map:GetChildren()) do
                     if part.Name == "GunDrop" and part:IsA("BasePart") then
-                        -- Highlight ekle (Charm)
                         if getgenv().gchsrm and not part:FindFirstChild("Highlight") then
                             local hl = Instance.new("Highlight")
                             hl.Name = "Highlight"
@@ -385,7 +503,6 @@ RunService.Heartbeat:Connect(function()
                             hl.Adornee = part
                             hl.Parent = part
                         end
-                        -- ESP ekle (Text)
                         HandleGunDropESP(part)
                     end
                 end
@@ -394,7 +511,7 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- Yeni GunDrop eklendiğinde toggle aktifse anında uygula
+
 Workspace.ChildAdded:Connect(function(child)
     if child:IsA("Model") then
         for _, obj in ipairs(child:GetDescendants()) do
@@ -410,7 +527,6 @@ Workspace.ChildAdded:Connect(function(child)
                     hl.Adornee = obj
                     hl.Parent = obj
                 end
-                -- ESP ekle
                 HandleGunDropESP(obj)
             end
         end
@@ -419,7 +535,7 @@ end)
 
 
 
--- Functions to check if player has "Knife" or "Gun" tool
+
 local function HasTool(player, toolName)
 	if player:FindFirstChild("Backpack") then
 		for _, item in pairs(player.Backpack:GetChildren()) do
@@ -453,7 +569,7 @@ local function TeleportToToolOwner(toolName)
 	end
 end
 
--- Coin deletion setup
+
 local coinMaps = {
     "BioLab", "Bank2", "Factory", "Hospital3", "Hotel", "House2",
     "Mansion2", "MilBase", "Office3", "PoliceStation", "ResearchFacility", "Workplace"
@@ -488,7 +604,8 @@ task.spawn(function()
 	end
 end)
 
--- Infinite Jump
+
+
 game:GetService("UserInputService").JumpRequest:Connect(function()
 	if getgenv().infjump then
 		local humanoid = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
@@ -498,7 +615,7 @@ game:GetService("UserInputService").JumpRequest:Connect(function()
 	end
 end)
 
--- Move all GunDrops to player
+
 local function moveGunToPlayer(gun)
 	local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 	local hrp = character:WaitForChild("HumanoidRootPart")
@@ -518,7 +635,6 @@ local function moveAllGunDropsToPlayer()
 	end
 end
 
--- Remove specified accessories from player torso if enabled
 local beltsToRemove = {
 	{ torso = "LowerTorso", accessory = "KnifeBelt" },
 	{ torso = "LowerTorso", accessory = "GunBelt" },
@@ -586,7 +702,7 @@ end
 
 Players.PlayerAdded:Connect(setupPlayer)
 
--- Head invisibility
+
 local function makeHeadInvisible(character)
 	local head = character:FindFirstChild("Head")
 	if not head then return end
@@ -618,7 +734,7 @@ if LocalPlayer.Character then
 end
 LocalPlayer.CharacterAdded:Connect(onCharacterAdded)
 
--- Monitor HeadInvisible toggle every second
+
 task.spawn(function()
 	while true do
 		if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head") then
@@ -639,23 +755,44 @@ local tab1 = Main:CreateTab("Player")
 local tab2 = Main:CreateTab("Teleport")
 local tab3 = Main:CreateTab("Combat")
 local tab4 = Main:CreateTab("FPS")
- 
 
-tab:CreateToggle("Charm Murderer",function(a)
-getgenv().Murderer = a
+
+tab:CreateDropdown("Show Type",{"Highlight","Charm"},function(a)
+		getgenv().Type = a
+end) 
+
+tab:CreateToggle("Show Murder",function(a)
+    if getgenv().Type == "Highlight" then
+        getgenv().Murderer = a
+    elseif getgenv().Type == "Charm" then
+        getgenv().CMurd = a
+    end
 end)
 
-tab:CreateToggle("Charm Sherif",function(a)
-getgenv().Sherif = a
-	getgenv().hcharm = a
+tab:CreateToggle("Show Sherif",function(a)
+    if getgenv().Type == "Highlight" then
+        getgenv().Sherif = a
+        getgenv().hcharm = a
+    elseif getgenv().Type == "Charm" then
+        getgenv().CSherif = a
+        getgenv().CHero = a
+    end
 end)
 
-tab:CreateToggle("Charm İnnocent",function(a)
-getgenv().Inno = a
+tab:CreateToggle("Show İnnocent",function(a)
+    if getgenv().Type == "Highlight" then
+        getgenv().Inno = a
+    elseif getgenv().Type == "Charm" then
+        getgenv().CInno = a
+    end
 end)
 
-tab:CreateToggle("Charm Gun",function(a)
-getgenv().gchsrm = a
+tab:CreateToggle("Show Gun",function(a)
+    if getgenv().Type == "Highlight" then
+getgenv().GunCharm = true
+    elseif getgenv().Type == "Charm" then
+        getgenv().gchsrm = a
+    end
 end)
 
 -- Esp
@@ -714,6 +851,8 @@ tab1:CreateToggle("Noclip",function(a)
     NoclipLoop:Disconnect()
   end
 end)
+
+
 
 tab1:CreateToggle("İnf Jump",function(a)
 getgenv().infjump = a
@@ -818,7 +957,24 @@ tab4:CreateToggle("No Head",function(a)
 	getgenv().HeadInvisible = a
 end)
 
-
+tab4:CreateToggle("Anti fling",function(a)
+    getgenv().lip = a
+if getgenv().lip == true then
+    NoclipLoop = game:GetService("RunService").Stepped:Connect(function()
+        for _, player in pairs(game.Players:GetPlayers()) do
+            if player ~= game.Players.LocalPlayer and player.Character then
+                for _, part in pairs(player.Character:GetChildren()) do
+                    if part:IsA("BasePart") and part.CanCollide == true then
+                        part.CanCollide = false
+                    end
+                end
+            end
+        end
+    end)
+elseif getgenv().lip == false and NoclipLoop then
+    NoclipLoop:Disconnect()
+end
+end)
 
 tab:Show()
 
@@ -843,19 +999,19 @@ local UserInputService = game:GetService("UserInputService")
 local CoreGui = game:GetService("CoreGui")
 local LocalPlayer = Players.LocalPlayer
 
--- Önce varsa eski GUI'yi sil
+
 if CoreGui:FindFirstChild("DraggableTouchButtonGui") then
     CoreGui:FindFirstChild("DraggableTouchButtonGui"):Destroy()
 end
 
--- GUI oluştur
+
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "DraggableTouchButtonGui"
 screenGui.ResetOnSpawn = false
 screenGui.IgnoreGuiInset = true
 screenGui.Parent = CoreGui -- resetlense bile kalır
 
--- Kare buton
+
 local button = Instance.new("TextButton")
 button.Size = UDim2.new(0, 40,0, 30)
 button.Position = UDim2.new(0, 100, 0, 100) -- başlangıç yeri
@@ -893,7 +1049,7 @@ UserInputService.InputChanged:Connect(function(input)
 	end
 end)
 
--- Tıklama işlemi (isteğe göre değiştirilebilir)
+
 button.MouseButton1Click:Connect(function()
 	local gui = CoreGui:FindFirstChild("Allah")
 	if gui and gui:IsA("ScreenGui") and gui.Enabled == true then
@@ -937,11 +1093,11 @@ local function setInvisible(obj)
     end
 end
 
--- Global toggle değişkeni
+
 getgenv().hideCoin = getgenv().hideCoin or false
 
 RunService.Stepped:Connect(function()
-    if not getgenv().hideCoin then return end  -- Eğer hideCoin false ise işlem yapma
+    if not getgenv().hideCoin then return end  
 
     local map = findCurrentMap()
     if not map then return end

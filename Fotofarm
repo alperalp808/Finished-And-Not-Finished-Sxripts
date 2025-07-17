@@ -1,0 +1,215 @@
+loadstring(game:HttpGet('https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source'))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/Pixeluted/adoniscries/main/Source.lua",true))()
+local OrionLib = loadstring(game:HttpGet(('https://raw.githubusercontent.com/jensonhirst/Orion/main/source')))()
+local Window = OrionLib:MakeWindow({Name = "Age Of Koca Çük", HidePremium = false, SaveConfig = true, ConfigFolder = "OrionTest"})
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LocalPlayer = Players.LocalPlayer
+local PunchEvent = ReplicatedStorage:WaitForChild("Events"):WaitForChild("Punch")
+local TELEPORT_POS = Vector3.new(10671, 1438, 561)
+local TARGET_POS = Vector3.new(10671, 1438, 556)
+local ALT_POSITION = Vector3.new(10671, 1438, 561)
+
+local x = Instance.new("Part", game.Workspace)
+x.Anchored = true
+x.Name = "Nothing"
+x.Transparency = 0.8
+x.Position = Vector3.new(10657.6113, 1434.63904, 552.198975, 0.256518424, 0.905121565, 0.339047521, -0.0115446523, -0.347890735, 0.937463999, 0.96647042, -0.244390965, -0.078791067)
+x.Size = Vector3.new(250,2,250)
+
+local Dassak = Window:MakeTab({
+	Name = "Kasılacak Hesap",
+	Icon = "rbxassetid://4483345998",
+	PremiumOnly = false
+})
+
+local Yaprak = Window:MakeTab({
+	Name = "Alt Hesaplar",
+	Icon = "rbxassetid://4483345998",
+	PremiumOnly = false
+})
+
+local Section = Dassak:AddSection({
+	Name = "Ayarlar"
+})
+
+local Dropdown
+
+Dropdown = Dassak:AddDropdown({
+	Name = "Alt Seç",
+	Default = Players.LocalPlayer.Name,
+	Options = {}, -- Başta boş, sonra doldurulacak
+	Callback = function(Value)
+		_G.tplayer = Value
+	end    
+})
+
+
+local function UpdateDropdown()
+	local names = {}
+	for _, player in ipairs(Players:GetPlayers()) do
+		table.insert(names, player.Name)
+	end
+	if Dropdown then
+		Dropdown:Refresh(names, true)
+	end
+end
+
+-- İlk güncelleme
+UpdateDropdown()
+
+-- Oyuncu girince/gidince otomatik güncelle
+Players.PlayerAdded:Connect(UpdateDropdown)
+Players.PlayerRemoving:Connect(UpdateDropdown)
+
+Dassak:AddToggle({
+	Name = "Başlat",
+	Default = false,
+	Callback = function(Value)
+		getgenv().enablemain = Value
+	end    
+})
+
+
+Dassak:AddButton({
+	Name = "Farm Alanina Git",
+	Callback = function()
+      		Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(10671, 1438, 556)
+  	end    
+})
+
+
+local Sextion = Yaprak:AddSection({
+	Name = "Ayarlar"
+})
+
+
+Yaprak:AddToggle({
+	Name = "Başlat",
+	Default = false,
+	Callback = function(Value)
+		getgenv().enablealt = Value
+	end    
+})
+
+Yaprak:AddToggle({
+	Name = "Anti Fling (Önemli)",
+	Default = false,
+	Callback = function(a)
+	    getgenv().lip = a
+	    if getgenv().lip == true then
+	        NoclipLoop =
+	        game:GetService("RunService").Stepped:Connect(
+	        function()
+	            for _, player in pairs(game.Players:GetPlayers()) do
+	                if player ~= game.Players.LocalPlayer and player.Character then
+	                    for _, part in pairs(player.Character:GetChildren()) do
+	                        if part:IsA("BasePart") and part.CanCollide == true then
+	                            part.CanCollide = false
+	                        end
+	                    end
+	                end
+	            end
+	        end
+	        )
+	    elseif getgenv().lip == false and NoclipLoop then
+	        NoclipLoop:Disconnect()
+	    end
+	end    
+})
+
+Yaprak:AddToggle({
+	Name = "Oto Metal skin",
+	Default = false,
+	Callback = function(state)
+		      if state then
+    getgenv().metal = true;
+    while metal do
+      wait();
+      spawn(function()
+        game:GetService("ReplicatedStorage").Events.Transform:FireServer("metalSkin", true);
+      end);
+    end
+  else
+    spawn(function()
+      getgenv().metal = false;
+      wait();
+      game:GetService("ReplicatedStorage").Events.Transform:FireServer("metalSkin", false);
+    end);
+  end
+	end    
+})
+
+Yaprak:AddToggle({
+	Name = "Anti Knock",
+	Default = false,
+	Callback = function(state)
+		if state then
+    getgenv().AntiKnockback = true;
+    while AntiKnockback do
+      task.wait();
+      spawn(function()
+        local PrimaryPart = player.Character.PrimaryPart;
+        if ((PrimaryPart.AssemblyLinearVelocity.Magnitude > 250) or (PrimaryPart.AssemblyAngularVelocity.Magnitude > 250)) then
+          PrimaryPart.AssemblyAngularVelocity = Vector3.new(0, 0, 0);
+          PrimaryPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0);
+          PrimaryPart.CFrame = LastPosition;
+        elseif ((PrimaryPart.AssemblyLinearVelocity.Magnitude < 50) or (PrimaryPart.AssemblyAngularVelocity.Magnitude > 50)) then
+          LastPosition = PrimaryPart.CFrame;
+        end
+      end);
+    end
+  else
+    spawn(function()
+		  getgenv().AntiKnockback = false;
+    end);
+  end
+	end    
+})
+
+
+RunService.Heartbeat:Connect(function()
+    if not getgenv().enablemain then return end
+
+    local myChar = LocalPlayer.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    if not myHRP or myChar:FindFirstChildOfClass("ForceField") then return end
+
+    local targetName = _G.tplayer
+    local targetPlayer = targetName and Players:FindFirstChild(targetName)
+    local targetChar = targetPlayer and targetPlayer.Character
+    local targetHRP = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
+    if not targetHRP then return end
+
+    -- 1. Önce ışınla
+    myHRP.CFrame = CFrame.new(TELEPORT_POS)
+
+    -- 2. Sonraki frame'de kontrol edilsin diye kısa gecikme
+    task.defer(function()
+        if not targetChar or not targetHRP or not targetPlayer.Parent then return end
+
+        -- 3. Hedef pozisyona yakın mı?
+        if (targetHRP.Position - TARGET_POS).Magnitude < 30 then
+            -- 4. Hedefte ForceField yoksa
+            if not targetChar:FindFirstChildOfClass("ForceField") then
+                for i = 1, 30 do
+                    PunchEvent:FireServer(0, 0.1, 1)
+                end
+            end
+        end
+    end)
+end)
+
+
+
+RunService.Heartbeat:Connect(function()
+    if not getgenv().enablealt then return end
+
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        hrp.CFrame = CFrame.new(ALT_POSITION)
+    end
+end)

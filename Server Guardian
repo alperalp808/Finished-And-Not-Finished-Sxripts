@@ -1,0 +1,148 @@
+getgenv().Users = {
+    Main = "0xsedative",
+    Alt1 = "HitTalker3",
+    Alt2 = "HitTalker2"
+}
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local VirtualUser = game:GetService("VirtualUser")
+
+local LocalPlayer = Players.LocalPlayer
+local targetPosition = Vector3.new(99999, 99998, 99999)
+local distanceThreshold = 10
+
+local Roles = {}
+
+-- Roller güncelleme döngüsü
+task.spawn(function()
+    while true do
+        local getter = ReplicatedStorage:FindFirstChild("GetPlayerData", true)
+        if getter then
+            local success, result = pcall(function()
+                return getter:InvokeServer()
+            end)
+            if success and typeof(result) == "table" then
+                Roles = {}
+                for name, info in pairs(result) do
+                    if info.Role and info.Role ~= "Innocent" then
+                        Roles[name] = info.Role
+                    end
+                end
+            end
+        end
+        task.wait(1)
+    end
+end)
+
+local function equipKnifeIfNeeded()
+    local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    local backpack = LocalPlayer:WaitForChild("Backpack")
+    local knife = char:FindFirstChild("Knife")
+
+    if not knife then
+        knife = backpack:FindFirstChild("Knife")
+        if knife then
+            knife.Parent = char
+            task.wait(0.1)
+        end
+    end
+
+    -- Eğer henüz elinde değilse equip et
+    local humanoid = char:FindFirstChildWhichIsA("Humanoid")
+    if humanoid and knife and knife:IsA("Tool") and humanoid.Tool ~= knife then
+        humanoid:EquipTool(knife)
+        task.wait(0.1)
+    end
+
+    return knife
+end
+
+local function unequipKnife()
+    local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    local humanoid = char:FindFirstChildWhichIsA("Humanoid")
+    if humanoid then
+        local tool = humanoid:FindFirstChildOfClass("Tool")
+        if tool and tool.Name == "Knife" then
+            humanoid:UnequipTools()
+            task.wait(0.1)
+        end
+    end
+end
+
+local function checkResetConditions()
+    local character = LocalPlayer.Character
+    local backpack = LocalPlayer:FindFirstChild("Backpack")
+    if not character or not backpack then return end
+
+    local mainUsername = getgenv().Users and getgenv().Users.Main
+    local mainPlayer = mainUsername and Players:FindFirstChild(mainUsername)
+    if not mainPlayer or not mainPlayer.Character then return end
+
+    local mainChar = mainPlayer.Character
+    local hrp = mainChar:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    local mainHasKnife = mainChar:FindFirstChild("Knife") ~= nil
+    local mainHasGun = mainChar:FindFirstChild("Gun") ~= nil
+
+    local localHasGun = character:FindFirstChild("Gun") ~= nil or backpack:FindFirstChild("Gun") ~= nil
+
+    if not mainHasKnife and localHasGun then
+        character:BreakJoints()
+        return
+    end
+
+    local distance = (hrp.Position - targetPosition).Magnitude
+    if distance <= distanceThreshold and not mainHasGun and not mainHasKnife then
+        character:BreakJoints()
+        return
+    end
+end
+
+local function attackPlayers()
+    local knife = equipKnifeIfNeeded()
+    if not knife then return end
+
+    local handle = knife:FindFirstChild("Handle")
+    local stabRemote = knife:FindFirstChild("Stab")
+    if not handle or not stabRemote then return end
+
+    local attackedSomeone = false
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            local username = player.Name
+            local isWhitelisted = false
+            for _, trustedName in pairs(getgenv().Users) do
+                if username == trustedName then
+                    isWhitelisted = true
+                    break
+                end
+            end
+
+            local role = Roles[username]
+            if not isWhitelisted and role then
+                local enemyHRP = player.Character:FindFirstChild("HumanoidRootPart")
+                if enemyHRP then
+                    firetouchinterest(enemyHRP, handle, 1)
+                    firetouchinterest(enemyHRP, handle, 0)
+                    stabRemote:FireServer("Slash")
+                    VirtualUser:ClickButton1(Vector2.new())
+                    attackedSomeone = true
+                end
+            end
+        end
+    end
+
+    -- Eğer kimseye saldırmadıysa, bıçağı unequip et
+    if not attackedSomeone then
+        unequipKnife()
+    end
+end
+
+RunService.RenderStepped:Connect(function()
+    checkResetConditions()
+    attackPlayers()
+end)

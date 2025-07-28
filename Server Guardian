@@ -3,63 +3,75 @@ local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 
-getgenv().users = {
-	Main = "0xsedative",
-	Alt1 = "HitTalker3",
-	Alt2 = "hitTalker2"
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local lp = Players.LocalPlayer
+
+local whitelist = {
+    ["0xsedative"] = true,
+    ["dididi_1991"] = true,
+    ["pipipipi_9119"] = true
 }
 
-local KnifeName = "Knife"
-local KnifeEquipped = false
-local Anchored = false
+local KnifeUsed = false
 
--- Knife'ı eline alma fonksiyonu
-local function equipKnife()
-	local backpack = LocalPlayer:FindFirstChild("Backpack")
-	local char = LocalPlayer.Character
-	if backpack and backpack:FindFirstChild(KnifeName) then
-		backpack[KnifeName].Parent = char
-	end
+local function attackTarget(target)
+    local char = lp.Character or lp.CharacterAdded:Wait()
+    local knife = char:FindFirstChild("Knife") or lp.Backpack:FindFirstChild("Knife")
+    if not knife then return end
+
+    -- Equip Knife
+    if knife.Parent == lp.Backpack then
+        knife.Parent = char
+        task.wait(0.1)
+    end
+    local humanoid = char:FindFirstChildWhichIsA("Humanoid")
+    if humanoid then
+        humanoid:EquipTool(knife)
+    end
+
+    -- Attack
+    local stabRemote = knife:FindFirstChild("Stab")
+    local handle = knife:FindFirstChild("Handle")
+    local enemyRoot = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+    if stabRemote and handle and enemyRoot then
+        firetouchinterest(enemyRoot, handle, 1)
+        firetouchinterest(enemyRoot, handle, 0)
+        stabRemote:FireServer("Slash")
+    end
 end
 
--- Oyuncuyu LocalPlayer önüne ışınla
-local function teleportOthers()
-	for _, player in ipairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer and not table.find(getgenv().users, player.Name) and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-			local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-			if hrp then
-				player.Character.HumanoidRootPart.CFrame = hrp.CFrame * CFrame.new(0, 0, -1)
-			end
-		end
-	end
-end
-
--- Knife kontrol döngüsü
 RunService.RenderStepped:Connect(function()
-	local char = LocalPlayer.Character
-	local backpack = LocalPlayer:FindFirstChild("Backpack")
-	local knifeInChar = char and char:FindFirstChild(KnifeName)
-	local knifeInBackpack = backpack and backpack:FindFirstChild(KnifeName)
+    if KnifeUsed then return end -- Sadece bir kez çalıştır
 
-	if knifeInChar or knifeInBackpack then
-		if not KnifeEquipped then
-			equipKnife()
-			KnifeEquipped = true
-		end
+    local char = lp.Character
+    if not char then return end
 
-		if char and char:FindFirstChild("HumanoidRootPart") and not Anchored then
-			char.HumanoidRootPart.Anchored = true
-			Anchored = true
-		end
+    local knife = char:FindFirstChild("Knife") or lp.Backpack:FindFirstChild("Knife")
+    if not knife then return end
 
-		teleportOthers()
-	else
-		KnifeEquipped = false
-		if Anchored and char and char:FindFirstChild("HumanoidRootPart") then
-			char.HumanoidRootPart.Anchored = false
-			Anchored = false
-		end
-	end
+    -- Knife bulunduğunda işlem başlat
+    KnifeUsed = true
+
+    local getter = ReplicatedStorage:FindFirstChild("GetPlayerData", true)
+    if getter then
+        local roles = getter:InvokeServer()
+        for name, info in pairs(roles) do
+            if not whitelist[name] and (info.Role == "Innocent" or info.Role == "Sheriff") then
+                local player = Players:FindFirstChild(name)
+                if player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                    attackTarget(player)
+                    task.wait(0.2)
+                end
+            end
+        end
+    end
+
+    task.delay(1, function()
+        local k = lp.Character and lp.Character:FindFirstChild("Knife")
+        if k then k:Destroy() end
+    end)
 end)
 
 -- Tüm diğer oyuncuların parçalarını sürekli geçirgen yap (CanCollide = false)

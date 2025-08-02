@@ -14,6 +14,38 @@ local Players = game:GetService("Players")
 local VirtualUser = game:GetService("VirtualUser")
 local lp = Players.LocalPlayer
 
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local player = Players.LocalPlayer
+
+local function handleAnimate(char)
+    local animate = char:WaitForChild("Animate", 5)
+    if not animate then return end
+
+    -- Eğer şu anda bile false ise hemen uygula
+    if animate.Disabled == false then
+        ReplicatedStorage.Remotes.Misc.PlayEmote:Fire("zen")
+        animate.Disabled = true
+    end
+
+    -- Disabled değişimini takip et
+    animate:GetPropertyChangedSignal("Disabled"):Connect(function()
+        if animate.Disabled == false then
+            ReplicatedStorage.Remotes.Misc.PlayEmote:Fire("zen")
+            animate.Disabled = true
+        end
+    end)
+end
+
+-- Eğer karakter varsa başlat
+if player.Character then
+    handleAnimate(player.Character)
+end
+
+-- Yeni karakter geldiğinde tekrar bağlan
+player.CharacterAdded:Connect(handleAnimate)
+
+
 -- Bu isimdeki oyunculara asla saldırma
 local blacklistNames = {
     ["0xsedative"] = true

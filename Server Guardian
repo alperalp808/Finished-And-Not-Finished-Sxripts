@@ -48,7 +48,7 @@ player.CharacterAdded:Connect(handleAnimate)
 
 -- Bu isimdeki oyunculara asla saldırma
 local blacklistNames = {
-    ["0xsedative"] = true
+    ["syn_x8"] = true
 }
 
 -- Ana fonksiyon

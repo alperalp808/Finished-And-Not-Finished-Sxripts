@@ -1,2 +1,260 @@
-https://www.roblox.com/share?code=8dce1a3978878f419b3fc1f5c61023f8&type=Server
-loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-Quantum-Onyx-Project-32118"))()
+-- =========================
+-- GLOBAL DEFAULTS
+-- =========================
+getgenv().aimbot = false
+getgenv().wc = false
+getgenv().hitpart = "HumanoidRootPart"
+getgenv().pred = 0.16
+
+getgenv().fovEnabled = false
+getgenv().fovSize = 120
+getgenv().fovColor = Color3.fromRGB(255,255,255)
+
+getgenv().maxDistance = 300
+
+
+-- =========================
+-- SERVICES
+-- =========================
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
+local LP = Players.LocalPlayer
+
+
+-- =========================
+-- GUI
+-- =========================
+local gui = Instance.new("ScreenGui")
+gui.Name = "AimbotMobileGUI"
+gui.ResetOnSpawn = false
+gui.Parent = LP:WaitForChild("PlayerGui")
+
+
+-- MENU TOGGLE BUTTON (TOP CENTER)
+local menuBtn = Instance.new("TextButton")
+menuBtn.Size = UDim2.new(0,160,0,42)
+menuBtn.Position = UDim2.new(0.5,-80,0,8)
+menuBtn.Text = "AIMBOT MENU"
+menuBtn.BackgroundColor3 = Color3.fromRGB(25,25,25)
+menuBtn.TextColor3 = Color3.new(1,1,1)
+menuBtn.Parent = gui
+
+
+-- MAIN FRAME
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0,340,0,500)
+frame.Position = UDim2.new(0.5,-170,0.5,-260)
+frame.BackgroundColor3 = Color3.fromRGB(20,20,20)
+frame.Visible = false
+frame.Parent = gui
+
+
+-- =========================
+-- UI HELPERS
+-- =========================
+local function label(text,y)
+	local l = Instance.new("TextLabel")
+	l.Size = UDim2.new(1,-20,0,26)
+	l.Position = UDim2.new(0,10,0,y)
+	l.Text = text
+	l.TextColor3 = Color3.new(1,1,1)
+	l.BackgroundTransparency = 1
+	l.TextXAlignment = Enum.TextXAlignment.Left
+	l.Parent = frame
+end
+
+
+local function toggle(text,y,callback)
+	local b = Instance.new("TextButton")
+	b.Size = UDim2.new(1,-20,0,36)
+	b.Position = UDim2.new(0,10,0,y)
+	b.Text = text.." : OFF"
+	b.BackgroundColor3 = Color3.fromRGB(40,40,40)
+	b.TextColor3 = Color3.new(1,1,1)
+	b.Parent = frame
+	
+	local s = false
+	b.MouseButton1Click:Connect(function()
+		s = not s
+		b.Text = text.." : "..(s and "ON" or "OFF")
+		callback(s)
+	end)
+end
+
+
+local function textbox(y,default,callback)
+	local t = Instance.new("TextBox")
+	t.Size = UDim2.new(1,-20,0,36)
+	t.Position = UDim2.new(0,10,0,y)
+	t.Text = tostring(default)
+	t.BackgroundColor3 = Color3.fromRGB(35,35,35)
+	t.TextColor3 = Color3.new(1,1,1)
+	t.ClearTextOnFocus = false
+	t.Parent = frame
+	
+	t.FocusLost:Connect(function()
+		callback(t.Text)
+	end)
+end
+
+
+local function slider(y,min,max,val,callback)
+	local s = Instance.new("TextButton")
+	s.Size = UDim2.new(1,-20,0,36)
+	s.Position = UDim2.new(0,10,0,y)
+	s.Text = tostring(val)
+	s.BackgroundColor3 = Color3.fromRGB(35,35,35)
+	s.TextColor3 = Color3.new(1,1,1)
+	s.Parent = frame
+	
+	s.MouseButton1Click:Connect(function()
+		val = math.clamp(val + 20, min, max)
+		s.Text = tostring(val)
+		callback(val)
+	end)
+end
+
+
+-- =========================
+-- HITPART DROPDOWN
+-- =========================
+local hitparts = {
+	"Head",
+	"HumanoidRootPart",
+	"UpperTorso",
+	"LowerTorso"
+}
+
+local hitIndex = 2
+
+local function dropdown(y)
+	local b = Instance.new("TextButton")
+	b.Size = UDim2.new(1,-20,0,36)
+	b.Position = UDim2.new(0,10,0,y)
+	b.BackgroundColor3 = Color3.fromRGB(40,40,40)
+	b.TextColor3 = Color3.new(1,1,1)
+	b.Parent = frame
+	
+	local function update()
+		b.Text = "HitPart : "..hitparts[hitIndex]
+		getgenv().hitpart = hitparts[hitIndex]
+	end
+	
+	update()
+	
+	b.MouseButton1Click:Connect(function()
+		hitIndex += 1
+		if hitIndex > #hitparts then
+			hitIndex = 1
+		end
+		update()
+	end)
+end
+
+
+-- =========================
+-- UI CONTENT
+-- =========================
+label("MAIN SETTINGS",10)
+
+toggle("Enable Aimbot",40,function(v)
+	getgenv().aimbot = v
+end)
+
+-- 🔥 WALL CHECK TOGGLE (EKLENEN)
+toggle("Wall Check",80,function(v)
+	getgenv().wc = v
+end)
+
+label("Select HitPart",125)
+dropdown(150)
+
+label("Prediction",195)
+textbox(220,getgenv().pred,function(v)
+	getgenv().pred = tonumber(v) or getgenv().pred
+end)
+
+
+label("FOV SETTINGS",270)
+
+toggle("Enable FOV Visual",300,function(v)
+	getgenv().fovEnabled = v
+end)
+
+label("FOV Size",345)
+slider(370,50,500,getgenv().fovSize,function(v)
+	getgenv().fovSize = v
+end)
+
+
+label("DISTANCE SETTINGS",420)
+slider(450,50,1000,getgenv().maxDistance,function(v)
+	getgenv().maxDistance = v
+end)
+
+
+-- =========================
+-- MENU TOGGLE
+-- =========================
+menuBtn.MouseButton1Click:Connect(function()
+	frame.Visible = not frame.Visible
+end)
+
+
+-- =========================
+-- FOV CIRCLE
+-- =========================
+local circle = Drawing.new("Circle")
+circle.Thickness = 2
+circle.Filled = false
+
+
+-- =========================
+-- AIMBOT LOGIC
+-- =========================
+local function wallCheck(pos,ignore)
+	if not getgenv().wc then return true end
+	local rp = RaycastParams.new()
+	rp.FilterDescendantsInstances = {LP.Character,ignore}
+	rp.FilterType = Enum.RaycastFilterType.Blacklist
+	return workspace:Raycast(Camera.CFrame.Position,pos-Camera.CFrame.Position,rp) == nil
+end
+
+
+local function getTarget()
+	local best,dist = nil,math.huge
+	for _,p in pairs(Players:GetPlayers()) do
+		if p ~= LP and p.Character and p.Character:FindFirstChild(getgenv().hitpart) then
+			local hum = p.Character:FindFirstChildOfClass("Humanoid")
+			if hum and hum.Health > 0 then
+				local part = p.Character[getgenv().hitpart]
+				local d = (part.Position - Camera.CFrame.Position).Magnitude
+				if d < getgenv().maxDistance and d < dist then
+					if wallCheck(part.Position,p.Character) then
+						best = part
+						dist = d
+					end
+				end
+			end
+		end
+	end
+	return best
+end
+
+
+RunService.RenderStepped:Connect(function()
+	circle.Visible = getgenv().fovEnabled
+	circle.Radius = getgenv().fovSize
+	circle.Color = getgenv().fovColor
+	circle.Position = Vector2.new(Camera.ViewportSize.X/2,Camera.ViewportSize.Y/2)
+
+	if not getgenv().aimbot then return end
+	
+	local t = getTarget()
+	if t then
+		local vel = t.AssemblyLinearVelocity or Vector3.zero
+		local aimPos = t.Position + (vel * getgenv().pred)
+		Camera.CFrame = CFrame.new(Camera.CFrame.Position,aimPos)
+	end
+end)

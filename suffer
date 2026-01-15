@@ -1,0 +1,716 @@
+-- =========================
+-- SERVİSLER
+-- =========================
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local lp = Players.LocalPlayer
+local Workspace = game:GetService("Workspace")
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local UIS = game:GetService("UserInputService")
+local Camera = workspace.CurrentCamera
+local LP = Players.LocalPlayer
+
+-- GUI
+local gui = Instance.new("ScreenGui")
+gui.Name = "ToggleArcticGui"
+gui.ResetOnSpawn = false
+gui.Parent = game:GetService("CoreGui")
+
+-- BUTTON
+local button = Instance.new("TextButton")
+button.Size = UDim2.new(0, 90, 0, 30)
+button.Position = UDim2.new(0, 20, 0, 200)
+button.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+button.TextColor3 = Color3.fromRGB(255, 255, 255)
+button.Text = "Arctic"
+button.TextSize = 14
+button.Parent = gui
+
+-- ROUND
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 6)
+corner.Parent = button
+
+-- DRAG SYSTEM
+local dragging = false
+local dragStart, startPos
+
+button.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		dragging = true
+		dragStart = input.Position
+		startPos = button.Position
+	end
+end)
+
+button.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		dragging = false
+	end
+end)
+
+UIS.InputChanged:Connect(function(input)
+	if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+		local delta = input.Position - dragStart
+		button.Position = UDim2.new(
+			startPos.X.Scale,
+			startPos.X.Offset + delta.X,
+			startPos.Y.Scale,
+			startPos.Y.Offset + delta.Y
+		)
+	end
+end)
+
+-- TOGGLE ARCTIC
+button.MouseButton1Click:Connect(function()
+	if game.CoreGui:FindFirstChild("Arctic") then
+		game.CoreGui.Arctic.Enabled = not game.CoreGui.Arctic.Enabled
+	end
+end)
+
+
+-- =========================
+-- GLOBAL
+-- =========================
+getgenv().LoopTP = false
+_G.tplayer = nil
+
+local savedCFrame
+local returned = false
+
+-- =========================
+-- AYARLAR
+-- =========================
+local UNDER_OFFSET = 5
+
+-- =========================
+-- TARGET SEÇME
+-- =========================
+function setTarget(v)
+    v = string.lower(v)
+    for _, p in pairs(Players:GetPlayers()) do
+        if string.find(string.lower(p.Name), v, 1, true)
+        or string.find(string.lower(p.DisplayName), v, 1, true) then
+            _G.tplayer = p.Name
+            print("Target:", p.Name)
+            break
+        end
+    end
+end
+
+-- =========================
+-- LOOP TP (ALTINA + TAM YATAY)
+-- =========================
+RunService.Heartbeat:Connect(function()
+    if not getgenv().LoopTP then
+        if savedCFrame and not returned then
+            local hrp = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                hrp.CFrame = savedCFrame
+                savedCFrame = nil
+                returned = true
+            end
+        end
+        return
+    end
+
+    local char = lp.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    if not savedCFrame then
+        savedCFrame = hrp.CFrame
+        returned = false
+    end
+
+    local target = _G.tplayer and Players:FindFirstChild(_G.tplayer)
+    if not target then return end
+
+    local thrp = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+    if not thrp then return end
+
+    -- =========================
+    -- HIZ ANALİZİ (AYNI)
+    -- =========================
+    local vel = thrp.Velocity
+    local flatVel = Vector3.new(vel.X, 0, vel.Z)
+    local speed = flatVel.Magnitude
+
+    local targetPos
+
+    if speed < 2 then
+        targetPos = thrp.Position - Vector3.new(0, UNDER_OFFSET, 0)
+    else
+        local dir = flatVel.Unit
+        local dist = math.clamp(speed * 0.35, 4, 9)
+        targetPos = thrp.Position + (dir * dist) - Vector3.new(0, UNDER_OFFSET, 0)
+    end
+
+    -- =========================
+    -- ROTASYON (SABİT)
+    -- "_" GİBİ YATAY
+    -- YÜZ HER ZAMAN YUKARI
+    -- =========================
+    hrp.CFrame =
+        CFrame.new(targetPos)
+        * CFrame.Angles(math.pi / 2, 0, 0)
+end)
+
+game:GetService("UserInputService").JumpRequest:connect(function()
+  if getgenv().infjump == true then
+		game:GetService("Players").LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping");
+  end
+	end);
+
+-- =========================
+-- GLOBAL SETTINGS
+-- =========================
+getgenv().aimbot = false           -- true / false
+getgenv().wc = false               -- wall check
+getgenv().hitpart = "HumanoidRootPart" -- "Head" / "HumanoidRootPart"
+getgenv().pred = 0.160126357             -- prediction
+
+getgenv().fovEnabled = false
+getgenv().fovSize = 100
+getgenv().fovColor = Color3.fromRGB(255,255,255)
+
+getgenv().maxDistance = 240
+
+
+-- =========================
+-- SERVICES
+-- =========================
+
+
+
+-- =========================
+-- FOV CIRCLE
+-- =========================
+local circle = Drawing.new("Circle")
+circle.Thickness = 2
+circle.Filled = false
+
+
+-- =========================
+-- UTILS
+-- =========================
+local function inFov(worldPos)
+	local screenPos, onScreen = Camera:WorldToViewportPoint(worldPos)
+	if not onScreen then return false end
+
+	local center = Vector2.new(
+		Camera.ViewportSize.X / 2,
+		Camera.ViewportSize.Y / 2
+	)
+
+	return (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude <= getgenv().fovSize
+end
+
+
+local function wallCheck(pos, ignore)
+	if not getgenv().wc then return true end
+
+	local params = RaycastParams.new()
+	params.FilterDescendantsInstances = {LP.Character, ignore}
+	params.FilterType = Enum.RaycastFilterType.Blacklist
+
+	return workspace:Raycast(
+		Camera.CFrame.Position,
+		pos - Camera.CFrame.Position,
+		params
+	) == nil
+end
+
+
+-- =========================
+-- TARGET LOGIC
+-- =========================
+local lockedTarget = nil
+
+local function getNewTarget()
+	local best, closest = nil, math.huge
+
+	for _, p in ipairs(Players:GetPlayers()) do
+		if p ~= LP and p.Character and p.Character:FindFirstChild(getgenv().hitpart) then
+			local hum = p.Character:FindFirstChildOfClass("Humanoid")
+			if hum and hum.Health > 0 then
+				local part = p.Character[getgenv().hitpart]
+				local dist = (part.Position - Camera.CFrame.Position).Magnitude
+
+				if dist <= getgenv().maxDistance and inFov(part.Position) then
+					if wallCheck(part.Position, p.Character) and dist < closest then
+						best = part
+						closest = dist
+					end
+				end
+			end
+		end
+	end
+
+	return best
+end
+
+
+-- =========================
+-- MAIN LOOP
+-- =========================
+RunService.RenderStepped:Connect(function()
+	-- FOV DRAW
+	circle.Visible = getgenv().fovEnabled
+	circle.Radius = getgenv().fovSize
+	circle.Color = getgenv().fovColor
+	circle.Position = Vector2.new(
+		Camera.ViewportSize.X / 2,
+		Camera.ViewportSize.Y / 2
+	)
+
+	if not getgenv().aimbot then
+		lockedTarget = nil
+		return
+	end
+
+	-- LOCK VALIDATION
+	if lockedTarget then
+		local hum = lockedTarget.Parent:FindFirstChildOfClass("Humanoid")
+		if not hum
+			or hum.Health <= 0
+			or not inFov(lockedTarget.Position)
+			or (lockedTarget.Position - Camera.CFrame.Position).Magnitude > getgenv().maxDistance then
+			lockedTarget = nil
+		end
+	end
+
+	-- ACQUIRE TARGET
+	if not lockedTarget then
+		lockedTarget = getNewTarget()
+	end
+
+	-- AIM
+	if lockedTarget then
+		local vel = lockedTarget.AssemblyLinearVelocity or Vector3.zero
+		local aimPos = lockedTarget.Position + (vel * getgenv().pred)
+		Camera.CFrame = CFrame.new(Camera.CFrame.Position, aimPos)
+	end
+end)
+
+local Venyx = loadstring(game:HttpGet("https://raw.githubusercontent.com/Sigma-3131/Scripts/main/Ven%20X"))()
+local NotifyLibrary = loadstring(game:HttpGet("https://raw.githubusercontent.com/Kinlei/Dynissimo/main/Scripts/AkaliNotif.lua"))()
+local Notify = NotifyLibrary.Notify
+
+
+local UI = Venyx.new({
+    title = "Arctic"
+})
+
+-- // Themes
+local Themes = {
+    Background = Color3.fromRGB(0, 0, 0),
+    Glow = Color3.fromRGB(0, 0, 0),
+    Accent = Color3.fromRGB(10, 10, 10),
+    LightContrast = Color3.fromRGB(65,65,65),
+    DarkContrast = Color3.fromRGB(14, 14, 14),  
+    TextColor = Color3.fromRGB(181, 50, 255)
+}
+
+
+local Tab = UI:addPage({
+    title = "Target",
+    icon = 5012544693
+})
+
+local Tab3 = UI:addPage({
+    title = "Aiming",
+    icon = 5012544693
+})
+
+local Tab1 = UI:addPage({
+    title = "Player",
+    icon = 5012544693
+})
+
+local Tab2 = UI:addPage({
+    title = "Teleport",
+    icon = 5012544693
+})
+
+local Section = Tab:addSection({
+    title = "Target Options"
+})
+
+local Section3 = Tab3:addSection({
+    title = "Aimbot Settings"
+})
+
+
+
+local Section1 = Tab1:addSection({
+    title = "Player Options"
+})
+
+local Sectio = Tab1:addSection({
+    title = "Starting Options"
+})
+
+local Section2 = Tab2:addSection({
+    title = "Locations"
+})
+
+Section:addTextbox({
+    title = "Select Target",
+    default = "Default",
+    callback = function(va)
+        setTarget(va);
+    end
+})
+
+Section:addToggle({
+    title = "Spectate",
+    callback = function(t)
+          if (t == true) then
+    getgenv().Spectate = true;
+    while Spectate do
+      pcall(function()
+        viewing = game.Players[_G.tplayer];workspace.CurrentCamera.CameraSubject = viewing.Character;
+      end);
+      wait();
+    end
+  else
+    getgenv().Spectate = false;
+    wait(0.1);
+    viewing = game.Players.LocalPlayer;
+    workspace.CurrentCamera.CameraSubject = viewing.Character;
+  end
+    end
+})
+
+Section:addToggle({
+    title = "LoopTP",
+    callback = function(state)
+        getgenv().LoopTP = state
+    end
+})
+
+Section:addTextbox({
+    title = "Under Value",
+    default = "5",
+    callback = function(va)
+        UNDER_OFFSET = va
+    end
+})
+
+
+
+
+
+
+
+local sll = {"Head","HumanoidRootPart"}
+Section3:addDropdown({
+    title = "Hit Part",
+    list = sll,
+    callback = function(qa)
+      getgenv().hitpart = qa
+    end
+})
+
+Section3:addToggle({
+    title = "Enable",
+    callback = function(state)
+        getgenv().aimbot = state
+    end
+})
+
+Section3:addToggle({
+    title = "Wall Check",
+    callback = function(state)
+        getgenv().wc = state
+    end
+})
+
+Section3:addToggle({
+    title = "Show Fov",
+    callback = function(state)
+        getgenv().fovEnabled = state
+    end
+})
+
+Section3:addTextbox({
+    title = "Fov Size",
+    default = "100",
+    callback = function(va)
+        getgenv().fovSize = va
+    end
+})
+
+Section3:addTextbox({
+    title = "Locking Distance",
+    default = "300",
+    callback = function(va)
+        getgenv().maxDistance = va
+    end
+})
+
+Section3:addTextbox({
+    title = "Prediction",
+    default = "1449108793051844630",
+    callback = function(va)
+        getgenv().pred = va
+    end
+})
+
+
+
+
+
+Section1:addTextbox({
+    title = "Walk Speed",
+    default = "16",
+    callback = function(va)
+        lp.Character.Humanoid.WalkSpeed = va
+    end
+})
+
+Section1:addTextbox({
+    title = "Jump Heigh",
+    default = "10",
+    callback = function(aa)
+        game.Players.LocalPlayer.Character.Humanoid.JumpHeight = aa
+    end
+})
+
+
+Section1:addToggle({
+    title = "Noclip",
+    callback = function(state)
+                getgenv().clip = state
+  if getgenv().clip == true then
+    NoclipLoop = game:GetService("RunService").Stepped:Connect(function()
+      for i,v in pairs(game.Players.LocalPlayer.Character:GetChildren()) do
+        if v:IsA("BasePart") and v.CanCollide == true then
+          v.CanCollide = false
+        end
+      end
+    end)
+  elseif getgenv().clip == false and NoclipLoop then
+    NoclipLoop:Disconnect()
+  end
+    end
+})
+
+Section1:addToggle({
+    title = "İnf Jump",
+    callback = function(state)
+        getgenv().infjump = state
+    end
+})
+
+
+Section1:addToggle({
+    title = "Anti Fling",
+    callback = function(a)
+getgenv().lip = a
+if getgenv().lip == true then
+NoclipLoop =
+game:GetService("RunService").Stepped:Connect(
+function()
+for _, player in pairs(game.Players:GetPlayers()) do
+if player ~= game.Players.LocalPlayer and player.Character then
+for _, part in pairs(player.Character:GetChildren()) do
+if part:IsA("BasePart") and part.CanCollide == true then
+part.CanCollide = false
+end
+end
+end
+end
+end
+)
+elseif getgenv().lip == false and NoclipLoop then
+NoclipLoop:Disconnect()
+end
+    end
+})
+
+Section1:addToggle({
+    title = "Float",
+    callback = function(t)
+floattoggle = t
+if floattoggle then
+while wait(0.001) do
+pcall(
+function()
+if workspace:FindFirstChild("FloatExploit") then
+workspace.FloatExploit:Destroy()
+end
+local Float = Instance.new("Part", game.Workspace)
+Float.Anchored = true
+Float.Name = "FloatExploit"
+Float.Transparency = 1
+Float.Position =
+game.Players.LocalPlayer.Character.HumanoidRootPart.Position +
+Vector3.new(0, -3.1, 0)
+Float.Size = Vector3.new(3, 0, 3)
+end
+)
+if not floattoggle then
+if workspace:FindFirstChild("FloatExploit") then
+workspace.FloatExploit:Destroy()
+end
+break
+end
+end
+end
+end
+})
+
+Section1:addButton({
+    title = "No Jump Cooldown",
+    callback = function()
+        local plr = game:GetService("Players").LocalPlayer
+
+for _, v in next, getconnections(plr.Character.Humanoid.StateChanged) do
+    local info = getinfo(v.Function)
+    if info.what == "Lua" and info.source == "=Workspace."..plr.Name..".movementt" then
+        v:Disable()
+    end
+end
+        end
+})
+
+
+Section1:addButton({
+    title = "Anti Sit",
+    callback = function()
+local function neutralizarAsiento(asiento)
+	if asiento:IsA("Seat") or asiento:IsA("VehicleSeat") then
+		asiento.Disabled = true
+		asiento.CanTouch = false
+		asiento:SetAttribute("Neutralizado", true)
+	end
+end
+for _, objeto in ipairs(Workspace:GetDescendants()) do
+	neutralizarAsiento(objeto)
+end
+Workspace.DescendantAdded:Connect(function(obj)
+	if obj:IsA("Seat") or obj:IsA("VehicleSeat") then
+		task.wait(0.1)
+		neutralizarAsiento(obj)
+	end
+end)
+player.CharacterAdded:Connect(function(char)
+	local humanoid = char:WaitForChild("Humanoid")
+	humanoid:GetPropertyChangedSignal("Sit"):Connect(function()
+		if humanoid.Sit then
+			humanoid.Sit = false
+		end
+	end)
+end)
+    end
+})
+
+Sectio:addButton({
+    title = "Start With RocketLauncher",
+    callback = function()
+        game:GetService("ReplicatedStorage").events.guiEvent:FireServer("changeClass","rocket launcher","none")
+        end
+})
+
+Sectio:addButton({
+    title = "Start With Taser",
+    callback = function()
+        game:GetService("ReplicatedStorage").events.guiEvent:FireServer("changeClass","taser","none")
+        end
+})
+
+Sectio:addButton({
+    title = "Start With Kick",
+    callback = function()
+        game:GetService("ReplicatedStorage").events.guiEvent:FireServer("changeClass","kick","none")
+        end
+})
+
+
+
+Section2:addButton({
+    title = "Mid",
+    callback = function()
+        lp.Character.HumanoidRootPart.CFrame = CFrame.new(2197, 164, 1368)
+    end
+})
+
+Section2:addButton({
+    title = "İsland 1",
+    callback = function()
+        lp.Character.HumanoidRootPart.CFrame = CFrame.new(2552, 211, 1362)
+    end
+})
+
+Section2:addButton({
+    title = "İsland 2",
+    callback = function()
+        lp.Character.HumanoidRootPart.CFrame = CFrame.new(2574, 188, 1206)
+    end
+})
+
+Section2:addButton({
+    title = "İsland 3",
+    callback = function()
+        lp.Character.HumanoidRootPart.CFrame = CFrame.new(2331, 227, 1051)
+    end
+})
+
+Section2:addButton({
+    title = "İsland 4",
+    callback = function()
+        lp.Character.HumanoidRootPart.CFrame = CFrame.new(2144, 227, 991)
+    end
+})
+
+Section2:addButton({
+    title = "İsland 5",
+    callback = function()
+        lp.Character.HumanoidRootPart.CFrame = CFrame.new(1965, 227, 1064)
+    end
+})
+
+Section2:addButton({
+    title = "İsland 6",
+    callback = function()
+        lp.Character.HumanoidRootPart.CFrame = CFrame.new(1885, 220, 1235)
+    end
+})
+
+Section2:addButton({
+    title = "Park",
+    callback = function()
+        lp.Character.HumanoidRootPart.CFrame = CFrame.new(2213, 165, 1443)
+    end
+})
+
+Section2:addButton({
+    title = "Secret Room",
+    callback = function()
+        lp.Character.HumanoidRootPart.CFrame = CFrame.new(2362, 158, 1167)
+    end
+})
+
+Section2:addButton({
+    title = "Underground Secret Room",
+    callback = function()
+        lp.Character.HumanoidRootPart.CFrame = CFrame.new(2216, 119, 1266)
+    end
+})
+
+Section2:addButton({
+    title = "House",
+    callback = function()
+        lp.Character.HumanoidRootPart.CFrame = CFrame.new(2040, 179, 1457)
+    end
+})
+
+Section2:addButton({
+    title = "Underground Mid",
+    callback = function()
+        lp.Character.HumanoidRootPart.CFrame = CFrame.new(2196, 147, 1315)
+    end
+})

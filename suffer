@@ -1,6 +1,7 @@
 -- =========================
 -- SERVİSLER
 -- =========================
+local StarterGui = game:GetService("StarterGui")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local lp = Players.LocalPlayer
@@ -10,6 +11,8 @@ local player = Players.LocalPlayer
 local UIS = game:GetService("UserInputService")
 local Camera = workspace.CurrentCamera
 local LP = Players.LocalPlayer
+local player = Players.LocalPlayer
+
 
 -- GUI
 local gui = Instance.new("ScreenGui")
@@ -73,8 +76,11 @@ end)
 -- =========================
 -- GLOBAL
 -- =========================
+getgenv().antiragdoll = false
 getgenv().LoopTP = false
 _G.tplayer = nil
+getgenv().anahtar = false
+
 
 local savedCFrame
 local returned = false
@@ -294,6 +300,53 @@ RunService.RenderStepped:Connect(function()
 	end
 end)
 
+
+-- GLOBAL TOGGLE
+
+
+-- SERVICES
+
+
+
+-- =========================
+-- CHARACTER SETUP
+-- =========================
+local function setupCharacter(character)
+	local humanoid = character:WaitForChild("Humanoid")
+
+	-- Anti-ragdoll aktifken zorla normal state
+	RunService.Heartbeat:Connect(function()
+		if not getgenv().antiragdoll then
+			return
+		end
+
+		-- Physics = ragdoll → anında çık
+		if humanoid:GetState() == Enum.HumanoidStateType.Physics then
+			humanoid.RequiresNeck = true
+			humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+		end
+
+		-- Backpack hep açık kalsın
+		StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, true)
+	end)
+
+	-- Health düşse bile ragdoll tutmasın
+	humanoid.HealthChanged:Connect(function()
+		if getgenv().antiragdoll then
+			if humanoid:GetState() == Enum.HumanoidStateType.Physics then
+				humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+			end
+		end
+	end)
+end
+
+-- INIT
+if player.Character then
+	setupCharacter(player.Character)
+end
+
+player.CharacterAdded:Connect(setupCharacter)
+
 local Venyx = loadstring(game:HttpGet("https://raw.githubusercontent.com/Sigma-3131/Scripts/main/Ven%20X"))()
 local NotifyLibrary = loadstring(game:HttpGet("https://raw.githubusercontent.com/Kinlei/Dynissimo/main/Scripts/AkaliNotif.lua"))()
 local Notify = NotifyLibrary.Notify
@@ -324,6 +377,11 @@ local Tab3 = UI:addPage({
     icon = 5012544693
 })
 
+local Tab4 = UI:addPage({
+    title = "Starting",
+    icon = 5012544693
+})
+
 local Tab1 = UI:addPage({
     title = "Player",
     icon = 5012544693
@@ -348,7 +406,11 @@ local Section1 = Tab1:addSection({
     title = "Player Options"
 })
 
-local Sectio = Tab1:addSection({
+local Section4 = Tab1:addSection({
+    title = "Game Options"
+})
+
+local Sectio = Tab4:addSection({
     title = "Starting Options"
 })
 
@@ -506,6 +568,7 @@ Section1:addToggle({
 })
 
 
+
 Section1:addToggle({
     title = "Anti Fling",
     callback = function(a)
@@ -563,7 +626,93 @@ end
 end
 })
 
-Section1:addButton({
+
+Section4:addToggle({
+    title = "Anti Rangoll",
+    callback = function(state)
+    	getgenv().antiragdoll = state
+    end
+})
+
+Section4:addToggle({
+    title = "Auto Get Crates",
+    callback = function(state)
+    	getgenv().anahtar = state
+    end
+})
+
+Section4:addToggle({
+    title = "Auto Run",
+    callback = function(t)
+getgenv().otorun = t
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local lp = Players.LocalPlayer
+local char = lp.Character or lp.CharacterAdded:Wait()
+local hum = char:WaitForChild("Humanoid")
+
+-- Animasyon
+local anim = Instance.new("Animation")
+anim.AnimationId = "rbxassetid://6694500885"
+local track = hum:LoadAnimation(anim)
+
+RunService.RenderStepped:Connect(function()
+	if getgenv().otorun == true and hum.MoveDirection.Magnitude > 0 then
+		hum.WalkSpeed = 23
+		if not track.IsPlaying then
+			track:Play()
+		end
+	else
+		hum.WalkSpeed = 16
+		if track.IsPlaying then
+			track:Stop()
+		end
+	end
+end)
+    end
+})
+
+Section4:addToggle({
+    title = "Enable Force Flip Button",
+    callback = function(t)
+    	game.CoreGui.DashGui.Enabled = t
+    end
+})
+
+Section4:addKeybind({
+    title = "Force Flip",
+    key = Enum.KeyCode.T,
+    callback = function()
+local char = lp.Character or lp.CharacterAdded:Wait()
+local hum = char:WaitForChild("Humanoid")
+local hrp = char:WaitForChild("HumanoidRootPart")
+local anim = Instance.new("Animation")
+anim.AnimationId = "rbxassetid://6690693371"
+local track = hum:LoadAnimation(anim)
+track:Play()
+local targetSpeed = 106
+local duration = 0.25 -- dash süresi (küçük = daha hızlı)
+local startTime = tick()
+local connection
+connection = RunService.Heartbeat:Connect(function()
+	local alpha = math.clamp((tick() - startTime) / duration, 0, 1)
+	local dir = hrp.CFrame.LookVector
+	local desiredVelocity = dir * targetSpeed
+	hrp.AssemblyLinearVelocity =
+		hrp.AssemblyLinearVelocity:Lerp(desiredVelocity, alpha)
+	if alpha >= 1 then
+		connection:Disconnect()
+	end
+end)
+    end,
+    changedCallback = function(key)
+        print("Changed Keybind", key)
+    end
+})
+
+Section4:addButton({
     title = "No Jump Cooldown",
     callback = function()
         local plr = game:GetService("Players").LocalPlayer
@@ -578,7 +727,7 @@ end
 })
 
 
-Section1:addButton({
+Section4:addButton({
     title = "Anti Sit",
     callback = function()
 local function neutralizarAsiento(asiento)
@@ -629,6 +778,20 @@ Sectio:addButton({
         end
 })
 
+Sectio:addButton({
+    title = "Start BoomBox",
+    callback = function()
+    	game:GetService("ReplicatedStorage").events.guiEvent:FireServer("changeClass","Boombox","none")
+    end
+})
+
+Sectio:addButton({
+    title = "Start Cheetos",
+    callback = function()
+    	game:GetService("ReplicatedStorage").events.guiEvent:FireServer("changeClass","cheetos","none")
+
+    end
+})
 
 
 Section2:addButton({
@@ -714,3 +877,128 @@ Section2:addButton({
         lp.Character.HumanoidRootPart.CFrame = CFrame.new(2196, 147, 1315)
     end
 })
+
+-- SERVICES
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local lp = Players.LocalPlayer
+
+-- GUI
+local gui = Instance.new("ScreenGui")
+gui.Name = "DashGui"
+gui.ResetOnSpawn = false
+gui.Parent = game.CoreGui
+
+local btn = Instance.new("TextButton")
+btn.Size = UDim2.new(0, 80, 0, 35)
+btn.Position = UDim2.new(0, 20, 0.5, -20)
+btn.Text = "Flip"
+btn.BackgroundColor3 = Color3.fromRGB(30,30,30)
+btn.TextColor3 = Color3.new(1,1,1)
+btn.Font = Enum.Font.SourceSansBold
+btn.TextSize = 14
+btn.Active = true
+btn.Draggable = true
+btn.Parent = gui
+
+-- DASH FONKSİYONU
+local function Dash()
+	local char = lp.Character or lp.CharacterAdded:Wait()
+	local hum = char:WaitForChild("Humanoid")
+	local hrp = char:WaitForChild("HumanoidRootPart")
+
+	-- Animasyon
+	local anim = Instance.new("Animation")
+	anim.AnimationId = "rbxassetid://6690693371"
+	local track = hum:LoadAnimation(anim)
+	track:Play()
+
+	-- Ayarlar
+	local targetSpeed = 106
+	local duration = 0.25
+	local startTime = tick()
+
+	local connection
+	connection = RunService.Heartbeat:Connect(function()
+		if not hrp.Parent then
+			connection:Disconnect()
+			return
+		end
+
+		local alpha = math.clamp((tick() - startTime) / duration, 0, 1)
+		local dir = hrp.CFrame.LookVector
+		local desiredVelocity = dir * targetSpeed
+
+		hrp.AssemblyLinearVelocity =
+			hrp.AssemblyLinearVelocity:Lerp(desiredVelocity, alpha)
+
+		if alpha >= 1 then
+			connection:Disconnect()
+		end
+	end)
+end
+
+-- BUTON TIKLAMA
+btn.MouseButton1Click:Connect(Dash)
+
+game.CoreGui.DashGui.Enabled = false
+
+local busy = false
+
+RunService.Heartbeat:Connect(function()
+    if not getgenv().anahtar then return end
+    if busy then return end
+
+    local char = lp.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    local crate = workspace:FindFirstChild("crate")
+    if not crate then return end
+
+    local handle =
+        crate:FindFirstChild("Handle")
+        or crate:FindFirstChild("Part")
+        or crate:FindFirstChildWhichIsA("BasePart")
+
+    if not handle then return end
+
+    busy = true
+
+    -- ⏱️ CRATE TESPİT EDİLDİ → 10 SANİYE BEKLE
+    task.wait(20)
+
+    -- Anahtar bu sürede kapanmış olabilir
+    if not getgenv().anahtar or not hrp.Parent or crate.Name ~= "crate" then
+        busy = false
+        return
+    end
+
+    -- 1️⃣ Konumu kaydet
+    local savedCFrame = hrp.CFrame
+
+    -- 2️⃣ Crate'e ışınlan
+    hrp.CFrame = handle.CFrame * CFrame.new(0, 0, -2)
+    task.wait(0.25)
+
+    -- 3️⃣ Click to Open
+    for _, v in ipairs(crate:GetDescendants()) do
+        if v:IsA("ProximityPrompt") and v.Enabled then
+            fireproximityprompt(v)
+            break
+        end
+    end
+
+    task.wait(0.2)
+
+    -- 4️⃣ Crate adını değiştir
+    crate.Name = "CollectedCrate"
+
+    task.wait(0.2)
+
+    -- 5️⃣ Eski konuma dön
+    hrp.CFrame = savedCFrame
+
+    task.wait(0.5)
+    busy = false
+end)

@@ -10,6 +10,8 @@ local LocalPlayer = Players.LocalPlayer
 local lp = Players.LocalPlayer
 local char = lp.Character or lp.CharacterAdded:Wait()
 local hum = char:WaitForChild("Humanoid")
+local cam = workspace.CurrentCamera
+
 
 local ESPFolder = Instance.new("Folder")
 ESPFolder.Name = "ToolESPFolder"
@@ -17,14 +19,7 @@ ESPFolder.Parent = game:GetService("CoreGui")
 
 
 
-getgenv().aimbot = false
-getgenv().wc = false
-getgenv().hitpart = "HumanoidRootPart"
-getgenv().pred = 0.160126357
-getgenv().fovEnabled = false
-getgenv().fovSize = 100
-getgenv().fovColor = Color3.fromRGB(255,255,255)
-getgenv().maxDistance = 240
+
 getgenv().antiragdoll = false
 getgenv().LoopTP = false
 _G.tplayer = nil
@@ -46,6 +41,19 @@ local WHITE = Color3.fromRGB(255,255,255)
 local ESP_COLOR = Color3.fromRGB(255, 255, 255)
 local FILL_TRANSPARENCY = 0.5
 local OUTLINE_TRANSPARENCY = 0
+
+
+getgenv().LockKey = Enum.KeyCode.E
+getgenv().toool = false
+getgenv().FOVEnabled = false
+getgenv().FOVRadius = 120
+getgenv().Prediction = 0.160126357
+getgenv().TargetPart = "HumanoidRootPart"
+getgenv().MaxDistance = 300
+getgenv().HLtarget = false
+getgenv().fillColor = Color3.fromRGB(255, 0, 0)
+getgenv().outlineColor = Color3.fromRGB(255, 255, 255)
+getgenv().Notify = false
 
 local anim = Instance.new("Animation")
 anim.AnimationId = "rbxassetid://6694500885"
@@ -177,40 +185,102 @@ UIS.JumpRequest:Connect(function()
 	end
 end)
 
-local circle = Drawing.new("Circle")
-circle.Thickness = 2
-circle.Filled = false
+-- =====================================
+-- GLOBAL AYARLAR
+-- =====================================
 
-local function inFov(worldPos)
-	local screenPos, onScreen = Camera:WorldToViewportPoint(worldPos)
-	if not onScreen then return false end
 
-	local center = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
-	return (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude <= getgenv().fovSize
+-- =====================================
+-- SERVİSLER
+-- =====================================
+
+
+-- =====================================
+-- NOTIFY
+-- =====================================
+local function Notify(title, text)
+	if not getgenv().Notify then return end
+	pcall(function()
+		StarterGui:SetCore("SendNotification", {
+			Title = title,
+			Text = text,
+			Duration = 2
+		})
+	end)
 end
 
-local function wallCheck(pos, ignore)
-	if not getgenv().wc then return true end
-	local params = RaycastParams.new()
-	params.FilterDescendantsInstances = {lp.Character, ignore}
-	params.FilterType = Enum.RaycastFilterType.Blacklist
-	return Workspace:Raycast(Camera.CFrame.Position, pos - Camera.CFrame.Position, params) == nil
+-- =====================================
+-- FOV (ANDROID FIXED)
+-- =====================================
+local FOV = Drawing.new("Circle")
+FOV.Filled = false
+FOV.Thickness = 2
+FOV.NumSides = 100
+FOV.Color = Color3.fromRGB(255,255,255)
+
+local FOVPos = Vector2.new(cam.ViewportSize.X/2, cam.ViewportSize.Y/2)
+
+UIS.TouchStarted:Connect(function(t)
+	FOVPos = Vector2.new(t.Position.X, t.Position.Y)
+end)
+
+UIS.TouchMoved:Connect(function(t)
+	FOVPos = Vector2.new(t.Position.X, t.Position.Y)
+end)
+
+UIS.InputChanged:Connect(function(input)
+	if not UIS.TouchEnabled and input.UserInputType == Enum.UserInputType.MouseMovement then
+		FOVPos = Vector2.new(input.Position.X, input.Position.Y)
+	end
+end)
+
+RunService.RenderStepped:Connect(function()
+	FOV.Visible = getgenv().FOVEnabled
+	if getgenv().FOVEnabled then
+		FOV.Position = FOVPos
+		FOV.Radius = getgenv().FOVRadius
+	end
+end)
+
+-- =====================================
+-- HIGHLIGHT
+-- =====================================
+local currentHL
+local function clearHL()
+	if currentHL then currentHL:Destroy() currentHL = nil end
 end
 
-local lockedTarget = nil
+local function applyHL(char)
+	if not getgenv().HLtarget then return end
+	clearHL()
+	local hl = Instance.new("Highlight")
+	hl.Adornee = char
+	hl.FillColor = getgenv().fillColor
+	hl.OutlineColor = getgenv().outlineColor
+	hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	hl.Parent = CoreGui
+	currentHL = hl
+end
 
-local function getNewTarget()
-	local best, closest = nil, math.huge
+-- =====================================
+-- TARGET BULMA
+-- =====================================
+local function getTarget()
+	local best, bestMag = nil, math.huge
 	for _, p in ipairs(Players:GetPlayers()) do
-		if p ~= lp and p.Character and p.Character:FindFirstChild(getgenv().hitpart) then
-			local h = p.Character:FindFirstChildOfClass("Humanoid")
-			if h and h.Health > 0 then
-				local part = p.Character[getgenv().hitpart]
-				local dist = (part.Position - Camera.CFrame.Position).Magnitude
-				if dist <= getgenv().maxDistance and inFov(part.Position) then
-					if wallCheck(part.Position, p.Character) and dist < closest then
-						best = part
-						closest = dist
+		if p ~= lp and p.Character then
+			local hum = p.Character:FindFirstChildOfClass("Humanoid")
+			local part = p.Character:FindFirstChild(getgenv().TargetPart)
+			if hum and hum.Health > 0 and part then
+				local dist = (part.Position - cam.CFrame.Position).Magnitude
+				if dist <= getgenv().MaxDistance then
+					local sp, onScr = cam:WorldToViewportPoint(part.Position)
+					if onScr then
+						local mag = (Vector2.new(sp.X, sp.Y) - FOVPos).Magnitude
+						if mag <= getgenv().FOVRadius and mag < bestMag then
+							bestMag = mag
+							best = p
+						end
 					end
 				end
 			end
@@ -219,34 +289,98 @@ local function getNewTarget()
 	return best
 end
 
-RunService.RenderStepped:Connect(function()
-	circle.Visible = getgenv().fovEnabled
-	circle.Radius = getgenv().fovSize
-	circle.Color = getgenv().fovColor
-	circle.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+local LockedPlayer = nil
+local Locking = false
 
-	if not getgenv().aimbot then
-		lockedTarget = nil
+local function toggleLock()
+	if Locking then
+		Locking = false
+		LockedPlayer = nil
+		clearHL()
+		Notify("Unlocked", "")
 		return
 	end
 
-	if lockedTarget then
-		local h = lockedTarget.Parent:FindFirstChildOfClass("Humanoid")
-		if not h or h.Health <= 0 or not inFov(lockedTarget.Position) or (lockedTarget.Position - Camera.CFrame.Position).Magnitude > getgenv().maxDistance then
-			lockedTarget = nil
-		end
+	local t = getTarget()
+	if t and t.Character then
+		LockedPlayer = t
+		Locking = true
+		applyHL(t.Character)
+		Notify("Locked", t.Name)
 	end
+end
 
-	if not lockedTarget then
-		lockedTarget = getNewTarget()
-	end
-
-	if lockedTarget then
-		local vel = lockedTarget.AssemblyLinearVelocity or Vector3.zero
-		local aimPos = lockedTarget.Position + (vel * getgenv().pred)
-		Camera.CFrame = CFrame.new(Camera.CFrame.Position, aimPos)
+-- 🔑 KEYBIND (FINAL FIX)
+UIS.InputBegan:Connect(function(input)
+	if input.KeyCode == getgenv().LockKey then
+		toggleLock()
 	end
 end)
+
+
+RunService.RenderStepped:Connect(function()
+	if not Locking or not LockedPlayer or not LockedPlayer.Character then return end
+	local part = LockedPlayer.Character:FindFirstChild(getgenv().TargetPart)
+	if not part then return end
+
+	if (part.Position - cam.CFrame.Position).Magnitude > getgenv().MaxDistance then
+		toggleLock()
+		return
+	end
+
+	local pred = part.Position + (part.AssemblyLinearVelocity * getgenv().Prediction)
+	cam.CFrame = CFrame.new(cam.CFrame.Position, pred)
+end)
+
+-- =====================================
+-- TOOL SYSTEM
+-- =====================================
+local TOOL_NAME = "Locking Tool"
+
+local function hasTool()
+	return lp.Backpack:FindFirstChild(TOOL_NAME) or (lp.Character and lp.Character:FindFirstChild(TOOL_NAME))
+end
+
+local function giveTool()
+	if hasTool() then return end
+	local t = Instance.new("Tool")
+	t.Name = TOOL_NAME
+	t.RequiresHandle = false
+	t.CanBeDropped = false
+	t.Activated:Connect(toggleLock)
+	t.Parent = lp.Backpack
+end
+
+local function removeTool()
+	for _, c in ipairs({lp.Backpack, lp.Character}) do
+		if c then
+			local t = c:FindFirstChild(TOOL_NAME)
+			if t then t:Destroy() end
+		end
+	end
+end
+
+task.spawn(function()
+	while true do
+		task.wait(0.4)
+		if getgenv().toool then
+			giveTool()
+		else
+			removeTool()
+			Locking = false
+			LockedPlayer = nil
+			clearHL()
+		end
+	end
+end)
+
+lp.CharacterAdded:Connect(function()
+	task.wait(0.5)
+	if getgenv().toool then
+		giveTool()
+	end
+end)
+
 
 local function setupCharacter(character)
 	local humanoid = character:WaitForChild("Humanoid")
@@ -514,13 +648,47 @@ Section:addTextbox({
     end
 })
 
+Section:addButton({
+    title = "Teleport",
+    callback = function()
+    	local targetPlayer = Players:FindFirstChild(_G.tplayer)
+    	game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = targetPlayer.Character.HumanoidRootPart.CFrame
+    end
+})
+
+Section:addButton({
+    title = "Bring (Must be Knocked)",
+    callback = function()
+    	local targetPlayer = Players:FindFirstChild(_G.tplayer)
+if targetPlayer then
+    local targetChar = targetPlayer.Character
+    local targetHumanoid = targetChar and targetChar:FindFirstChild("Humanoid")
+    if targetHumanoid and targetHumanoid.Health >= 1 and targetHumanoid.Health <= 20 then
+        ReplicatedStorage.RadollHoldingFunction:InvokeServer(targetPlayer)
+        local localChar = Players.LocalPlayer.Character
+        local humanoidRoot = localChar and localChar:FindFirstChild("HumanoidRootPart")
+        if humanoidRoot then
+            humanoidRoot.Anchored = true
+            wait(2)
+            ReplicatedStorage.RagdollServer:FireServer("dropRagdoll")
+            humanoidRoot.Anchored = false
+        end
+    else
+        warn("Target can değeri 1-20 arasında değil!")
+    end
+else
+    warn("TargetPlayer bulunamadı!")
+end
+    end
+})
+
 
 local sll = {"Head","HumanoidRootPart"}
 Section3:addDropdown({
     title = "Hit Part",
     list = sll,
     callback = function(qa)
-      getgenv().hitpart = qa
+      getgenv().TargetPart = qa
     end
 })
 
@@ -531,43 +699,85 @@ Section3:addToggle({
     end
 })
 
+
+--[[
+Section3:addTextbox({
+    title = "Keybind",
+    default = "X",
+    callback = function(value)
+        local key = Enum.KeyCode[value:upper()]
+        if key then
+            getgenv().LockKey = key
+        end
+    end
+})
+
+
+--]]
+
+
 Section3:addToggle({
-    title = "Wall Check",
+    title = "Lock Tool",
     callback = function(state)
-        getgenv().wc = state
+        getgenv().toool = state
     end
 })
 
 Section3:addToggle({
     title = "Show Fov",
     callback = function(state)
-        getgenv().fovEnabled = state
+        getgenv().FOVEnabled = state
     end
 })
 
-Section3:addTextbox({
-    title = "Fov Size",
-    default = "100",
-    callback = function(va)
-        getgenv().fovSize = va
+Section3:addToggle({
+    title = "Highlight Target",
+    callback = function(state)
+        getgenv().HLtarget = state
     end
 })
 
-Section3:addTextbox({
-    title = "Locking Distance",
-    default = "300",
-    callback = function(va)
-        getgenv().maxDistance = va
+Section3:addToggle({
+    title = "Notify",
+    callback = function(state)
+        getgenv().Notify = state
     end
 })
 
-Section3:addTextbox({
+
+Section3:addSlider({
+title = "Locking Distance",
+default = 300,
+max = 400,
+	min = 30,
+	callback = function(val)
+	getgenv().MaxDistance = val
+	end
+})
+
+Section3:addSlider({
     title = "Prediction",
-    default = "0.160126357",
-    callback = function(va)
-        getgenv().pred = va
+    default = 16,
+    max = 20,
+    min = 0,
+    callback = function(val)
+        getgenv().Prediction = val / 100
     end
 })
+
+Section3:addSlider({
+title = "Fov Size",
+default = 100,
+max = 200,
+	min = 50,
+	callback = function(val)
+	getgenv().FOVRadius = val
+	end
+})
+
+
+
+
 
 
 Section5:addToggle({
@@ -818,6 +1028,18 @@ for _, v in next, getconnections(plr.Character.Humanoid.StateChanged) do
     end
 end
         end
+})
+
+Section4:addButton({
+    title = "Godmode",
+    callback = function()
+    	game.Players.LocalPlayer.Character.Head:Destroy()
+    	wait(5)
+    	game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(2340, 181, 1288)
+    	game.Players.LocalPlayer.PlayerGui.classes.Enabled = false
+    	game.Workspace.Camera.CameraType = "Follow"
+    	game.Workspace.CurrentCamera.CameraSubject = game.Players.LocalPlayer.Character
+    end
 })
 
 

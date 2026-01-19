@@ -1,0 +1,38 @@
+getgenv().lip = true
+if getgenv().lip == true then
+NoclipLoop =
+game:GetService("RunService").Stepped:Connect(
+function()
+for _, player in pairs(game.Players:GetPlayers()) do
+if player ~= game.Players.LocalPlayer and player.Character then
+for _, part in pairs(player.Character:GetChildren()) do
+if part:IsA("BasePart") and part.CanCollide == true then
+part.CanCollide = false
+end
+end
+end
+end
+end
+)
+elseif getgenv().lip == false and NoclipLoop then
+NoclipLoop:Disconnect()
+end
+
+local x = Instance.new("Part", game.Workspace)
+x.Anchored = true
+x.Name = "Nothing"
+x.Transparency = 0.8
+x.Position = Vector3.new(10657.6113, 1434.63904, 552.198975, 0.256518424, 0.905121565, 0.339047521, -0.0115446523, -0.347890735, 0.937463999, 0.96647042, -0.244390965, -0.078791067)
+x.Size = Vector3.new(250,2,250)
+
+game:GetService("RunService").Stepped:Connect(function()
+game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(10645, 1440, 560)
+end)
+
+local VirtualUser = game:GetService("VirtualUser")
+local Players = game:GetService("Players")
+
+Players.LocalPlayer.Idled:Connect(function()
+    VirtualUser:CaptureController()
+    VirtualUser:ClickButton2(Vector2.new())
+end)

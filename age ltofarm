@@ -18,6 +18,67 @@ elseif getgenv().lip == false and NoclipLoop then
 NoclipLoop:Disconnect()
 end
 
+getgenv().clip = true
+  if getgenv().clip == true then
+    analloop = game:GetService("RunService").Stepped:Connect(function()
+      for i,v in pairs(game.Players.LocalPlayer.Character:GetChildren()) do
+        if v:IsA("BasePart") and v.CanCollide == true then
+          v.CanCollide = false
+        end
+      end
+    end)
+  elseif getgenv().clip == false and NoclipLoop then
+    analloop:Disconnect()
+  end
+
+ 
+getgenv().AntiKnockback = true
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+local LastPosition
+
+local connection
+connection = RunService.Heartbeat:Connect(function()
+	if not getgenv().AntiKnockback then
+		if connection then
+			connection:Disconnect()
+			connection = nil
+		end
+		return
+	end
+
+	local character = player.Character
+	if not character then return end
+
+	local root = character:FindFirstChild("HumanoidRootPart")
+	if not root then return end
+
+	local linVel = root.AssemblyLinearVelocity.Magnitude
+	local angVel = root.AssemblyAngularVelocity.Magnitude
+
+	-- Aşırı knockback
+	if linVel > 250 or angVel > 250 then
+		root.AssemblyLinearVelocity = Vector3.zero
+		root.AssemblyAngularVelocity = Vector3.zero
+
+		if LastPosition then
+			root.CFrame = LastPosition
+		end
+
+	-- Normal durum → pozisyon kaydet
+	elseif linVel < 50 and angVel < 50 then
+		LastPosition = root.CFrame
+	end
+end)
+
+game:GetService("RunService").Stepped:Connect(function()
+game:GetService("Lighting").ClockTime = 12
+end)
+    
+
 local x = Instance.new("Part", game.Workspace)
 x.Anchored = true
 x.Name = "Nothing"

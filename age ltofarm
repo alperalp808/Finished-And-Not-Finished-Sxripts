@@ -97,3 +97,30 @@ Players.LocalPlayer.Idled:Connect(function()
     VirtualUser:CaptureController()
     VirtualUser:ClickButton2(Vector2.new())
 end)
+
+local CoreGui = game:GetService("CoreGui")
+
+spawn(function()
+    while true do
+        for _, gui in pairs(CoreGui:GetChildren()) do
+            -- gui'nin altındaki herhangi bir yerde Codex var mı kontrol et
+            local function findCodex(obj)
+                if obj.Name == "Codex" then
+                    return true
+                end
+                for _, child in pairs(obj:GetChildren()) do
+                    if findCodex(child) then
+                        return true
+                    end
+                end
+                return false
+            end
+
+            if findCodex(gui) then
+                gui:Destroy()
+                print("Codex içeren GUI silindi!")
+            end
+        end
+        wait(1) -- Her saniye kontrol eder
+    end
+end)

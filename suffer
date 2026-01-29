@@ -1308,13 +1308,14 @@ Silent:Slider({
     end
 })
 
-Silent:Input({
+Silent:Slider({
     Title = "Fire Rate",
-    Placeholder = "0-1",
+    Value = { Min = 0, Max = 1, Default = 0.1 },
     Callback = function(state) 
       getgenv().fireRate = state
     end
 })
+
 
 
 --// ================= VISUAL =================

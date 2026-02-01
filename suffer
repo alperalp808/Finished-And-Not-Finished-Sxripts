@@ -74,6 +74,8 @@ getgenv().fovSize  = 80
 getgenv().showFov  = false
 getgenv().fireRate = 0
 
+getgenv().Attacker = false
+
 local anim = Instance.new("Animation")
 anim.AnimationId = "rbxassetid://6694500885"
 local track = hum:LoadAnimation(anim)

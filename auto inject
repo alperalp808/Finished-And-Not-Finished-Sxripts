@@ -1,0 +1,94 @@
+--// AUTO REJOIN + AUTO INJECT SYSTEM
+--// LocalScript
+
+local Players = game:GetService("Players")
+local TeleportService = game:GetService("TeleportService")
+local CoreGui = game:GetService("CoreGui")
+
+local LocalPlayer = Players.LocalPlayer
+local PlaceId = game.PlaceId
+local JobId = game.JobId
+
+-- =========================
+-- AYARLAR
+-- =========================
+getgenv().AutoRejoin = true
+getgenv().RejoinDelay = 2
+
+-- =========================
+-- SCRIPT QUEUE (AUTO INJECT)
+-- =========================
+local function QueueScript()
+	local queued = [[
+		task.wait(1)
+		if getgenv().AutoLoaded ~= true then
+			getgenv().AutoLoaded = true
+			loadstring(game:HttpGet("https://raw.githubusercontent.com/alperalp808/Finished-And-Not-Finished-Sxripts/refs/heads/main/age%20ltofarm"))()
+		end
+	]]
+
+	if queue_on_teleport then
+		queue_on_teleport(queued)
+	elseif syn and syn.queue_on_teleport then
+		syn.queue_on_teleport(queued)
+	elseif fluxus and fluxus.queue_on_teleport then
+		fluxus.queue_on_teleport(queued)
+	end
+end
+
+-- =========================
+-- REJOIN LOGIC
+-- =========================
+local rejoining = false
+
+local function Rejoin()
+	if rejoining or not getgenv().AutoRejoin then return end
+	rejoining = true
+
+	QueueScript()
+	task.wait(getgenv().RejoinDelay)
+
+	pcall(function()
+		if JobId and JobId ~= "" then
+			TeleportService:TeleportToPlaceInstance(PlaceId, JobId, LocalPlayer)
+		else
+			TeleportService:Teleport(PlaceId, LocalPlayer)
+		end
+	end)
+end
+
+-- =========================
+-- KICK / ERROR PROMPT
+-- =========================
+task.spawn(function()
+	while task.wait(1) do
+		pcall(function()
+			local gui = CoreGui:FindFirstChild("RobloxPromptGui")
+			if not gui then return end
+
+			local overlay = gui:FindFirstChild("promptOverlay", true)
+			if overlay and overlay:FindFirstChild("ErrorPrompt", true) then
+				Rejoin()
+			end
+		end)
+	end
+end)
+
+-- =========================
+-- DISCONNECT DETECTION
+-- =========================
+LocalPlayer.AncestryChanged:Connect(function(_, parent)
+	if not parent then
+		Rejoin()
+	end
+end)
+
+-- =========================
+-- TELEPORT FAIL FALLBACK
+-- =========================
+TeleportService.TeleportInitFailed:Connect(function()
+	task.wait(1)
+	pcall(function()
+		TeleportService:Teleport(PlaceId, LocalPlayer)
+	end)
+end)

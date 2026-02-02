@@ -1,46 +1,330 @@
--- This file was protected by Hit Talker
-local P = "B.A&BHBLBVBvC,A`A+AKBaApA[BQAtB|C*BBAZAZAoAZC*B4BuA?BGBIBaBaCJBbAoA3A%ADCnB(COC*C9B}BfA8BXBVAFC$AZBkB^A{A8A|A[AQA8AfC#AtCYCuBBA<C*AyA4CXCgA+B=A%AoAAAtA+AyC/C2AtBlAKA4A`AFBRBaA8BBB]AKAfCNC6BzA+ALA+A3C*A`C*B,CCA8AoCxCiA`BXB(CDA+BVBqB.AeAaCuC/AyC7BBCNA`A{ABApAtAUAZAABVBBBNAoA[BaA3BQBwAjA;A8C)CnBVCrB&CBA8C/A.CIBGA+CYAyAZCpC2A;B4C$A%BNA<C*C$AUBGA;C2B4CsA+AoA8C/BbAyAtAPAyAtBpCJAfAGBLA@C$A`A+AtBqA;A8CxA@AFAZB>BcAQBWAUBVApAFC6BQC#AtA@BVCYCdA+B=APBuB4AGCIBNBuAyCEC/CSBBA;BkBlAtAPBQCJA@BBA%BmBaCJBaBVA;BaBbA5CSCxBvA&AZAoALBQCnB^A8BpB!BHBpBGBLBVBuA@CIAAA8BGA9B9A3A8C/BzA%A8BkA3A@AUAGA3AeCHA|CsBLC7CIC$A`A]C/A;A`C&BBChBkA[A5C)C#A;AfB>ApAKB>CGBGA`BuAyBkAaAyCdA`CTA+BBAABpC7A;CnAjAyCiBqAZAyBBC2BkA3BBAUCNBLA;AkA3B]AtBGBaA`CTBLABA4CTCxA;BqB%AUB}A8A&B^AaC2A{CEBaC6BLCOAhBQB4BQBLA+CmBzAtA`AtB9BBBQCEA8BRC$A;CEA+A;A;BVAyA8A,AuAkAKAFA[CYAVAPBQAeBBAjAKA8A+B=CcBHA`AjBzBaAeAZA;CiA%BmBMCnC$BmA`AQBLBPA8BVBNBBCiA3A`A8AyAABcAjAuA<BQAACSBaBLBuA{AoC1BLAKAtCHBkAyA!BfA;AfC#CIBpAPC#CwC6AoA;BLCTA[A%BpAjA;B,BpCDBIAfA@BWA.C$A+B5AIBGBLBWCNAPANC7AyB4A+BQCYCTAeCOAPC*AZC$B>AZAUAKAjA8B^B}A%BVBWB}AUCOBRA;C7C$APA3BfA`C*AeAyAoAUBkAyAZAeBNBSBGAAC*BQAoCJA@AtA;A8A8AABRA8C*B<A|C<AoAjA%AyAoCxChA+A;A{A@CpBfByC/C#C2BGCxCdB4C2BBB=A5A4AUBqAZBBALBkCnA3BHBzBSA;AjAyA@COAPB=BkA8AKBzB0B|CiAaAkA%BjAoA@C/A4BBA;A@A%CxB(B}AyBkBXA%A8AFAZC=B(BkB<BNCSC2CTA@BuBVBfA8A+A&BLA`BpBkB3A8A;BQB[AQCsBaAaBvCXBQB4A;A[A%CsAGBrBGB^A`C/AtCuBBA5A%B^ByCEBCBVBgBVBGBkCOAeBWBVCYA@BfBBA3AFBQA3AVB}AfA%CxAoC2AGA&BLAAAoAuA%C7BpAPAKAeBGA3A,B>A+BLBXB<A@AUA8AAA%AoA%BhBcA3AsB5AeA%A;BBC6BBB9C7BMA*CSB,BfB>B4BVBMAUCiBBA%C*CJBXBfBuA@BXBVA;BbAeAeBLB{AACTC#AUBaBGB^AoA<CiA@C1A{AjA]BVA`AFAUAeA@BuC6BLBkBBB9A3BBA`BfAtAZA4B9CnBQAyA;BLA;BLA`A%A8ADA,A;AGC6BzAQA[B}A|BLBMA;BcBLA8BkA;A;A;A@AyA%B5A%C1BQA%A+A2A+A+A@CiChA@BkA%B.AeC*BuB3A8BBBVB^CIBXA%CEB4CDBLBkAQBfBLApA;BMCTAuAUBmAeA+BkBVAoCnBhA|AyBBC2AaA+A8BDA;BBBbAeA;AyBrBSA;BzB,CnAUB9C:A3A3A4AoBpBkAeBkA+COCsAyCsAKBHCEAPA@A@BLAjAZBSBLA3A(AkA;AUBWCSCdAuB}AyA3BVB&BmBQBGB+A9CiAUBGCwAZA%CSAKBwBvCTC2BuC/ABAyBLAkBaBuCTC1B>BGAeA3CnA3BgC/COAoA`AjB8C7AjAFB+AFBBAAAuAeCEA3BBCnAjA3A=BpBHBVB4B,AKBVBkCTAjA4A`B&BfAyBuAjALBpA!AtA[CrA8C:A;B9BCCOBGA,CXBrBQBLBLAKBaCJA`AoA@B9BBAtAoAZAoC7BQA;AtBaBaA8BXBaBmBVAABkB(CuB4BaB&CdAPBGBfB^AUCTBQBHCmAABuA|CEB.A%AjAyAzAUAfAFAtCdBVC$AoA+AFCYBVA`A@A+BXAyCEB]A3BrAPAfC)A@BGB!AKAtA%A;BLB(AeB&CnBMB<CxCEC,AjA8A`A`AoBzC/CxAGAyBDBBA%A+CYA3ChCnA3B}ABAZBpB}B4BBA+CDB4A+BQBbBQAKC1BWA3A?A+BwCTBBA`BwAzCYAfB,BLC)B+A+BLAZC/A2B&BqA5BNA8A$AFA@A+AQC#A{CDB5ApCYCdA+AZB4A+COA,A3BvBQAzCxC#BbA@A%A[AtBGBBCEA%B{BRAFBGA`BaCTAeA,A8AUBpBkA`CSBVA3CEAKCdBcA+BQBQAoA3AtBLBfA+AAA3A8CXAtA3A8A8ABBQBfA`AjC7BkB5A=AaAtAFA@BVAeBGBpA{A;ABBpA;A+BaC*CsAUA;CiBuAeAoBwA<AyAoBkCOA8C#CJAeB&AGApAZAjBzAyBQA%BfAuA3AtBzCdA(CEC$A@B5A@C$AjAfCIB,CnAPAtAkCnA%CxAtAeB|AFBpAyAGA3BVAyC2AUCNAjAZBaBGA@A+AyA8CYC)AxAZB&C7A@A`AjAaA;C7A+C2A%AeAKB^A%BVBfChA.CJBRA@AyA@BQBGBBBBAaA@BVBzBmAyB!BkBaBLCxA8AeA8BpC:BjCiAeBLB^CSCnBfAyAzBIAyBQA%B=AACxBGAAA.AjChAjB0BkB}C7AyBGBBAyCiAZAeAKAyA8BaB0BkBVAyAQAeBGAkBVA%B]A<BBBvA3C$BfAFC7C<A%CTBpAFCsB3BRCsAPC7BaA[C$BaCTA3AkA&BpA9B&AkA;BfA`A3BcAyA+A%A&A8B4B0A8C)A;B,BzA,BpBXAUAjA3BVC$AUBBBbA8B0CiCNAUBlB}AfA+C:BkB;C$A|A;BVA.B&A3BpA8A3C<A+AjBaA9AKAVAjA`AyC6A;BXCDB>A+BfBBB=CxCYBHA[A;C#BfBGCxAoBfBHA8BVA8C2BRA+B}BBA+AtAKB.CEAKAtBQBVAUBBCJA@CJAuAUBQCJBwB!AyAfBaC1BBA+ArBQBkBLCwBBBBBgA3BaAKBCA3CiAABGBgBQA8BWB<B]BfAaBkBfBGCsA5A8CEC2A9AoA,BaCOA@A8C$C<B[A+A+A8A+AyA%B9AAC/AKBpBkB>AoA%AtB!BuBkAyBGBkBpB%A@AoAeA;BpAoA+C)BGCXA]B}BcBaA,A8AtBkCmA;BaA`B]ChA@C2AZA&APBLCJBVB!CsB(B&AoA@AtBLALAUA3BLAjBuBXBLB9A@AjBRBQAFA[A%A;BuBbC2A+AKA@A+BgBuC/AUA;A8A8AeA3A`BuC/AyCEA+A[AFBWB9B&C7A;A+CdBQB>AkCEA+B>B,AtAFAPC7A%AFB>BcAaBHArA3A3A8CYC9AZA+BVA%AZBaCNCiB>AsB0CiA`AACsCmA;AeAoA@APA;CJBkAjB,CYC7A@AfA3A4AjBLCxAZCEC2CsBWA;C7AtBQA+BVCnAAA%AVBwC7A9C2CcCdBqAtCdA@AjAZAUA3BGBGBBBaBLA8C*CEA%A,COA;CVAZAFA5A+C7C*AtAoAzA+AtAyAABVB}A;CsAeC2A@CJAjAtBbA,BpCxA3APCTA[AoA|APBfBGA{AKCdBfC4CTC#A%CnA4AeA`A9AAAjA%AUADC7A;B(BvBVAyC2BaBRBwA9BrAtBBB^A@B}B(A@CTBGAeAjBzA8CCA=BaCJCDCsBhAKA+APA`BQA&B>AFBQA.AeAtAAA8BBA`B}A@AaALA8A`BGAPBMB>AZABB4C/A8A+AKB>BrA@CYAoBVAKBkA@BBAoCXBVCNA+BpA8A;BlAUCOBhCYA3CcBVCJB.ChAQCrBcChCiBLC*BBBBCJC:BfAtA@A;BLA`A3B(B=BGBGAUCcBbA3BGAjCsAuCxBQAoCnB4A%B^AZBVCXA%AtC2AoBfBmA@AjAZBDAtA%A@AjB4C$A%CnAtAtCnC)CnAKBBA8BVA+AjA;A9A8C/CMBpApA5AyADAaAtBaAAA4A;BGBQAoA3AjBVCEBmB(BQB<A8A3AZA<AZBqAACnBqBzAtCSBzBgA+AZA8BXAKAZB=BaAKAkCJC/BaA8AUBaAFA@C7BQA3ALAyAaB^CSB=BLB^A%APB=AyAtA`AoAeAtCcA]C)AaA3CIBRAUBGAUCiAGAyC4C*BaBLA%AeBNCICiA8C)A+C*A@C/AZA5CIA8AZA5BaAmA;C#BVA3BvCJA3CxAtBaBVB0CEB]ABB5AtA%A8BBBLAoBGA@BlC/AtCSBWA%AtAoC/BLA4AQBQC$CxB3A8A8BGABA`A`A.AtAuB|BVAyBkBVA@B^BBA3AtB^BgC7BBAuA`BqAoA%C2BhB0AAA+AUC7AGAyA%B&A[AeAuA%BVBLABBzB=BwAQCYA!AtA+AFB{AFAQBQBHA3CiBVAjB4AeA@A@B8C7AKAoAoCiA+BGB5C)C2C/C7CnC7A8AjCEBQB.AUA3BpBGA3BGBaA@AAA8BGA`BBBVA@A9AoC)C7A&A3B4B&BQBvAtBLAPBvAyA@BQA3CnA`AKA!AyA;A%AyA`AtA8BLA3C6C)CrB{AoBLBXA8A3BDBLAKCNAKC7BRBMA8COBGAABgCEA@AFBQB!A@AZCmCEBGAtCdBfBzB.A+CSAPC7BQCxAaAaB^A3BWCXBQA&BaAyBQA{BGBpAaBbCTC2BLA@A`BQAjA@BLAZAyA`A8B+BVBBAPBWCdA8A!A8A+BGBQAUAjA;C7BaAyBgAyAoA%BBBCAoA3AuB^BaC*A;A@BLBkBNBrAPBBBGA!C/A|A8CDA`A3BBCTBaCnB^C7BpB|BuBQAtA8CwBzA%AZA%CYA3BbAUAoA`ApA%CmC7A,B9A@CSB}A8C7C$B&AVBVB5AjA`BcBpBvBaAUA<A;BfC:BSBGAFBNB=AoA%A%AAAKCOA`AoCcBfAtBfCSChAeAtA@C:A%BGC)BLALBQA`AUC$AyA+BfA.AuAVBkAUBBBuAFBHB]APBkAZB.A|AUA_BQBaA@BpBLCnAtBWA%BSB=C7AUCnAFBBChAeA%C#CkBBA;A+AyBVAVB>BBB}B|A3ABC7BVAUBkCSAKAABfC/BBBaBfA@CYBmB}A;A5B4C/AjAoA;AtCJApC7BBC7AtBuCnAeAeBaBBCOAkCcBLBGBBC*A%BVB}AuAeBGBQCTA{AFCmA`AyA@BbBzCEA`C2ADAeCYA+BwBMBfBWCNAfA%AAAjBuA3BVAAChCOA`A`AeBfBkCTBrCOB&BqA;AVAPAFBLAeAUCdAjB.AZB,A[A3B}BGCOA8B^B}BhBLAZA3BBAfB.BuC7CpBVAKB4BvBfBVAZAZA;BRC*BpAAAoA;COA%BVBWAQC$AUA8A@AjCsB=C7A;ABA+BVA<BLBBCnBaBkA!CxB^A%A@BQB4BQA+A+AtBGCYBVB}B]BVA,A4AjC/BBA`C6A+BSBBBCBLCYBVB9A@C*BkCsAtB9A@B]AUA`A@A]AeB>C6BaCICxCnBBAZCdBXCDB!A3AeA%A(CYA]B!A%BaB4BgBNA+AZA+BQA;CiBvAtA@AQBBBpAKAFAUA.BpC#AtBQB5BIAeBhAtAtAAA{A;BGA`A@BSA;A@C)CEBaCiBBCwBVAFBVA`APCsAZC7BLA=B.A@BQA;CdA`BwA%BHBcAjBbBSC/BwBBCxAeBQAjC7AjAjBLA8A]BzB<AeB0CIA@AeA,C2C2A+A3AyA4B.A3CJA8B4AUBVBBBzAtC7BqAQBpB&B.B9CnBqBVAUBWAtB4AGC)BaBfAjA`B&AFBBBGCsA[A%C$CDBQBhA;A3BVA%B4C7A;AyBBA8A8A!AFA!BfA%AoBVA.BuA@B3A@AyBkBVAjA3AeA=C7BqCDB5C:AaAKBLAZA@AyBmAeAZC*A3C*B{BuAFA]CJA@BRA+C7BfA|AjAUBLCxAQBkA@AKC/A%C#AKBlBkA%B}B&A[B5C2AzCTAjB0C*A+A3BQBVB^A8A3AyA3AFAyBrCxAACnBLC7BQBkBpCwBaAtCDA+A;CsCDBIB>BuBLA!A@A@BVBpAPC)ApAaBzBvAGBBCJB}BaC/B&ApBLCNBkB]B&A%CcA+AjCxBaAjBfA4BVAFA8AKAjCsAFBQBQBHBkCOCJA8AoBGB4BBCsA@CDAjC*BfA+BSA3ALA8C)B|BMB0B<A!BQBaA%A@CEA+AkBLB>C*B&BBB4BkALC*A;AeA9AyBpBGC$AjA@AABfA4CsC7BaBQA+A%A+C,AkA[AjC*A`AuC/AGAoBuAtBuAVA8BRB]A%CsB!C7CdAFA`BGA!A@C$AVA+C2A8AyC2A9AyCxAeBMAeA%A;AfC/AeA5AFB9AjBLA+BaBaB9C/BBC*AFCYAoBVA;BLA%AZAeCICnBzAtBBA@B}B}BhBLC7B,AoAeAFA8AaA`CwA@A8CiCTCYBpAuB}A;BkA8BLB^AUC$AjC$CEBVC7BQA3B5C#ChAjA{AeA@BVCnCiBQBGAPB5AFC*BGBzAAA3AyBkAPCEC6BVA+B=AaAACnAjAtAyA8B}B(APA%CnCiC7BaA;BVCiBBCxAyB]BVC7BLCXAQA@AZAyBmAAA`BVBLAtA@AtAtCsBuCnCIBLBfA%B}A[BGAKA8BkAUB5C:BkCiCJCTA;BVA4AZAUC2AZB>B!ChAjA3A`A%AyC)AGCNBLB4B0AUBuA;C,AGAKA+BBBVBGC*BwCiBBC/A%AKB=BhC1A8AFB9AUAPC7CYA;BuA(COA3B&BGBQB]BNA8BQABAUBNBMA@BfAoA9A+A@C2A8AoA5BpAZBkB]BBCmAyAKCHAfA;A%A;AiCxA;AtBhC:C*CnA`CDA+CEBBC)BGBhC*A@B=AjB4BfB0BfB=CJB&CiB^BBAKAUBVA%BGCOBGAeAaB(CDBGBDA8A`AeCsCOB^BpBfC)CxBvAFBBBVCSAFA+AyB{AUA9AaAjA]A@BaBIAaBBA8BBB4CYAtAoA%CSBkA+CEAyBpBLBSCsBlBmAyA8B!CYA@CdBGB>BVA3A3BQAUC$BQApC7AZC)C6A+BQBQBGA@AKA8C*B}C*B]BfBGAfAeB=BuAzBVBwAVAjBfA%A;BBA=BpAoAoA+AeBLAoC)A!C2C:A`A+A`AzAoAjAZCDC7CEAoCiAyCsAyCiAoBpBQA(AtCnA@AoC2A@BkAyBMAyC7AjBaC$BVBBBLCTBQAFA3A8CxA3AeBQBuCYCsC,AjAjAtBVA`CxAtAFCJB=BBB{C7A`AyAUA,APAUC7AUAZBVBLA@CiA+A%C6BBC*AcAoAfBBA;C7A+A(A3B.B!BkBqCYCdA@BpCXBkA%BmCxB4BCA;BaAkC1AoA8B}BLBBCEBCBBBqAKA;BaAXA%A8BNCcBHA8BQC/CiBhA3AjAyBRBWB]B|BpCxBQBhA8AyC2BwAfBVA;BhAeA9A:BkAZAjBpBtAoB9A%A,CSB}B9AtCJAjA%BaA%CJBSAKAAAZCOB!A,A`CXBhCHCiBVCsA%C7CrBmBpAyAAC:CTAaBBAtBvB!BaC$A3BQA`BLAZB9AtAjBzAjAZCdBpAKBaA@BGBBCTA{A+BbBzCIBBAFArA@B.BIABBLBVAAA{AFBGApBaB<AtBCBzA`AZCWAyA;A;B4AkA3B}BHC/A%BlBkAeAeA&BzA8AKBtAyAaBWCxALAQAyAeCJBLAyC*CiABAtBzC7A`A8AFCmBpA8CsA8B>A(C:CEA;CTAPBpA@BuAeCTA]BBC/B&BrBuC6AZA9A+AZC6B0COAKC1AoA`BGCTA3AoA(A%BlBQA8A;A8BGAGAFAyB.A3AZAPA+AoA%C2BDAFA5BlB>A`AjBaAyB&AACxA`AKA9A+A%BVBpBfC$A+A@A%A`BVAkBBCSA%C4BaB^C#A8BVA+BqC6A&AKAPAAAyBLA+BuA8CJBLC)CdBBB.BBBBBrBHCOC)C*BMA(AtBQAjBWAZC:C2BGCiAAA%A,C)BhA+AKCmBQC7BXAtCEABA;BVBVCEBaB]BaBRA`C#A;AjBWA;A8BBAKC9BGAZBQA%AjCsBpAtAjA3CTAtAoBNA;A`BWBQC*C7A=BVCYBGA@AKA%B.A;A4CYA&BfB>BcA`AQBQAyAFBkABA[A+CTA=BwC1A@B&BkA;B>AUA3A!C/AZCJB!BLAzBvAyAKB}C*A.BWAuA%BRBSC*BLC)C$A,C)BlCsAZBrC*A8BQAQABC)B<COA@A`AoA%BLCEB4BQBqB<CYBgA+A;C/BLA3AUBuAUBVA{C/CcAjAKA3BkBRBQC7BQCJAZA+BNCmA;AtB(AeBGA8BVBkC*ChCJAeA+BGC#A%BzBkC*A9APBDCJB,AUC*BfAKB9AAAyA;B[A4AFAUBRA@A!A&A@CTAZB}CYAyB}A;A`BGAhAtB4CEA&BkA`A@BVA@BIA@AAA+BNA9AoA&A{AKB!CNB=BaAfCXAyBfCiA.APA@CnBuA%AoA%BVAyB>AyB4CnBBCiBaCxA8BBBMBXBaC#A8AeAyBfB(BGBhAABfCiBHBLCcA8BQCiA;CxBQA@AeCJCcA3AoB]BwBBA<A@AVBLCnAyAZBzBBAoC7AtAtAeC2B0AFAtA[AuB4BpA8CSA+BpBVC<BfA8APCwAZBQAjBWAcBaBGAoA%CYBBBcA+A<BQCiCCBlBVA%BBCLA+APBHBBBBB5AFA8BLB>BBAPBbCTAyBaCOBwB!C)A%C:AyBVA<A3BzB4A%AaAKAUCsBgAjCnA<BfB]B^BaBQBHBLCYA+CxAoAKAZBaBaBaB<A;AtB[AFA3A[BVBVA+AZBGBkApALA3CiBQAZAtBNBBArA8A<AUC2BrBVAtBLAQAyBQCYA3B&AeA3C:BLBuAjBLCdA`BGA%AuBvB}A%BvCYAjA@AUCsCxBQBRB>AGCNCTC$CTCDA]B!C6CSBBBhAzAoAFA%A4A@A[A+AyCnAtA+AoAoBWB>BBA3BwCnCJA`BNC:A`BNA`A+BVA!ApC)CDBQAPA8AkCIBQBgCJB|BHAKB]AFBXC2A8AZAtAVBfA3AFA{B]A8A&A@AoBQAkBmCNBVBzA3BHAZCnA%AtC)B!A@AzAtAjC6A;C*AeAPA+C2A;A]AZB|B4B!A`B>BzA8C)AZCdAoB]CxBVBzAuCiCiAoBaA]AoAKC7CnBfC$C7BLA`AyB<BpAjAyCxA|AoA3BLAfC)AABrA3APB9BbAAC2AjA`AUA|AUBBCcA+BLAoCJC7AjBuBlB^B!A+A+A@A&B^CsAoC*BQBaBBC/BGC/BuC6AzAtAyBQAfAABBAyA`B^C/AtBLC$CsAZCwCXA4A(AZA8A{C*AoBuB!A3AUA@BaBhBVBQB|BGBGB>C)A8BrC2ChAjBQBQC2BkA.A3BVBqB^A;A+BaBQAtCiA3CiB9A+AjA%A%A%C2B>A&A=AuBBAuAzAoC)BaA@B^BLA%BfAKA+C*AoAKC*BfCEB5CxAeA3A`BWBmBGB>BQAFBLCnCJB9AyA3C7CEBMBuA;AAA;A+BLC#BkCJCYB>BaB^CDAFBaA;BaAZA[BLB}CsAjBQAyC#AAA%AkC/BCB^A8A3BGAFBMA@AtB!C*AjBBA3C#APAGBpA+A+CnA{AkB9BpAZBBBSAKBLAPAeBpCnBRAtA;A`A3AKCdAuBfA!AjAyBQBBAFBGA!A3AjAZBkC*A3C$AtA%A%AUA`BpAAABC#B.CDCnB!A@A3A+C6BuCEB]BIAfBaA+A+BuAtB>COBCBBAkBBAoB@APC)CiBGCDCsB,AyA3B[A@A+A3BLA<A;AtCTCDB}A[AtA|BIBfA;BBBLAfA3B>BkBBCTBkA;CJA`AUAABWCTAjA%AtAjB`BBAKC/BvAPA8A%A@A8CdBLB!B=CwAaBQC6A`AjAoA|AyAoCYBuA3BpA+B9BBCYBaBIBBB}BGA3BQAKBpBLCcCCA`BGBkCiA.A8CIAZA%CiCJBGB]A3BXBfAIA8CJCxC/AyBVABBfBlAUCXC#CEA8CEBBBkA&BuAPA`A8CDA3A;BqCTA%AfAKAtAABGC/CdAyCdA&AoAeAtA=C)CsCSA+AtCxCTBgA3A3A`BVA+A|A`BBBBBzA,BuAjABCDApCdCTCOAuBGB=BQBkC)BBBwBQBVCnB(BkCiA8BkA8A<AFBQB!B}CsA;AfCEA`B9BBBCBHAfC/B!AFC#ALBGC7BRC7C*CXC)AjBfCEB<AyBLBaBBB.A`BpAeA8A%BaAGBIAKAaAAAKA[CxABA;A@A@AyA;A8AeCsCnAzBQAyA{A;AyAZAKA@A%A;A%AjA8A|A+CwCsB|AjCEBBBmB4APAFBLBzA%BzBpAaC/AZAAAtCsBIB]BRCdA%B4BaAPAyA%C7A;BGAoA`AeCJBzAtA<C7C2AtAKC)A|A.A+AeA8C$A3AyBGCTA@BQCOBwAjAFBGA@AaAABIBCA3A@AoALA;C/A;AoApAjBaA9BaA8C2BVA%BQAyA@A5C/C*B,BkC:BHBGBVA8AFBfBaAtA+A%BBAoAyB>BuCmCdC7CdBSA@BpBzCIA`A+AtC$A8A;CnAeAACJCYB4C7CiB4CnAjBBA@A8BQAeBQA+AfBQB>A%AUAKC&C7AfCwAeBXBXAZA%A`BpBCCrAtBhCYB^BaA3C)CsCOA3A+A%A;BfC7BfAeA`BfCnBRA8A;CdBGC2BpA+AUA;CiC*BWBVCSAyA+A.A@CnBQA5A+A`A@BmA;BwA|BXC*BMB9BlA%CdAPAZCNBzC6AZC7BkAaA8A(A,AoB&B]AtBhA%B(AyAyBSBVAyBQBGAUC7B!CnA5C*AzAyA;A8BfAKBGAyCnBQA{C:BuC*AyBVAtAKA|BLA+AtBQBGBrA@APBaAyB>AuBQA@AoA%BBC2CEBfBbBBA<AtAFBcB9AUAGBLC#A;A9BzCiAUB,CdAtA%CYA@A%B^AFBGCnBrAPA;C$ALA4C)AjA@AzCNA%BQC*CwAoA.AZCmBzBbA[A8A3BfB}BBAoBhC*AeBVC*B<AFCECTA;BrAoA]BCA+A;A3CnCnA+BkAyC7AAA%APAjAoBcAAA%COAZA@A;B}C*BfCEA@BGC7AFA+B]BqAeBkAeBGA<C*A%BLA{BHBHA;A%A@AyB,A@CDBQBBA%BGA3B9BNCiAzA9CnCTBvCiA3A|AGBkAZCTCdC7A;A%AoBqA|A%A3CYBLBaBcA%BVAyAjA@AKBfAGBrC/APCnCYA3C)CYAfBLA3A%AzCEBGAyAyA;B]BfAKAaB9BGAAAQA@AZAkBkC2BXCYAhC#C1AUB>A+CJAtAyAeA%AtA;A;CxA9AeBGCsBHB^A`BQA3BCA`AtAABpA3C:BBA+B^A3A.AjAGAyA8CnAjAPAtAyB{A;A8AQCmA3ChAPAAB0AFBkBgAAA8BBCTA%BGC1AoA&APAVBDB<BgA@A`BGCsAkC#BqAtBQC/A.BaBQB|AtBGAoBkBaA;AZBGAjCxAFCTBQB]BHAPCsAtBvApBLA3CEBNA8AUCiBuA@C2CTBfBzBGAyAFAeBqAeAjAQAZBSBLBgBGBpC4BGCxA%CmAUAFBBAjB^AjAyCYC#A@AQBLA|A8A&BVBBB=CHBfA;AyAPA3A+AKA;BHC$C)BRAAB9C*AFAoALA8B&AyAZALC$AkBBA3BkB9A8A3BGAyCrAuCTAjA%B]A.C*A+C$AACOAjA@A9AFA8BVBQABA8C7BoBpBGCEBQBGA`B|AFB9CxA+BrAZA%A8A+BBA;BgAuA5B5A%AGB4A4BLCJBcBaALBVA@A%BpA`A%AZA;A3A+AUBQBMBcAjBfB,B(A@AACiA@BpA%B5CaBhBfBaBGAyBpAZCOBBBLAUB>BaA%AyAyAoA%A@A!C/AtAyBuCOAoAtB!A;BjA3B]CiB[A@BLBVA%BfAFAGAVC/AaB,A;BBBGBjBVC$AjBWC*BfA%BQA@C/CEBBAeA;BMCOBkA3B>CJA`ABBLBBAcAPBQA3B]A]AoBfA3CxBBB|ApAVAoCTAZB[AtCVCwA`AaAFAUAVBaBfBQBGBaA8BVBaC)ApAkA+BkBQCTAZBpAeAeA%A3C$A8BvB5B4AoBzB}C2CYABBkBQA%AzA5C/CnAAA;APBBBaBGBVA3A%C7C*A3B<BpBkAFA%BVC2BqA%BGB(BGAPC4A+CJBaAtAyB]ALC*AFALBIB<BfA8A8CnBuBqA8CYC2BzBfBzAFA3C*AFA@AKA8BrCxAQBkAyAAA@A`BBA%BGA3AtBLCsA@A+AoB4ABA;A+BaCdAUA3BVA%BaA|A<B=AjCdB^APA@BGABBVA]C6A@BaBgAtBIC7CXAUBkBLA@BCAKB&B5AjA+AAB}C2A`AZCxAeAAA;AAC1C2B=A8A|BLC2C$CDA@AyA;AAA8A+A;B&A&C2BSAUB,BGAjA;BVAyAyAtA+A3AAA8CTA3A;AKC2A%B&C/AFAyB}BpAaA.B^AyBXApAyBuAQAoC6AtBhAKBkA+BvBvB4C/BBAkAtA{A5BBAPC7A;BfBXBLAtBpC*AyA%BhA<A8C#BBAZAyCECYBkBvAyC:B,CxAoCrC$A;A;AKBVAQAFBQAKBMBpAeB4BvAZAUAyBkBBBGCxA&B(B!AoAVBrBfA+CnA%CxA3BDBpA8B&AUBpB!BaAKCEAoA@C$A3AtA&AQA@B!CiAtBuA8AKCTA@AQC#AeAoAjA@BGBuB9B5BLA3AkAeAtAkAKAeBBA@CiBLA8B=AfA@BWA`CxAUA`BkBVBNC*B>B!A+BLC2AFBGC#APB^COABB;A3A;AyAtBVBkAVABAZC:CYBGBaAkBuAPAzAtApA3CiAyA%AjAKAQBVCsBLBkAPBVBVA@A@COAeAyA{AeAjBQBBAFCNC)AjBWC/C,AoB4B{AUBLA3AAC6AFCYBVBHCYB!CmBVBBAPBwBBBBA3CEAeBkAzA%A3AeC)A%BwCXA`A3CJAZC*AeAtA+A;A+C7AUA3BGCYAUA8BBC2AtBLAFCIBkAVCTC$CnBMAyAfAFAtBlAtCiA%CsAtBBAZAZBQAUC$A;BLBVBkAPC7CXAUCcC*C#CxA;AtAzAZBVAoBpB^AUAoBkAfB>A&CYCSB.A;BfAjB&CXAeCTCTA%A5BCA%BLA%C6B0A@ASBBA3CIB[BuCsBuBVBuC2C6C:BpA`BQAUB4BDAtBaA@CJBBBLABA,BQBRB4C/A+BfBLBMB>B4AjB9A+AtAZA4A8AzBMAoAyB(A`BBC#A+C)C:BqAtAQA;BwC2A3C7A3BqB4AtBrA;A3A+AeCNB[CxAFC*A|AKBBBbA;A+AUAaAoAPAFBBCnAfBqBaAZA@CxC$AKB]ABBmBuCIAyCsC2AyA,BIAGBGAPA[BkA;BpABBVAZAABLAjAPA3A`CiA@BlAGBfB=C7AAB&AVC#BBAZBDC1C*A|BBA`A;A3C7AoBpAZAFA<B5BQBSCzAjA`BGAyA|AjA3AeAjBQB4B5A?A8A3CsA;A;A`BBBpBpAZALAkAjAyB}APCTAtAaCECcBGBkAtA@A8AFAFC7B4C*A`AVCYAFBpBrAVA8ANBQAjAKBVA@A+B4B(A;BBB&B|B>A;BhBbC4A]A`CxC)A8A@BfBQBwA9C2A%B9A!B>AoAyC$C7A[B>A&B!A`AZAtBmCIAAA8AtB9AFB5BIC)B9B}A{BaBaBXB}BLBaAyC#C*A3CsCTA9A8A8BuA;A8AFB&ApB>B}AAAyBhA+C2AjA+CxAeAjBQAPA`ALC$BVBkA@CsAoBQA8B&BLApAtBgBvBbC#BfAZB9AtBSC#AtAFA`CXA`AKBGB@BzC*B0ALA8BaBGC:AZBGA+B0ABBgCcBuCzCXA`BpB(A@BVAoA%B.B(BLBSC7AUApA8CnBBCGCJCYA;BQA+CTA`BuAQAPA%A+CTA@C$BBA;B4BkAUBvAkAyBCBLBGC$AjA4A;AeCxAtC*AVAoA+B]A=APB!BGA;AKA@C*BGBBC7AKA`BgA+BVCiAyCTA<CsBuA+AUA(BGA`CJBDAyAKB<BpBQBQAyBaAKBRAZA3AkAAC7A%BgB^A,ADCnBVA%A8A@CxBmAKA`AyBkBBB^AjAPBpAUBBA;AoC$A@BGA`AoB^CnA3BMCTA;A@BGB0BhBpCsBpAtC6BqBuA3CxBDB}BLBpB,BwBvA{AoBLAKAeCOABBBAPC7A@CCC*AyAtCcCTC*AoBQCiBVC)A.BaB(A%AAB!A`C$A+A@AaBbBQBkC7A(A@BBAtCEB(BkA@BBB>A8A%AVA3B.CiAyB4CIAyA+AQBRBBAoB<C$B^AFBaA+A4AKAjA@C7B4AUBQAyBVB^A3C*AkC:C$C7ASCxBVAPBkAkA+BgAjCTAuAPAFB.AoBQA3AmA%AAB+B]B}BBAtA{A@BQA|A+BLAoA5AyA`C#A8C7C:A8BQB}BmAtA&B4B}AAA&COCYCiCIA8A8AzAPABC#AKC)A`BMAQAyBpCdCNAyAtA;A%A`BkAZBLBBB4AfAGAyBk"
-local K1 = 79
-local K2 = 124
-local SK = 62
-local ALPH = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!#$%&()*+,./:;<=>?@[]^_`{|}"
+local VirtualUser = game:GetService("VirtualUser")
+local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui")
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
 
-local function decode91(s)
-    local out = {}
-    local idx = 1
-    for i = 1, #s, 2 do
-        local a = ALPH:find(s:sub(i, i), 1, true) - 1
-        local b = ALPH:find(s:sub(i + 1, i + 1), 1, true) - 1
-        out[idx] = a * #ALPH + b
-        idx = idx + 1
-    end
-    return out
+getgenv().farmtank = false
+getgenv().AntiKnockback = false
+getgenv().clip = false
+getgenv().lip = false
+
+wait(3)
+
+--// Services
+
+--// İsimler
+local MAIN_NAME = "epicgmingXD_4"
+
+Farm_A = "5lpx4"
+Farm_B = "YourNameIsHereXIII"
+Farm_C = "Syn_x8"
+Farm_D = "dahoodianeznga"
+Farm_E = "SrtaAbril_YT"
+
+Noclip = false
+LoopTP = false
+NoKnock = false
+AntiFling = false
+KillAura = false
+
+if game.Players.LocalPlayer.Name == Farm_A or Farm_B or Farm_C or Farm_D or Farm_E then
+LoopTP = true
+NoKnock = true
+AntiFling = true
+Noclip = true
+elseif LocalPlayer.Name  == MAIN_NAME then
+LoopTP = true
+NoKnock = true
+AntiFling = true
+Noclip = true
+KillAura = true
 end
 
-local function unshuffle(t, k)
-    local n = #t
-    for i = n, 1, -1 do
-        local j = ((i * k) % n) + 1
-        t[i], t[j] = t[j], t[i]
+
+
+local OrionLib = loadstring(game:HttpGet(("https://raw.githubusercontent.com/jensonhirst/Orion/main/source")))()
+local Window =
+    OrionLib:MakeWindow(
+    {Name = "$hit Talker's Afk Farm Gui", HidePremium = false, SaveConfig = true, ConfigFolder = "OrionTest"}
+)
+
+local x = Instance.new("Part", game.Workspace)
+x.Anchored = true
+x.Name = "Nothing"
+x.Transparency = 0.8
+x.Position =
+    Vector3.new(
+    10657.6113,
+    1434.63904,
+    552.198975,
+    0.256518424,
+    0.905121565,
+    0.339047521,
+    -0.0115446523,
+    -0.347890735,
+    0.937463999,
+    0.96647042,
+    -0.244390965,
+    -0.078791067
+)
+x.Size = Vector3.new(250, 2, 250)
+
+local Tab =
+    Window:MakeTab(
+    {
+        Name = "Tank Farming",
+        Icon = "rbxassetid://4483345998",
+        PremiumOnly = false
+    }
+)
+
+local Section =
+    Tab:AddSection(
+    {
+        Name = "Main Account"
+    }
+)
+
+Tab:AddParagraph(
+    "Kullanım Klavuzu ve Menü Bilgilendirmesi",
+    "Farm Place Diyer Oyuncuların Bulamayacağı Normal Haritanın Dışındaki Özel bir yerdir Go To Farm Place Tuşu Oyuncuyu Oraya Işınlar.(Farm Burada Gerçekleşir)  Kodun İçinde Çalıştığı Doğrulanmış Bir Anti Afk Scripti Var Menu Açılırken Yüklenir Ve Sonradan Kapatılamaz Kill Aura Ozel Olarak Modifiye Edildi Menzil İçindeki Oyuncular İçin ForceField Taramasi Yapar Ve Oyunculardaki ForceField Silinene Kadar Başlamaz Anti-Knock Anti-Fling Ve Noclip Oyuncuların Herhangi Bir Şekilde Sarsılmasını Engelleyebilmek İçin Eklendi Kullanılmasını Tavsiye Ederim Kod Her Ne Kadar Mükemmel Olsada Main Hesap ve Tank Hesaplar Arasındaki Seviye Farkı yada (Android İçin Geçerli) Executer Konsolunda Biriken Loglar FPS Ve Farm Kalitesini Düsürebilir"
+)
+
+local Section =
+    Tab:AddSection(
+    {
+        Name = "Main Account"
+    }
+)
+
+Tab:AddToggle(
+    {
+        Name = "Kill Aura",
+        Default = KillAura,
+        Callback = function(t)
+            if t == true then
+                getgenv().killaura = true
+                while getgenv().killaura do
+                    pcall(
+                        function()
+                            local Players = game.Players
+                            local LocalPlayer = Players.LocalPlayer
+                            local char = LocalPlayer.Character
+                            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                            if not hrp then
+                                return
+                            end
+                            local localPos = hrp.Position
+                            local shouldAttack = true
+                            local foundTarget = false
+                            for _, player in ipairs(Players:GetPlayers()) do
+                                if player ~= LocalPlayer then
+                                    local pChar = player.Character
+                                    local pHRP = pChar and pChar:FindFirstChild("HumanoidRootPart")
+                                    if pHRP then
+                                        local dist = (localPos - pHRP.Position).Magnitude
+                                        if dist <= 8 then
+                                            foundTarget = true
+                                            if pChar:FindFirstChild("ForceField") then
+                                                shouldAttack = false
+                                                break
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                            if foundTarget and shouldAttack then
+                                for i = 1, 10 do
+                                    game:GetService("ReplicatedStorage").Events.Punch:FireServer(0.4, 0.01, 1)
+                                end
+                            end
+                        end
+                    )
+                    wait(0.1)
+                end
+            else
+                getgenv().killaura = false
+            end
+        end
+    }
+)
+
+Tab:AddButton(
+    {
+        Name = "Go To Farm Place",
+        Callback = function()
+            game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(10645, 1440, 560)
+        end
+    }
+)
+
+Tab:AddButton(
+    {
+        Name = "Kill Codex (Menuyude Siler)",
+        Callback = function()
+            spawn(
+                function()
+                    while true do
+                        for _, gui in pairs(CoreGui:GetChildren()) do
+                            local function findCodex(obj)
+                                if obj.Name == "Codex" then
+                                    return true
+                                end
+                                for _, child in pairs(obj:GetChildren()) do
+                                    if findCodex(child) then
+                                        return true
+                                    end
+                                end
+                                return false
+                            end
+                            if findCodex(gui) then
+                                gui:Destroy()
+                                print("Codex Deleted")
+                            end
+                        end
+                        wait(1)
+                    end
+                end
+            )
+        end
+    }
+)
+
+local Section =
+    Tab:AddSection(
+    {
+        Name = "Tank Account"
+    }
+)
+
+Tab:AddToggle(
+    {
+        Name = "LoopTeleport",
+        Default = LoopTP,
+        Callback = function(x)
+            getgenv().farmtank = x
+        end
+    }
+)
+
+Tab:AddToggle(
+    {
+        Name = "Noclip",
+        Default = Noclip,
+        Callback = function(Value)
+            getgenv().clip = Value
+            if getgenv().clip == true then
+                analloop =
+                    game:GetService("RunService").Stepped:Connect(
+                    function()
+                        for i, v in pairs(game.Players.LocalPlayer.Character:GetChildren()) do
+                            if v:IsA("BasePart") and v.CanCollide == true then
+                                v.CanCollide = false
+                            end
+                        end
+                    end
+                )
+            elseif getgenv().clip == false and NoclipLoop then
+                analloop:Disconnect()
+            end
+        end
+    }
+)
+
+Tab:AddToggle(
+    {
+        Name = "Anti Fling",
+        Default = AntiFling,
+        Callback = function(Value)
+            getgenv().lip = Value
+            if getgenv().lip == true then
+                NoclipLoop =
+                    game:GetService("RunService").Stepped:Connect(
+                    function()
+                        for _, player in pairs(game.Players:GetPlayers()) do
+                            if player ~= game.Players.LocalPlayer and player.Character then
+                                for _, part in pairs(player.Character:GetChildren()) do
+                                    if part:IsA("BasePart") and part.CanCollide == true then
+                                        part.CanCollide = false
+                                    end
+                                end
+                            end
+                        end
+                    end
+                )
+            elseif getgenv().lip == false and NoclipLoop then
+                NoclipLoop:Disconnect()
+            end
+        end
+    }
+)
+
+Tab:AddToggle(
+    {
+        Name = "Anti Knock",
+        Default = NoKnock,
+        Callback = function(Value)
+            getgenv().AntiKnockback = Value
+        end
+    }
+)
+
+
+
+local LastPosition
+local connection
+connection =
+    RunService.Heartbeat:Connect(
+    function()
+        if not getgenv().AntiKnockback then
+            if connection then
+                connection:Disconnect()
+                connection = nil
+            end
+            return
+        end
+        local character = player.Character
+        if not character then
+            return
+        end
+        local root = character:FindFirstChild("HumanoidRootPart")
+        if not root then
+            return
+        end
+        local linVel = root.AssemblyLinearVelocity.Magnitude
+        local angVel = root.AssemblyAngularVelocity.Magnitude
+        if linVel > 250 or angVel > 250 then
+            root.AssemblyLinearVelocity = Vector3.zero
+            root.AssemblyAngularVelocity = Vector3.zero
+            if LastPosition then
+                root.CFrame = LastPosition
+            end
+        elseif linVel < 50 and angVel < 50 then
+            LastPosition = root.CFrame
+        end
     end
-end
+)
 
-local function layer1_decode(t, k1, k2)
-    local out = {}
-    for i = 1, #t do
-        local b = t[i]
-        b = (b - k2) % 256
-        b = (b * 205) % 256
-        b = (b - k1 - (i % 17)) % 256
-        out[i] = string.char(b)
+Players.LocalPlayer.Idled:Connect(
+    function()
+        VirtualUser:CaptureController()
+        VirtualUser:ClickButton2(Vector2.new())
     end
-    return table.concat(out)
-end
+)
 
-local B = decode91(P)
-unshuffle(B, SK)
-local SRC = layer1_decode(B, K1, K2)
+game:GetService("RunService").Stepped:Connect(
+    function()
+        if getgenv().farmtank == true then
+            game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(10645, 1440, 560)
+        end
+    end
+)
 
-local L = loadstring or load
-assert(L, "loader missing")
-return L(SRC)()
+game:GetService("RunService").Stepped:Connect(
+    function()
+        game:GetService("Lighting").ClockTime = 12
+    end
+)
+
+

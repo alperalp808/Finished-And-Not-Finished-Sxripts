@@ -327,4 +327,7 @@ game:GetService("RunService").Stepped:Connect(
     end
 )
 
+  game.ClientStorage.Effects.Shield:Destroy()
+  game.ClientStorage.Effects.Speed:destroy()
+  game.Workspace.Effects:destroy() 
 

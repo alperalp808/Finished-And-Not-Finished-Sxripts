@@ -14,7 +14,7 @@ local LP = Players.LocalPlayer
 
 -- Config
 local MAX_LOGS = 100
-local CHAT_COMMAND = "/c"
+local CHAT_COMMAND = "/e"
 
 -- State
 local loggingEnabled = true
@@ -24,7 +24,7 @@ local logs = {}
 pcall(function()
     StarterGui:SetCore("SendNotification", {
         Title = "Mobile Console Loaded",
-        Text = "Type /c to open and Close",
+        Text = "Type /e to open and Close",
         Duration = 5
     })
 end)
@@ -49,7 +49,7 @@ local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1,-10,0,34)
 title.Position = UDim2.new(0,5,0,5)
 title.BackgroundTransparency = 1
-title.Text = "Dev Console Log Recorder  |  /c"
+title.Text = "Dev Console Log Recorder  |  /e"
 title.Font = Enum.Font.GothamBold
 title.TextSize = 14
 title.TextColor3 = Color3.new(1,1,1)

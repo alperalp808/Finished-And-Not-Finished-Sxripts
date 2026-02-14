@@ -1,0 +1,308 @@
+--// SERVICES
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+
+local LP = Players.LocalPlayer
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "ProExecutor"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = LP:WaitForChild("PlayerGui")
+
+local Main = Instance.new("Frame")
+Main.Size = UDim2.fromOffset(520,420)
+Main.Position = UDim2.fromScale(0.5,0.5)
+Main.AnchorPoint = Vector2.new(0.5,0.5)
+Main.BackgroundColor3 = Color3.fromRGB(255,255,255)
+Main.BorderSizePixel = 0
+Main.Parent = ScreenGui
+
+local Stroke = Instance.new("UIStroke")
+Stroke.Color = Color3.fromRGB(200,200,200)
+Stroke.Parent = Main
+
+local TopBar = Instance.new("Frame")
+TopBar.Size = UDim2.new(1,0,0,36)
+TopBar.BackgroundColor3 = Color3.fromRGB(245,245,245)
+TopBar.BorderSizePixel = 0
+TopBar.Parent = Main
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1,-80,1,0)
+Title.Position = UDim2.new(0,10,0,0)
+Title.BackgroundTransparency = 1
+Title.Text = "Pro Lua Executor"
+Title.TextColor3 = Color3.fromRGB(40,40,40)
+Title.Font = Enum.Font.Gotham
+Title.TextSize = 14
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = TopBar
+
+local function topButton(text,posX)
+	local b = Instance.new("TextButton")
+	b.Size = UDim2.fromOffset(26,26)
+	b.Position = UDim2.new(1,posX,0,5)
+	b.BackgroundColor3 = Color3.fromRGB(230,230,230)
+	b.Text = text
+	b.TextColor3 = Color3.fromRGB(40,40,40)
+	b.Font = Enum.Font.GothamBold
+	b.TextSize = 13
+	b.AutoButtonColor = false
+	b.Parent = TopBar
+	return b
+end
+
+local Minimize = topButton("-", -65)
+local Close = topButton("X", -32)
+
+
+local EditorContainer = Instance.new("ScrollingFrame")
+EditorContainer.Position = UDim2.new(0,6,0,42)
+EditorContainer.Size = UDim2.new(1,-12,1,-120)
+EditorContainer.ScrollBarThickness = 6
+EditorContainer.BackgroundColor3 = Color3.fromRGB(250,250,250)
+EditorContainer.BorderSizePixel = 0
+EditorContainer.CanvasSize = UDim2.new(0,0,0,0)
+EditorContainer.Parent = Main
+
+local Lines = Instance.new("TextLabel")
+Lines.Size = UDim2.new(0,45,1,0)
+Lines.BackgroundColor3 = Color3.fromRGB(240,240,240)
+Lines.TextColor3 = Color3.fromRGB(120,120,120)
+Lines.Font = Enum.Font.Code
+Lines.TextSize = 14
+Lines.TextXAlignment = Enum.TextXAlignment.Right
+Lines.TextYAlignment = Enum.TextYAlignment.Top
+Lines.Text = "1"
+Lines.Parent = EditorContainer
+
+local Highlight = Instance.new("TextLabel")
+Highlight.Position = UDim2.new(0,50,0,0)
+Highlight.Size = UDim2.new(1,-50,1,0)
+Highlight.BackgroundTransparency = 1
+Highlight.RichText = true
+Highlight.TextWrapped = false
+Highlight.TextXAlignment = Enum.TextXAlignment.Left
+Highlight.TextYAlignment = Enum.TextYAlignment.Top
+Highlight.Font = Enum.Font.Code
+Highlight.TextSize = 14
+Highlight.TextColor3 = Color3.fromRGB(20,20,20)
+Highlight.Text = ""
+Highlight.Parent = EditorContainer
+
+local TextBox = Instance.new("TextBox")
+TextBox.Position = Highlight.Position
+TextBox.Size = Highlight.Size
+TextBox.BackgroundTransparency = 1
+TextBox.TextTransparency = 1
+TextBox.ClearTextOnFocus = false
+TextBox.MultiLine = true
+TextBox.Font = Enum.Font.Code
+TextBox.TextSize = 14
+TextBox.TextXAlignment = Enum.TextXAlignment.Left
+TextBox.TextYAlignment = Enum.TextYAlignment.Top
+TextBox.Text = "-- Write Lua here"
+TextBox.Parent = EditorContainer
+
+
+local keywords = {
+	"local","function","end","if","then","elseif","else",
+	"for","in","do","while","repeat","until",
+	"return","break","and","or","not",
+	"true","false","nil"
+}
+
+local function highlightLua(text)
+	text = text:gsub("&","&amp;"):gsub("<","&lt;"):gsub(">","&gt;")
+	text = text:gsub("(%-%-.-)\n", "<font color='#008000'>%1</font>\n")
+	text = text:gsub("(\".-\")","<font color='#A31515'>%1</font>")
+	for _,word in ipairs(keywords) do
+		text = text:gsub("(%f[%w])"..word.."(%f[%W])",
+			"<font color='#0000FF'>"..word.."</font>")
+	end
+	return text
+end
+
+local function updateAll()
+	local text = TextBox.Text
+	Highlight.Text = highlightLua(text)
+
+	local count = 1
+	for _ in text:gmatch("\n") do count += 1 end
+	local lineText = ""
+	for i=1,count do lineText ..= i.."\n" end
+	Lines.Text = lineText
+
+	EditorContainer.CanvasSize = UDim2.new(0,0,0,count*18)
+end
+
+TextBox:GetPropertyChangedSignal("Text"):Connect(updateAll)
+
+EditorContainer:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
+	local y = EditorContainer.CanvasPosition.Y
+	Lines.Position = UDim2.new(0,0,0,y)
+	Highlight.Position = UDim2.new(0,50,0,y)
+	TextBox.Position = Highlight.Position
+end)
+
+
+local ButtonHolder = Instance.new("Frame")
+ButtonHolder.Size = UDim2.new(1,-12,0,42)
+ButtonHolder.Position = UDim2.new(0,6,1,-48)
+ButtonHolder.BackgroundTransparency = 1
+ButtonHolder.Parent = Main
+
+local Layout = Instance.new("UIListLayout", ButtonHolder)
+Layout.FillDirection = Enum.FillDirection.Horizontal
+Layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+Layout.Padding = UDim.new(0,12)
+
+local function createButton(name)
+	local b = Instance.new("TextButton")
+	b.Size = UDim2.fromOffset(150,36)
+	b.BackgroundColor3 = Color3.fromRGB(230,230,230)
+	b.Text = name
+	b.TextColor3 = Color3.fromRGB(40,40,40)
+	b.Font = Enum.Font.Gotham
+	b.TextSize = 13
+	b.AutoButtonColor = false
+	b.Parent = ButtonHolder
+	return b
+end
+
+local Execute = createButton("Execute")
+local Clear = createButton("Clear")
+local Clipboard = createButton("Execute Clipboard")
+
+local function animate(btn)
+	local original = btn.Size
+	local pressed = UDim2.fromOffset(original.X.Offset-6, original.Y.Offset-4)
+
+	btn.MouseButton1Down:Connect(function()
+		TweenService:Create(btn,TweenInfo.new(0.08),{
+			Size=pressed,
+			BackgroundColor3=Color3.fromRGB(210,210,210)
+		}):Play()
+	end)
+
+	btn.MouseButton1Up:Connect(function()
+		TweenService:Create(btn,TweenInfo.new(0.1),{
+			Size=original,
+			BackgroundColor3=Color3.fromRGB(230,230,230)
+		}):Play()
+	end)
+end
+
+animate(Execute)
+animate(Clear)
+animate(Clipboard)
+
+Execute.MouseButton1Click:Connect(function()
+	local f = loadstring(TextBox.Text)
+	if f then pcall(f) end
+end)
+
+Clear.MouseButton1Click:Connect(function()
+	TextBox.Text = ""
+end)
+
+Clipboard.MouseButton1Click:Connect(function()
+	if getclipboard then
+		local f = loadstring(getclipboard())
+		if f then pcall(f) end
+	end
+end)
+
+
+local Resize = Instance.new("Frame")
+Resize.Size = UDim2.fromOffset(16,16)
+Resize.Position = UDim2.new(1,-16,1,-16)
+Resize.BackgroundColor3 = Color3.fromRGB(200,200,200)
+Resize.Parent = Main
+
+local resizing=false
+local startSize
+local startPos
+
+Resize.InputBegan:Connect(function(input)
+	if input.UserInputType==Enum.UserInputType.MouseButton1
+	or input.UserInputType==Enum.UserInputType.Touch then
+		resizing=true
+		startSize=Main.Size
+		startPos=input.Position
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+	if resizing and (input.UserInputType==Enum.UserInputType.MouseMovement
+	or input.UserInputType==Enum.UserInputType.Touch) then
+		local delta=input.Position-startPos
+		Main.Size=UDim2.fromOffset(
+			math.max(420,startSize.X.Offset+delta.X),
+			math.max(320,startSize.Y.Offset+delta.Y)
+		)
+	end
+end)
+
+UserInputService.InputEnded:Connect(function()
+	resizing=false
+end)
+
+
+local openSize = Main.Size
+local minimized=false
+
+Minimize.MouseButton1Click:Connect(function()
+	minimized=not minimized
+	if minimized then
+		TweenService:Create(Main,TweenInfo.new(0.25),{
+			Size=UDim2.fromOffset(Main.Size.X.Offset,40)
+		}):Play()
+		EditorContainer.Visible=false
+		ButtonHolder.Visible=false
+	else
+		TweenService:Create(Main,TweenInfo.new(0.25),{
+			Size=openSize
+		}):Play()
+		task.wait(0.15)
+		EditorContainer.Visible=true
+		ButtonHolder.Visible=true
+	end
+end)
+
+Close.MouseButton1Click:Connect(function()
+	ScreenGui:Destroy()
+end)
+
+
+local dragging=false
+local dragStart
+local startPosFrame
+
+TopBar.InputBegan:Connect(function(input)
+	if input.UserInputType==Enum.UserInputType.MouseButton1
+	or input.UserInputType==Enum.UserInputType.Touch then
+		dragging=true
+		dragStart=input.Position
+		startPosFrame=Main.Position
+		input.Changed:Connect(function()
+			if input.UserInputState==Enum.UserInputState.End then
+				dragging=false
+			end
+		end)
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+	if dragging and (input.UserInputType==Enum.UserInputType.MouseMovement
+	or input.UserInputType==Enum.UserInputType.Touch) then
+		local delta=input.Position-dragStart
+		Main.Position=UDim2.new(
+			startPosFrame.X.Scale,
+			startPosFrame.X.Offset+delta.X,
+			startPosFrame.Y.Scale,
+			startPosFrame.Y.Offset+delta.Y
+		)
+	end
+end)

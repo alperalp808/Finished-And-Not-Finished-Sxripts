@@ -2,90 +2,92 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
---// HARD LIMITS
+--// LIMITS
 local MAX_WALKSPEED = 16
 local MAX_JUMPPOWER = 50
-local MAX_DISTANCE_PER_FRAME = 50 -- ani teleport mesafesi
+local MAX_REAL_SPEED = 35 -- gerçek hareket limiti (stud/s)
+local MAX_INSTANT_DISTANCE = 80 -- ani sıçrama
 
---// PLAYER CACHE
+--// CACHE
 local PlayerData = {}
 
-----------------------------------------------------
--- INIT
-----------------------------------------------------
+-----------------------------------------------------
+-- CHARACTER MONITOR
+-----------------------------------------------------
 
-local function SetupPlayer(player)
-	PlayerData[player] = {
-		LastPosition = nil,
-		LastTime = tick()
-	}
-end
+local function MonitorCharacter(player, character)
 
-local function CleanupPlayer(player)
-	PlayerData[player] = nil
-end
+	local humanoid = character:WaitForChild("Humanoid")
+	local root = character:WaitForChild("HumanoidRootPart")
 
-Players.PlayerAdded:Connect(SetupPlayer)
-Players.PlayerRemoving:Connect(CleanupPlayer)
+	-------------------------------------------------
+	-- 1️⃣ PROPERTY CHANGE DETECT
+	-------------------------------------------------
 
-----------------------------------------------------
--- CORE LOOP
-----------------------------------------------------
-
-RunService.Heartbeat:Connect(function()
-
-	for _, player in ipairs(Players:GetPlayers()) do
-		
-		local character = player.Character
-		if not character then continue end
-		
-		local humanoid = character:FindFirstChildOfClass("Humanoid")
-		local root = character:FindFirstChild("HumanoidRootPart")
-		
-		if not humanoid or not root then continue end
-		
-		------------------------------------------------
-		-- 1️⃣ WALKSPEED CHECK
-		------------------------------------------------
-		
+	humanoid:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
 		if humanoid.WalkSpeed > MAX_WALKSPEED then
 			player:Kick("WalkSpeed exploit detected.")
-			return
 		end
-		
-		------------------------------------------------
-		-- 2️⃣ JUMPPOWER CHECK
-		------------------------------------------------
-		
+	end)
+
+	humanoid:GetPropertyChangedSignal("JumpPower"):Connect(function()
 		if humanoid.UseJumpPower and humanoid.JumpPower > MAX_JUMPPOWER then
 			player:Kick("JumpPower exploit detected.")
-			return
 		end
-		
-		------------------------------------------------
-		-- 3️⃣ TELEPORT CHECK
-		------------------------------------------------
-		
-		local data = PlayerData[player]
-		if not data then continue end
-		
+	end)
+
+	-------------------------------------------------
+	-- 2️⃣ REAL MOVEMENT CHECK
+	-------------------------------------------------
+
+	PlayerData[player] = {
+		LastPos = root.Position,
+		LastTime = tick()
+	}
+
+	RunService.Heartbeat:Connect(function()
+
+		if not PlayerData[player] then return end
+		if not player.Character or player.Character ~= character then return end
+
 		local now = tick()
-		
-		if not data.LastPosition then
-			data.LastPosition = root.Position
-			data.LastTime = now
-			continue
-		end
-		
-		local distance = (root.Position - data.LastPosition).Magnitude
-		
-		-- Ani büyük mesafe = teleport
-		if distance > MAX_DISTANCE_PER_FRAME then
-			player:Kick("Teleport exploit detected.")
+		local dt = now - PlayerData[player].LastTime
+		if dt <= 0 then return end
+
+		local currentPos = root.Position
+		local lastPos = PlayerData[player].LastPos
+
+		local distance = (currentPos - lastPos).Magnitude
+		local speed = distance / dt
+
+		-- Ani teleport
+		if distance > MAX_INSTANT_DISTANCE then
+			player:Kick("Teleport detected.")
 			return
 		end
-		
-		data.LastPosition = root.Position
-		data.LastTime = now
-	end
+
+		-- Gerçek hız kontrolü
+		if speed > MAX_REAL_SPEED then
+			player:Kick("Speed exploit detected.")
+			return
+		end
+
+		PlayerData[player].LastPos = currentPos
+		PlayerData[player].LastTime = now
+
+	end)
+end
+
+-----------------------------------------------------
+-- PLAYER INIT
+-----------------------------------------------------
+
+Players.PlayerAdded:Connect(function(player)
+	player.CharacterAdded:Connect(function(character)
+		MonitorCharacter(player, character)
+	end)
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+	PlayerData[player] = nil
 end)

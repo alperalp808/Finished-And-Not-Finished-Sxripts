@@ -2,24 +2,22 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
---// SETTINGS
+--// SETTINGS (AGGRESSIVE)
 local MAX_WALK_SPEED = 16
-local MAX_ALLOWED_MULTIPLIER = 3         -- tolerans katsayısı
-local TELEPORT_DISTANCE_THRESHOLD = 80   -- direkt ışınlanma mesafesi
-local FLAG_LIMIT = 5                     -- kaç ihlal sonrası kick
+local SPEED_MULTIPLIER = 2.5
+local MAX_DISTANCE_JUMP = 60
 
---// PLAYER DATA
+--// PLAYER CACHE
 local PlayerData = {}
 
 ----------------------------------------------------
--- INIT PLAYER
+-- PLAYER INIT
 ----------------------------------------------------
 
 local function SetupPlayer(player)
 	PlayerData[player] = {
 		LastPosition = nil,
-		LastTime = tick(),
-		Flags = 0
+		LastTime = tick()
 	}
 end
 
@@ -31,10 +29,11 @@ Players.PlayerAdded:Connect(SetupPlayer)
 Players.PlayerRemoving:Connect(CleanupPlayer)
 
 ----------------------------------------------------
--- CORE CHECK LOOP (SERVER SIDE)
+-- AGGRESSIVE CHECK LOOP
 ----------------------------------------------------
 
 RunService.Heartbeat:Connect(function()
+
 	for _, player in ipairs(Players:GetPlayers()) do
 		
 		local character = player.Character
@@ -42,64 +41,50 @@ RunService.Heartbeat:Connect(function()
 		
 		local humanoid = character:FindFirstChildOfClass("Humanoid")
 		local root = character:FindFirstChild("HumanoidRootPart")
+		
 		if not humanoid or not root then continue end
 		
 		local data = PlayerData[player]
 		if not data then continue end
 		
-		local currentTime = tick()
-		local deltaTime = currentTime - data.LastTime
+		local now = tick()
+		local dt = now - data.LastTime
 		
 		if not data.LastPosition then
 			data.LastPosition = root.Position
-			data.LastTime = currentTime
+			data.LastTime = now
 			continue
 		end
 		
 		local distance = (root.Position - data.LastPosition).Magnitude
-		local speed = distance / math.max(deltaTime, 0.016)
+		local speed = distance / math.max(dt, 0.016)
+		
+		local maxAllowedSpeed = MAX_WALK_SPEED * SPEED_MULTIPLIER
 		
 		----------------------------------------------------
-		-- TELEPORT DETECTION
+		-- HARD TELEPORT CHECK
 		----------------------------------------------------
 		
-		local maxAllowedSpeed = MAX_WALK_SPEED * MAX_ALLOWED_MULTIPLIER
-		
-		local isFreefall = humanoid:GetState() == Enum.HumanoidStateType.Freefall
-		local isFlying = humanoid:GetState() == Enum.HumanoidStateType.Flying
-		
-		local suspicious = false
-		
-		-- Aşırı hız
-		if speed > maxAllowedSpeed and not isFreefall and not isFlying then
-			suspicious = true
+		-- 1️⃣ Büyük ani mesafe
+		if distance > MAX_DISTANCE_JUMP then
+			player:Kick("Teleport detected.")
+			return
 		end
 		
-		-- Direkt mesafe zıplaması
-		if distance > TELEPORT_DISTANCE_THRESHOLD then
-			suspicious = true
+		-- 2️⃣ Aşırı hız
+		if speed > maxAllowedSpeed then
+			player:Kick("Speed/Teleport exploit detected.")
+			return
 		end
 		
-		if suspicious then
-			
-			data.Flags += 1
-			
-			-- Pozisyonu geri sar
-			root.CFrame = CFrame.new(data.LastPosition)
-			
-			warn("[ANTI TELEPORT] Flag:", player.Name, "Count:", data.Flags)
-			
-			if data.Flags >= FLAG_LIMIT then
-				player:Kick("Teleport exploit detected.")
-			end
-		else
-			-- Reset flag yavaşça
-			if data.Flags > 0 then
-				data.Flags -= 1
-			end
+		-- 3️⃣ Physics bypass (çok yüksek Y değişimi)
+		local yDiff = math.abs(root.Position.Y - data.LastPosition.Y)
+		if yDiff > 40 then
+			player:Kick("Vertical teleport detected.")
+			return
 		end
 		
 		data.LastPosition = root.Position
-		data.LastTime = currentTime
+		data.LastTime = now
 	end
 end)

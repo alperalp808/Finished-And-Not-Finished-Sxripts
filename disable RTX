@@ -1,0 +1,66 @@
+
+getgenv().DisableRTX = true
+
+local Lighting = game:GetService("Lighting")
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local function applyClassicLighting()
+    -- Post-processing efektlerini kapat
+    for _, effect in pairs(Lighting:GetChildren()) do
+        if effect:IsA("PostEffect") or effect:IsA("BloomEffect") 
+        or effect:IsA("ColorCorrectionEffect") or effect:IsA("SunRaysEffect") 
+        or effect:IsA("DepthOfFieldEffect") or effect:IsA("BlurEffect") then
+            effect.Enabled = false
+        end
+    end
+
+    Lighting.GlobalShadows = true
+    Lighting.Brightness = 2
+    Lighting.OutdoorAmbient = Color3.fromRGB(128, 128, 128)
+    Lighting.FogStart = 0
+    Lighting.FogEnd = 100000
+    Lighting.ClockTime = 14
+    Lighting.Ambient = Color3.fromRGB(128, 128, 128)
+    Lighting.ColorShift_Bottom = Color3.fromRGB(0,0,0)
+    Lighting.ColorShift_Top = Color3.fromRGB(0,0,0)
+    Lighting.ExposureCompensation = 0
+    Lighting.ShadowSoftness = 0.5
+end
+
+local rtsConnection
+rtsConnection = RunService.RenderStepped:Connect(function()
+    if getgenv().DisableRTX then
+        applyClassicLighting()
+    end
+end)
+
+local function stopDisableRTX()
+    if rtsConnection then
+        rtsConnection:Disconnect()
+        rtsConnection = nil
+    end
+end
+
+RunService.Heartbeat:Connect(function()
+    if not getgenv().DisableRTX then
+        stopDisableRTX()
+    end
+end)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

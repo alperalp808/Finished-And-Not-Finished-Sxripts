@@ -1,0 +1,477 @@
+--// SETTINGS
+
+getgenv().InmateHighlight = true
+getgenv().InmateText = true
+
+getgenv().GuardHighlight = true
+getgenv().GuardText = true
+
+getgenv().WardenHighlight = true
+getgenv().WardenText = true
+
+getgenv().OperatorHighlight = true
+getgenv().OperatorText = true
+
+getgenv().NameTextSize = 16
+
+--// MENU SETTINGS
+getgenv().MenuVisible = true
+getgenv().MenuPosition = UDim2.new(0.02, 0, 0.05, 0)
+
+--------------------------------------------------
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+local ROLE_COLORS = {
+	Inmate = Color3.fromRGB(255,170,0),
+	Guard = Color3.fromRGB(0,170,255),
+	Warden = Color3.fromRGB(170,0,255),
+	Operator = Color3.fromRGB(255,255,255)
+}
+
+--// MENU UI CREATION
+local function createMenuUI()
+	local screenGui = Instance.new("ScreenGui")
+	screenGui.Name = "ESPMenu"
+	screenGui.ResetOnSpawn = false
+	screenGui.Parent = PlayerGui
+
+	local mainFrame = Instance.new("Frame")
+	mainFrame.Name = "MainFrame"
+	mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+	mainFrame.BackgroundTransparency = 0.4
+	mainFrame.BorderSizePixel = 2
+	mainFrame.BorderColor3 = Color3.fromRGB(100, 100, 100)
+	mainFrame.Size = UDim2.new(0, 250, 0, 400)
+	mainFrame.Position = getgenv().MenuPosition
+	mainFrame.Parent = screenGui
+	
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 8)
+	corner.Parent = mainFrame
+
+	--// HEADER (Hide Button)
+	local headerFrame = Instance.new("Frame")
+	headerFrame.Name = "Header"
+	headerFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+	headerFrame.BackgroundTransparency = 0.3
+	headerFrame.BorderSizePixel = 0
+	headerFrame.Size = UDim2.new(1, 0, 0, 35)
+	headerFrame.Parent = mainFrame
+
+	local headerCorner = Instance.new("UICorner")
+	headerCorner.CornerRadius = UDim.new(0, 8)
+	headerCorner.Parent = headerFrame
+
+	local titleLabel = Instance.new("TextLabel")
+	titleLabel.Name = "Title"
+	titleLabel.BackgroundTransparency = 1
+	titleLabel.Size = UDim2.new(1, -40, 1, 0)
+	titleLabel.Font = Enum.Font.GothamBold
+	titleLabel.TextSize = 14
+	titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+	titleLabel.Text = "ESP MENU"
+	titleLabel.Parent = headerFrame
+
+	local hideButton = Instance.new("TextButton")
+	hideButton.Name = "HideButton"
+	hideButton.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
+	hideButton.BackgroundTransparency = 0.3
+	hideButton.BorderSizePixel = 0
+	hideButton.Size = UDim2.new(0, 35, 1, 0)
+	hideButton.Position = UDim2.new(1, -35, 0, 0)
+	hideButton.Font = Enum.Font.GothamBold
+	hideButton.TextSize = 12
+	hideButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+	hideButton.Text = "━"
+	hideButton.Parent = headerFrame
+
+	local hideCorner = Instance.new("UICorner")
+	hideCorner.CornerRadius = UDim.new(0, 6)
+	hideCorner.Parent = hideButton
+
+	--// SCROLL FRAME
+	local scrollFrame = Instance.new("ScrollingFrame")
+	scrollFrame.Name = "ScrollFrame"
+	scrollFrame.BackgroundTransparency = 1
+	scrollFrame.BorderSizePixel = 0
+	scrollFrame.Size = UDim2.new(1, -10, 1, -50)
+	scrollFrame.Position = UDim2.new(0, 5, 0, 40)
+	scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 500)
+	scrollFrame.ScrollBarThickness = 4
+	scrollFrame.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 100)
+	scrollFrame.Parent = mainFrame
+
+	local listLayout = Instance.new("UIListLayout")
+	listLayout.Padding = UDim.new(0, 8)
+	listLayout.Parent = scrollFrame
+
+	--// TOGGLE FUNCTION
+	local function createToggle(parent, labelText, settingName)
+		local container = Instance.new("Frame")
+		container.Name = labelText
+		container.BackgroundTransparency = 1
+		container.Size = UDim2.new(1, 0, 0, 30)
+		container.Parent = parent
+
+		local label = Instance.new("TextLabel")
+		label.BackgroundTransparency = 1
+		label.Size = UDim2.new(1, -40, 1, 0)
+		label.Font = Enum.Font.Gotham
+		label.TextSize = 12
+		label.TextColor3 = Color3.fromRGB(200, 200, 200)
+		label.Text = labelText
+		label.TextXAlignment = Enum.TextXAlignment.Left
+		label.Parent = container
+
+		local toggleButton = Instance.new("TextButton")
+		toggleButton.Name = "Toggle"
+		toggleButton.BackgroundColor3 = getgenv()[settingName] and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(150, 0, 0)
+		toggleButton.BackgroundTransparency = 0.3
+		toggleButton.BorderSizePixel = 0
+		toggleButton.Size = UDim2.new(0, 35, 0, 25)
+		toggleButton.Position = UDim2.new(1, -35, 0.5, -12.5)
+		toggleButton.Font = Enum.Font.GothamBold
+		toggleButton.TextSize = 10
+		toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+		toggleButton.Text = getgenv()[settingName] and "ON" or "OFF"
+		toggleButton.Parent = container
+
+		local toggleCorner = Instance.new("UICorner")
+		toggleCorner.CornerRadius = UDim.new(0, 4)
+		toggleCorner.Parent = toggleButton
+
+		toggleButton.MouseButton1Click:Connect(function()
+			getgenv()[settingName] = not getgenv()[settingName]
+			toggleButton.BackgroundColor3 = getgenv()[settingName] and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(150, 0, 0)
+			toggleButton.Text = getgenv()[settingName] and "ON" or "OFF"
+		end)
+
+		return container
+	end
+
+	--// HEADER LABEL
+	local roleHeaderLabel = Instance.new("TextLabel")
+	roleHeaderLabel.BackgroundTransparency = 1
+	roleHeaderLabel.Size = UDim2.new(1, 0, 0, 25)
+	roleHeaderLabel.Font = Enum.Font.GothamBold
+	roleHeaderLabel.TextSize = 11
+	roleHeaderLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+	roleHeaderLabel.Text = "━━━ ROLES ━━━"
+	roleHeaderLabel.Parent = scrollFrame
+
+	--// ROLE TOGGLES
+	local roles = {
+		{label = "Inmate Highlight", setting = "InmateHighlight"},
+		{label = "Inmate Text", setting = "InmateText"},
+		{label = "Guard Highlight", setting = "GuardHighlight"},
+		{label = "Guard Text", setting = "GuardText"},
+		{label = "Warden Highlight", setting = "WardenHighlight"},
+		{label = "Warden Text", setting = "WardenText"},
+		{label = "Operator Highlight", setting = "OperatorHighlight"},
+		{label = "Operator Text", setting = "OperatorText"},
+	}
+
+	for _, roleData in ipairs(roles) do
+		createToggle(scrollFrame, roleData.label, roleData.setting)
+	end
+
+	--// TEXT SIZE LABEL
+	local sizeHeaderLabel = Instance.new("TextLabel")
+	sizeHeaderLabel.BackgroundTransparency = 1
+	sizeHeaderLabel.Size = UDim2.new(1, 0, 0, 25)
+	sizeHeaderLabel.Font = Enum.Font.GothamBold
+	sizeHeaderLabel.TextSize = 11
+	sizeHeaderLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+	sizeHeaderLabel.Text = "━━ TEXT SIZE ━━"
+	sizeHeaderLabel.Parent = scrollFrame
+
+	--// TEXT SIZE INPUT
+	local sizeContainer = Instance.new("Frame")
+	sizeContainer.BackgroundTransparency = 1
+	sizeContainer.Size = UDim2.new(1, 0, 0, 35)
+	sizeContainer.Parent = scrollFrame
+
+	local sizeLabel = Instance.new("TextLabel")
+	sizeLabel.BackgroundTransparency = 1
+	sizeLabel.Size = UDim2.new(1, -45, 0, 15)
+	sizeLabel.Font = Enum.Font.Gotham
+	sizeLabel.TextSize = 11
+	sizeLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+	sizeLabel.Text = "Yazı Boyutu: " .. getgenv().NameTextSize
+	sizeLabel.TextXAlignment = Enum.TextXAlignment.Left
+	sizeLabel.Parent = sizeContainer
+
+	local sizeValue = Instance.new("TextLabel")
+	sizeValue.BackgroundTransparency = 1
+	sizeValue.Size = UDim2.new(0, 40, 0, 15)
+	sizeValue.Position = UDim2.new(1, -40, 0, 0)
+	sizeValue.Font = Enum.Font.GothamBold
+	sizeValue.TextSize = 11
+	sizeValue.TextColor3 = Color3.fromRGB(100, 200, 255)
+	sizeValue.Text = getgenv().NameTextSize
+	sizeValue.Parent = sizeContainer
+
+	--// SIZE SLIDER
+	local sliderContainer = Instance.new("Frame")
+	sliderContainer.BackgroundTransparency = 1
+	sliderContainer.Size = UDim2.new(1, 0, 0, 25)
+	sliderContainer.Parent = sizeContainer
+
+	local minusButton = Instance.new("TextButton")
+	minusButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+	minusButton.BackgroundTransparency = 0.3
+	minusButton.BorderSizePixel = 0
+	minusButton.Size = UDim2.new(0, 30, 1, 0)
+	minusButton.Font = Enum.Font.GothamBold
+	minusButton.TextSize = 12
+	minusButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+	minusButton.Text = "−"
+	minusButton.Parent = sliderContainer
+
+	local minusCorner = Instance.new("UICorner")
+	minusCorner.CornerRadius = UDim.new(0, 4)
+	minusCorner.Parent = minusButton
+
+	local plusButton = Instance.new("TextButton")
+	plusButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+	plusButton.BackgroundTransparency = 0.3
+	plusButton.BorderSizePixel = 0
+	plusButton.Size = UDim2.new(0, 30, 1, 0)
+	plusButton.Position = UDim2.new(1, -30, 0, 0)
+	plusButton.Font = Enum.Font.GothamBold
+	plusButton.TextSize = 12
+	plusButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+	plusButton.Text = "+"
+	plusButton.Parent = sliderContainer
+
+	local plusCorner = Instance.new("UICorner")
+	plusCorner.CornerRadius = UDim.new(0, 4)
+	plusCorner.Parent = plusButton
+
+	minusButton.MouseButton1Click:Connect(function()
+		getgenv().NameTextSize = math.max(8, getgenv().NameTextSize - 2)
+		sizeLabel.Text = "Yazı Boyutu: " .. getgenv().NameTextSize
+		sizeValue.Text = getgenv().NameTextSize
+	end)
+
+	plusButton.MouseButton1Click:Connect(function()
+		getgenv().NameTextSize = math.min(32, getgenv().NameTextSize + 2)
+		sizeLabel.Text = "Yazı Boyutu: " .. getgenv().NameTextSize
+		sizeValue.Text = getgenv().NameTextSize
+	end)
+
+	--// HIDE/SHOW FUNCTIONALITY
+	local isHidden = false
+	hideButton.MouseButton1Click:Connect(function()
+		isHidden = not isHidden
+		scrollFrame.Visible = not isHidden
+		headerFrame.Size = isHidden and UDim2.new(1, 0, 1, 0) or UDim2.new(1, 0, 0, 35)
+		mainFrame.Size = isHidden and UDim2.new(0, 250, 0, 35) or UDim2.new(0, 250, 0, 400)
+		hideButton.Text = isHidden and "⬆" or "━"
+	end)
+
+	--// DRAG FUNCTIONALITY
+	local dragging = false
+	local dragStart = nil
+	local frameStart = nil
+
+	local function onInputBegan(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			if UserInputService:GetMouseLocation().X >= mainFrame.AbsolutePosition.X and
+				UserInputService:GetMouseLocation().X <= mainFrame.AbsolutePosition.X + mainFrame.AbsoluteSize.X and
+				UserInputService:GetMouseLocation().Y >= mainFrame.AbsolutePosition.Y and
+				UserInputService:GetMouseLocation().Y <= mainFrame.AbsolutePosition.Y + 35 then
+				dragging = true
+				dragStart = UserInputService:GetMouseLocation()
+				frameStart = mainFrame.Position
+			end
+		end
+	end
+
+	local function onInputChanged()
+		if dragging and dragStart and frameStart then
+			local currentMouse = UserInputService:GetMouseLocation()
+			local delta = currentMouse - dragStart
+			mainFrame.Position = frameStart + UDim2.new(0, delta.X, 0, delta.Y)
+		end
+	end
+
+	local function onInputEnded(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = false
+			dragStart = nil
+			frameStart = nil
+			getgenv().MenuPosition = mainFrame.Position
+		end
+	end
+
+	UserInputService.InputBegan:Connect(onInputBegan)
+	UserInputService.InputChanged:Connect(onInputChanged)
+	UserInputService.InputEnded:Connect(onInputEnded)
+
+	--// VISIBILITY TOGGLE (V tuşu)
+	UserInputService.InputBegan:Connect(function(input, gameProcessed)
+		if gameProcessed then return end
+		if input.KeyCode == Enum.KeyCode.V then
+			getgenv().MenuVisible = not getgenv().MenuVisible
+			mainFrame.Visible = getgenv().MenuVisible
+		end
+	end)
+
+	return screenGui
+end
+
+--// ESP SISTEM
+
+local function getRole(plr)
+	return plr.Team and plr.Team.Name or nil
+end
+
+local function getSettings(role)
+	if role == "Inmate" then
+		return getgenv().InmateHighlight, getgenv().InmateText
+	elseif role == "Guard" then
+		return getgenv().GuardHighlight, getgenv().GuardText
+	elseif role == "Warden" then
+		return getgenv().WardenHighlight, getgenv().WardenText
+	elseif role == "Operator" then
+		return getgenv().OperatorHighlight, getgenv().OperatorText
+	end
+
+	return false,false
+end
+
+local function updatePlayer(plr)
+	if plr == LocalPlayer then
+		return
+	end
+
+	local character = plr.Character
+	if not character then
+		return
+	end
+
+	local head = character:FindFirstChild("Head")
+	if not head then
+		return
+	end
+
+	local role = getRole(plr)
+	local color = ROLE_COLORS[role]
+
+	if not color then
+		return
+	end
+
+	local highlightEnabled,textEnabled = getSettings(role)
+
+	--// HIGHLIGHT
+	local highlight = character:FindFirstChild("RoleESP")
+
+	if highlightEnabled then
+		if not highlight then
+			highlight = Instance.new("Highlight")
+			highlight.Name = "RoleESP"
+			highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+			highlight.Parent = character
+		end
+
+		highlight.FillColor = color
+		highlight.OutlineColor = Color3.new(1,1,1)
+		highlight.FillTransparency = 0.35
+		highlight.OutlineTransparency = 0
+	else
+		if highlight then
+			highlight:Destroy()
+		end
+	end
+
+	--// NAME ESP
+	local billboard = head:FindFirstChild("RoleNameESP")
+
+	if textEnabled then
+		if not billboard then
+			billboard = Instance.new("BillboardGui")
+			billboard.Name = "RoleNameESP"
+			billboard.Parent = head
+			billboard.Adornee = head
+			billboard.AlwaysOnTop = true
+			billboard.LightInfluence = 0
+			billboard.MaxDistance = math.huge
+			billboard.Size = UDim2.fromOffset(200,40)
+			billboard.StudsOffset = Vector3.new(0,2.5,0)
+
+			local text = Instance.new("TextLabel")
+			text.Name = "Name"
+			text.BackgroundTransparency = 1
+			text.Size = UDim2.fromScale(1,1)
+			text.Font = Enum.Font.GothamBold
+			text.TextStrokeTransparency = 0
+			text.TextScaled = false
+			text.Parent = billboard
+		end
+
+		local label = billboard:FindFirstChild("Name")
+
+		if label then
+			label.Text = plr.DisplayName
+			label.TextColor3 = color
+			label.TextSize = getgenv().NameTextSize
+		end
+	else
+		if billboard then
+			billboard:Destroy()
+		end
+	end
+end
+
+local function setupPlayer(plr)
+
+	local function characterAdded(char)
+		task.wait(0.5)
+
+		updatePlayer(plr)
+
+		char.ChildAdded:Connect(function()
+			task.defer(updatePlayer,plr)
+		end)
+	end
+
+	if plr.Character then
+		task.spawn(characterAdded,plr.Character)
+	end
+
+	plr.CharacterAdded:Connect(characterAdded)
+
+	plr:GetPropertyChangedSignal("Team"):Connect(function()
+		task.defer(updatePlayer,plr)
+	end)
+
+	plr:GetPropertyChangedSignal("DisplayName"):Connect(function()
+		task.defer(updatePlayer,plr)
+	end)
+end
+
+for _,plr in ipairs(Players:GetPlayers()) do
+	setupPlayer(plr)
+end
+
+Players.PlayerAdded:Connect(setupPlayer)
+
+--// MENU BAŞLAT
+local menuGui = createMenuUI()
+
+--// LIVE UPDATE LOOP
+RunService.RenderStepped:Connect(function()
+
+	for _,plr in ipairs(Players:GetPlayers()) do
+		updatePlayer(plr)
+	end
+
+end)

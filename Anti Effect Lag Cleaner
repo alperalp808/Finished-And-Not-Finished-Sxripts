@@ -2,7 +2,7 @@ getgenv().AntiLag = true
 
 local effectClasses = {
     ParticleEmitter = true,
-    Trail = true,
+    Trail = false,
     Beam = true,
     Smoke = true,
     Fire = true,
@@ -11,30 +11,34 @@ local effectClasses = {
     Highlight = false
 }
 
-local function checkAndDestroy(obj)
+local function destroyIfEffect(obj)
     if getgenv().AntiLag and effectClasses[obj.ClassName] then
         obj:Destroy()
     end
 end
 
-game.DescendantAdded:Connect(checkAndDestroy)
+game.DescendantAdded:Connect(function(descendant)
+    if getgenv().AntiLag then
+        task.defer(function()
+            destroyIfEffect(descendant)
+        end)
+    end
+end)
 
 task.spawn(function()
     while true do
         if getgenv().AntiLag then
-            local descendants = game:GetDescendants()
-            for i = 1, #descendants do
+            local allDescendants = game:GetDescendants()
+            for i = 1, #allDescendants do
                 if not getgenv().AntiLag then break end
                 
-                checkAndDestroy(descendants[i])
+                destroyIfEffect(allDescendants[i])
                 
-                if i % 300 == 0 then
+                if i % 500 == 0 then
                     task.wait()
                 end
             end
         end
-        task.wait(1)
+        task.wait(0.5)
     end
 end)
-
-print("doldi")

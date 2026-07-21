@@ -1,7 +1,8 @@
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 
-
+-- Karakterin tüm parçalarının çarpışmasını kapatan fonksiyon
 local function makeCharacterNoClip(character)
     if not character then return end
     for _, part in ipairs(character:GetDescendants()) do
@@ -10,9 +11,14 @@ local function makeCharacterNoClip(character)
         end
     end
 end
-game:GetService("RunService").Stepped:Connect(function()
+
+-- Sürekli olarak (her karede) kontrol eden döngü
+-- Roblox karakter fizikleri her an CanCollide'ı true yapabileceği için Stepped/RenderStepped kullanılır.
+RunService.Stepped:Connect(function()
     if not getgenv().AntiFling then return end
+
     for _, player in ipairs(Players:GetPlayers()) do
+        -- Sadece diğer oyuncuların karakterlerini işle
         if player ~= LocalPlayer and player.Character then
             makeCharacterNoClip(player.Character)
         end

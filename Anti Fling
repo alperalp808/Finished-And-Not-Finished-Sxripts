@@ -1,0 +1,20 @@
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+
+local function makeCharacterNoClip(character)
+    if not character then return end
+    for _, part in ipairs(character:GetDescendants()) do
+        if part:IsA("BasePart") and part.CanCollide then
+            part.CanCollide = false
+        end
+    end
+end
+game:GetService("RunService").Stepped:Connect(function()
+    if not getgenv().AntiFling then return end
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            makeCharacterNoClip(player.Character)
+        end
+    end
+end)

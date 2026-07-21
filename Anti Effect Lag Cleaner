@@ -1,0 +1,38 @@
+getgenv().AntiLag = true
+
+local effectClasses = {
+    ParticleEmitter = true,
+    Trail = true,
+    Beam = true,
+    Smoke = true,
+    Fire = true,
+    Sparkles = true,
+    Explosion = true,
+    Highlight = false
+}
+
+local function checkAndDestroy(obj)
+    if getgenv().AntiLag and effectClasses[obj.ClassName] then
+        obj:Destroy()
+    end
+end
+
+game.DescendantAdded:Connect(checkAndDestroy)
+
+task.spawn(function()
+    while true do
+        if getgenv().AntiLag then
+            local descendants = game:GetDescendants()
+            for i = 1, #descendants do
+                if not getgenv().AntiLag then break end
+                
+                checkAndDestroy(descendants[i])
+                
+                if i % 300 == 0 then
+                    task.wait()
+                end
+            end
+        end
+        task.wait(1)
+    end
+end)

@@ -1,0 +1,570 @@
+-- [[ GLOBAL DEĞİŞKENLER & AYARLAR ]] --
+getgenv().ChangeAnim = false
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
+
+-- Orijinal (Varsayılan) Animasyonları Saklamak İçin Tablo
+local ORIGINAL_ANIMS = {}
+local isOriginalSaved = false
+
+-- Genişletilmiş Animasyon Veri Havuzu
+local ANIMATION_DATA = {
+    ["Float"] = { idle1 = "71638717540676", idle2 = "76158324638472", walk = "126455076029470", run = "134946147197592", climb = "135819058922984", jump = "125146139727915", fall = "73456087568628" },
+    ["Cute"] = { idle1 = "138347770262046", idle2 = "131834925395849", walk = "92479250182998", run = "74073276213991", climb = "116770282807943", jump = "109539221751455", fall = "88414036567341" },
+    ["Dreamy Aura"] = { idle1 = "134461155171978", idle2 = "129948600295809", walk = "113455011267362", run = "100509853803071", climb = "89550982881046", jump = "128356055391003", fall = "116101546409884" },
+    ["Ultron"] = { idle1 = "116060069409333", idle2 = "134605851728942", walk = "132248327766486", run = "98841974333695", climb = "98924785603562", jump = "80887707771244", fall = "122258179283140" },
+    ["Fairy"] = { idle1 = "75834284752066", idle2 = "127259309147287", walk = "124904012384214", run = "112945784236967", climb = "109525320083419", jump = "102910604148733", fall = "132110427285254" },
+    ["Angel"] = { idle1 = "128848683134913", idle2 = "104308801171151", walk = "83796123111815", run = "138046791695667", climb = "99551172389422", jump = "118098060128904", fall = "118232162267057" },
+    ["Diva"] = { idle1 = "75834284752066", idle2 = "127259309147287", walk = "124904012384214", run = "112945784236967", climb = "109525320083419", jump = "102910604148733", fall = "132110427285254" },
+    ["Zombie New"] = { idle1 = "128132851784308", idle2 = "94392532437836", walk = "81931167118728", run = "126853923835932", climb = "88141282105123", jump = "135714499879455", fall = "138550244171866" },
+    ["Handstand"] = { idle1 = "73956906322787", idle2 = "135783589150448", walk = "82055796073914", run = "139569292637224", climb = "71656254569935", jump = "73779824944177", fall = "85631336834768" },
+    ["Thief"] = { idle1 = "70765889938975", idle2 = "87903617826484", walk = "116391452602396", run = "100222972388612", climb = "92740123805321", jump = "117109494570159", fall = "84593260785426" },
+    ["Macho Man"] = { idle1 = "124837298681300", idle2 = "111997581428800", walk = "92292256587514", run = "114032421862095", climb = "78970248553045", jump = "118579258550162", fall = "80042889753518" },
+    ["Kavai"] = { idle1 = "137434897497548", idle2 = "74642942460483", walk = "127225112023620", run = "77691616369709", climb = "87078664208712", jump = "134473289142802", fall = "96117211674694" },
+    ["Animal"] = { idle1 = "128838183008466", idle2 = "99689776099970", walk = "112238064449133", run = "97412731442167", climb = "75085836535654", jump = "123565665274439", fall = "124705831982259" },
+    ["Endless Aura"] = { idle1 = "121544739965950", idle2 = "128694271964813", walk = "140535536297327", run = "131446204283995", climb = "78662570655863", jump = "87182355463462", fall = "119546655136861" },
+    ["Effortless Aura"] = { idle1 = "109023565617920", idle2 = "101782607233045", walk = "96565230403734", run = "94645534606796", climb = "71035701144022", jump = "89471740791625", fall = "116066537140570" },
+    ["Sassy"] = { idle1 = "86331391001512", idle2 = "126880205034345", walk = "136879687900769", run = "140344184340309", climb = "140473714536897", jump = "78405222440170", fall = "125781313219969" },
+    ["Skater"] = { idle1 = "137443659935486", idle2 = "117304445977546", walk = "115005138161590", run = "136145073429113", climb = "119512595223205", jump = "137431032579037", fall = "107925321789319" },
+    ["Gojo"] = { idle1 = "91833267843461", idle2 = "126614275663887", walk = "110581890588888", run = "125582828675515", climb = "107688486516091", jump = "126302440229906", fall = "90046220955251" },
+    ["Flying Aura"] = { idle1 = "122426844584505", idle2 = "116101245256851", walk = "83077254246622", run = "77053251062908", climb = "95973965948476", jump = "125422018244301", fall = "109790195947848" },
+    ["Furry"] = { idle1 = "133806214992291", walk = "109168724482748", run = "81024476153754", climb = "119377220967554", jump = "116936326516985", fall = "92294537340807" },
+    ["Catwalk"] = { idle1 = "111821292044705", idle2 = "90705157329932", walk = "104011441852459", run = "87770060317862", climb = "76660530164497", jump = "102635582722041", fall = "137079985547592" },
+    ["Aura"] = { idle1 = "116944673851292", idle2 = "105356446763414", walk = "97462772841800", run = "72394449489636", climb = "111484939727375", jump = "110741235266373", fall = "8837637684328" },
+    ["Pixel"] = { idle1 = "130194283182451", idle2 = "136782362569794", walk = "82742503182065", run = "99550252660076", climb = "95918841204099", jump = "85535465961669", fall = "136658360392607" },
+    ["Nonchalat"] = { idle1 = "129560720895838", idle2 = "116285713212355", walk = "89854001699438", run = "122740418633770", climb = "80469823264981", jump = "97798483904259", fall = "136077916815007" },
+    ["Boxer"] = { idle1 = "117573788129745", idle2 = "115401318197877", walk = "124531990122756", run = "87858017151514", climb = "137457094552376", jump = "114665625725595", fall = "138924660292608" },
+    ["Spider"] = { idle1 = "112316814377814", idle2 = "103439018552145", walk = "109976439277879", run = "119985832593347", climb = "119278342251995", jump = "87979233462906", fall = "71112238570777" },
+    ["Sword"] = { idle1 = "137746879738843", idle2 = "129528999809209", walk = "85262188852122", run = "131966574701281", climb = "124760765734594", jump = "79564871837257", fall = "76518470305885" },
+    ["Superhero New"] = { idle1 = "127540423685755", idle2 = "96954038650210", walk = "129560262949359", run = "91705781577408", climb = "111005757834850", jump = "76297310003744", fall = "98754219549882" },
+    ["Tall"] = { idle1 = "119900649290589", idle2 = "79810617204918", walk = "125858005892679", run = "85638084368229", climb = "136864827926480", jump = "71122628522377", fall = "86589811780536" },
+    ["Springy"] = { idle1 = "91686730043262", idle2 = "83065673922334", walk = "90966053497240", run = "84892003036631", climb = "126871763160364", jump = "91907092633520", fall = "97093456206868" },
+    ["Doll 3.0"] = { idle1 = "83032187271383", idle2 = "115529157356739", walk = "78434960966537", run = "129768396663808", climb = "112371892133970", jump = "75369057994828", fall = "81027444073311" },
+    ["Silent Nurse"] = { idle1 = "111047244862844", idle2 = "111897661783758", walk = "94196382152901", run = "94196382152901", climb = "108985375609705", jump = "106098057235980", fall = "131579609334755" },
+    ["Cute Sit"] = { idle1 = "115262191824432", walk = "83633687614676", run = "122029335804025", climb = "98012061791076", jump = "80979665819804", fall = "99503507671879" },
+    ["Kawaii Cute Girly"] = { idle1 = "133454853586825", walk = "82846237669221", run = "72050416840567", climb = "97826222936099", jump = "82649217445851", fall = "138844903858376" },
+    ["Doll"] = { idle1 = "106864431745423", idle2 = "102002404154887", walk = "122687078497889", run = "121605642130190", climb = "133036321350493", jump = "100084997353034", fall = "77955211844487" },
+    ["No Anim"] = { idle1 = "139422495554279", walk = "109690136432075", run = "140429302761672", climb = "108440379860003", jump = "113781194499932", fall = "92087058359779" },
+    ["Ghoul"] = { idle1 = "78462389459527", walk = "85228462533261", run = "138192130075569", climb = "138737297107273", jump = "85032132059814", fall = "132606394890009" },
+    ["Social Anxiety"] = { idle1 = "116994561820423", walk = "126640434246553", run = "131131398846649", climb = "107470556940440", jump = "105078260692173", fall = "118186058840391" },
+    ["Cat"] = { idle1 = "110290852805486", idle2 = "78932174316934", walk = "128562578525167", run = "102032294179355", climb = "108766758553438", jump = "78123184265997", fall = "134287440300976" },
+    ["Cute Bouncy"] = { idle1 = "88464649697812", idle2 = "120712697072374", walk = "98713727778027", run = "133955346539948", climb = "95542189442725", jump = "124147147418885", fall = "128620818122982" },
+    ["Cute Shy"] = { idle1 = "96218620830862", idle2 = "90414556206637", walk = "112223915107090", run = "82398721448408", climb = "131200129492741", jump = "133420495569976", fall = "117707557123584" },
+    ["Princess"] = { idle1 = "71957551602887", idle2 = "78184669814262", walk = "140538361169820", run = "122152211304286", climb = "95950060952743", jump = "94372473860440", fall = "114266953135415" },
+    ["Tall Monster"] = { idle1 = "130473379657056", walk = "73786058146590", run = "95499288912180", climb = "112214163024573", jump = "71789044409035", fall = "135644974773663" },
+    ["Shy 1"] = { idle1 = "91494230275222", idle2 = "108601621907042", walk = "135920094467602", run = "96944470251066", climb = "129442993824840", jump = "132512416322400", fall = "100155191413864" },
+    ["Shy 2"] = { idle1 = "136459668049300", idle2 = "83174045478987", walk = "137314236380137", run = "127787542428603", climb = "130470118436191", jump = "82026260180916", fall = "135602833048483" },
+    ["Cute Shy Girl"] = { idle1 = "121647501600445", idle2 = "126297737881024", walk = "108963521644240", run = "106507262462023", climb = "95337549398882", jump = "102003010261764", fall = "86705728496721" },
+    ["Snake"] = { idle1 = "103815087792591", idle2 = "103815087792591", walk = "100940216604619", run = "127117422862953", climb = "82490941691029", jump = "128051150170917", fall = "134165044044060" },
+    ["Glitch"] = { idle1 = "118195246541519", idle2 = "118195246541519", walk = "70532084598346", run = "133291236719695", climb = "99974229390885", jump = "87784517289295", fall = "88817521039352" },
+    ["Godly Aura Float"] = { idle1 = "129098732106592", idle2 = "95712201376892", walk = "85207572335814", run = "91742120506204", climb = "134330557326945", jump = "82248931251312", fall = "78940505794049" },
+    ["Crying"] = { idle1 = "129120259153279", walk = "130822337358908", run = "119821043621484", climb = "118020668928512", jump = "77287980570358", fall = "122813794392686" },
+    ["Cool Emo"] = { idle1 = "94863578638953", idle2 = "94863578638953", walk = "116960177386260", run = "96914887481017", climb = "89711428523939", jump = "102726115142727", fall = "133421423620600" },
+    ["Viltrumnes"] = { idle1 = "99904423750888", idle2 = "131365143981468", walk = "132624199623293", run = "137392594073546", climb = "116738664195186", jump = "115670697049931", fall = "120193221019191" },
+    ["Endless Aura Float"] = { idle1 = "133226513780673", idle2 = "133226513780673", walk = "84782014405060", run = "85232146719894", climb = "94364927317793", jump = "140300561900880", fall = "129591520941189" },
+    ["Modern R6"] = { idle1 = "101793141637116", idle2 = "101793141637116", walk = "77528393221674", run = "86891955109302", climb = "82533816982803", jump = "110846938084197", fall = "73058134172796" },
+    ["Bold"] = { idle1 = "16738333868", idle2 = "16738333868", walk = "16738340646", run = "16738337225", climb = "16738332169", jump = "16738336650", fall = "16738333171" },
+    ["DJ"] = { idle1 = "81493189609541", idle2 = "81493189609541", walk = "139685260280568", run = "110155211587083", climb = "121858725696772", jump = "118375359472522", fall = "87647538501248" },
+    ["Killua"] = { idle1 = "76666644996207", idle2 = "76666644996207", walk = "84125982729112", run = "122493804575566", climb = "74742554630181", jump = "124268177508189", fall = "129247507635531" },
+    ["Adidas"] = { idle1 = "122257458498464", idle2 = "122257458498464", walk = "122150855457006", run = "82598234841035", climb = "88763136693023", jump = "75290611992385", fall = "98600215928904" },
+    ["Coolboy"] = { idle1 = "122257458498464", idle2 = "122257458498464", walk = "122150855457006", run = "82598234841035", climb = "88763136693023", jump = "75290611992385", fall = "98600215928904" },
+    ["Casual"] = { idle1 = "138243880544114", idle2 = "138243880544114", walk = "122387149078729", run = "88944083168261", climb = "76876652470272", jump = "135685674199878", fall = "116555453859893" },
+    ["Formal"] = { idle1 = "140659383439991", idle2 = "140659383439991", walk = "140186075381868", run = "83673116116315", climb = "78097810508257", jump = "70469921829349", fall = "125819823897416" },
+    ["R6 2010"] = { idle1 = "117020822828785", idle2 = "117020822828785", walk = "119745149199557", run = "102076347465949", climb = "112873882789117", jump = "108800605300757", fall = "115660890387556" },
+    ["R6"] = { idle1 = "131260802088656", idle2 = "110291203484752", walk = "81275475859584", run = "86501760984532", climb = "81319122881778", jump = "109853826438411", fall = "110640511139183" }
+}
+
+-- Seçilen Animasyon Kimlikleri
+local CURRENT_ANIMS = {
+    idle1 = "Seçilmedi",
+    idle2 = "Seçilmedi",
+    walk  = "Seçilmedi",
+    run   = "Seçilmedi",
+    jump  = "Seçilmedi",
+    fall  = "Seçilmedi",
+    climb = "Seçilmedi"
+}
+
+-- Her Bir Animasyon Kategorisi İçin Bağımsız Aç/Kapat Durumu (True = Özel, False = Orijinal)
+local TOGGLE_STATES = {
+    idle1 = true,
+    idle2 = true,
+    walk  = true,
+    run   = true,
+    jump  = true,
+    fall  = true,
+    climb = true
+}
+
+-- Orijinal Animasyonları Saklama
+local function saveOriginalAnimations(character)
+    local animateScript = character:WaitForChild("Animate", 5)
+    if animateScript and not isOriginalSaved then
+        ORIGINAL_ANIMS = {
+            idle1 = (animateScript:FindFirstChild("idle") and animateScript.idle:FindFirstChild("Animation1")) and animateScript.idle.Animation1.AnimationId or "",
+            idle2 = (animateScript:FindFirstChild("idle") and animateScript.idle:FindFirstChild("Animation2")) and animateScript.idle.Animation2.AnimationId or "",
+            walk  = (animateScript:FindFirstChild("walk") and animateScript.walk:FindFirstChild("WalkAnim")) and animateScript.walk.WalkAnim.AnimationId or "",
+            run   = (animateScript:FindFirstChild("run") and animateScript.run:FindFirstChild("RunAnim")) and animateScript.run.RunAnim.AnimationId or "",
+            jump  = (animateScript:FindFirstChild("jump") and animateScript.jump:FindFirstChild("JumpAnim")) and animateScript.jump.JumpAnim.AnimationId or "",
+            fall  = (animateScript:FindFirstChild("fall") and animateScript.fall:FindFirstChild("FallAnim")) and animateScript.fall.FallAnim.AnimationId or "",
+            climb = (animateScript:FindFirstChild("climb") and animateScript.climb:FindFirstChild("ClimbAnim")) and animateScript.climb.ClimbAnim.AnimationId or ""
+        }
+        isOriginalSaved = true
+    end
+end
+
+-- [[ ANIMASYON UYGULAMA VE SIFIRLAMA MOTORU ]] --
+local function stopPlayingAnimations(humanoid)
+    if humanoid then
+        for _, track in ipairs(humanoid:GetPlayingAnimationTracks()) do
+            track:Stop()
+        end
+    end
+end
+
+local function applyAnimations(animTable)
+    local character = LocalPlayer.Character
+    if not character then return end
+    local animateScript = character:WaitForChild("Animate", 5)
+    local humanoid = character:WaitForChild("Humanoid", 5)
+    
+    if animateScript and humanoid then
+        animateScript.Disabled = true
+        stopPlayingAnimations(humanoid)
+        
+        -- Her kategori için kendi Toggle butonu açık (true) ise seçileni, kapalı (false) ise orijinali yükler
+        local function getTargetAnim(key)
+            if not TOGGLE_STATES[key] then
+                return ORIGINAL_ANIMS[key] or ""
+            end
+            return (animTable[key] == "Seçilmedi") and ORIGINAL_ANIMS[key] or animTable[key]
+        end
+
+        local target_idle1 = getTargetAnim("idle1")
+        local target_idle2 = getTargetAnim("idle2")
+        local target_walk  = getTargetAnim("walk")
+        local target_run   = getTargetAnim("run")
+        local target_jump  = getTargetAnim("jump")
+        local target_fall  = getTargetAnim("fall")
+        local target_climb = getTargetAnim("climb")
+
+        if animateScript:FindFirstChild("idle") then
+            if animateScript.idle:FindFirstChild("Animation1") then animateScript.idle.Animation1.AnimationId = target_idle1 end
+            if animateScript.idle:FindFirstChild("Animation2") then animateScript.idle.Animation2.AnimationId = target_idle2 end
+        end
+        if animateScript:FindFirstChild("walk") and animateScript.walk:FindFirstChild("WalkAnim") then 
+            animateScript.walk.WalkAnim.AnimationId = target_walk 
+        end
+        if animateScript:FindFirstChild("run") and animateScript.run:FindFirstChild("RunAnim") then 
+            animateScript.run.RunAnim.AnimationId = target_run 
+        end
+        if animateScript:FindFirstChild("jump") and animateScript.jump:FindFirstChild("JumpAnim") then 
+            animateScript.jump.JumpAnim.AnimationId = target_jump 
+        end
+        if animateScript:FindFirstChild("fall") and animateScript.fall:FindFirstChild("FallAnim") then 
+            animateScript.fall.FallAnim.AnimationId = target_fall 
+        end
+        if animateScript:FindFirstChild("climb") and animateScript.climb:FindFirstChild("ClimbAnim") then 
+            animateScript.climb.ClimbAnim.AnimationId = target_climb
+        end
+        
+        animateScript.Disabled = false
+    end
+end
+
+LocalPlayer.CharacterAdded:Connect(function(char)
+    isOriginalSaved = false
+    task.wait(0.5)
+    saveOriginalAnimations(char)
+    if getgenv().ChangeAnim then
+        applyAnimations(CURRENT_ANIMS)
+    end
+end)
+
+if LocalPlayer.Character then
+    task.spawn(function()
+        saveOriginalAnimations(LocalPlayer.Character)
+    end)
+end
+
+-- [[ ARAYÜZ (UI) ANA PANELİ ]] --
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "AnimChangerSystem"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = CoreGui:FindFirstChild("RobloxGui") or CoreGui
+
+-- Panel için Sürükleme Fonksiyonu
+local function makeDraggable(guiObject)
+    local dragging, dragInput, dragStart, startPos
+    guiObject.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = guiObject.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then dragging = false end
+            end)
+        end
+    end)
+    guiObject.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            guiObject.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+end
+
+-- ANA PANEL
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 340, 0, 440)
+MainFrame.Position = UDim2.new(0.5, -170, 0.5, -220)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+MainFrame.BackgroundTransparency = 0.2
+MainFrame.Visible = false
+MainFrame.Parent = ScreenGui
+makeDraggable(MainFrame)
+
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 12)
+
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Size = UDim2.new(1, 0, 0, 40)
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Text = "Animation Changer"
+TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.TextSize = 16
+TitleLabel.Parent = MainFrame
+
+--------------------------------------------------------------------------------
+-- İSTEDİĞİNİZ AÇ/KAPA BUTONU (Sadece Sağa-Sola Hareket Edebilir, Yukarı-Aşağı Kilitli)
+--------------------------------------------------------------------------------
+local OpenCloseBtn = Instance.new("TextButton")
+OpenCloseBtn.Name = "OpenCloseBtn"
+OpenCloseBtn.Size = UDim2.new(0, 40, 0, 40)
+OpenCloseBtn.Position = UDim2.new(0, 230, 0, -45)
+OpenCloseBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+OpenCloseBtn.BackgroundTransparency = 0.3
+OpenCloseBtn.Text = "A"
+OpenCloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+OpenCloseBtn.Font = Enum.Font.GothamBold
+OpenCloseBtn.TextSize = 15
+OpenCloseBtn.Parent = ScreenGui
+
+Instance.new("UICorner", OpenCloseBtn).CornerRadius = UDim.new(0, 8)
+
+local Stroke = Instance.new("UIStroke")
+Stroke.Color = Color3.fromRGB(255, 255, 255)
+Stroke.Transparency = 0.8
+Stroke.Thickness = 1
+Stroke.Parent = OpenCloseBtn
+
+-- Menüyü Aç/Kapat
+OpenCloseBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = not MainFrame.Visible
+end)
+
+-- Sadece Yatay (Sağa / Sola) Sürükleme Mantığı
+local btnDragging = false
+local btnDragInput, btnMousePos, btnFramePos
+
+OpenCloseBtn.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        btnDragging = true
+        btnMousePos = input.Position
+        btnFramePos = OpenCloseBtn.AbsolutePosition
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                btnDragging = false
+            end
+        end)
+    end
+end)
+
+OpenCloseBtn.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        btnDragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == btnDragInput and btnDragging then
+        local delta = input.Position - btnMousePos
+        local newXPos = btnFramePos.X + delta.X
+        -- Y Pozisyonu kesinlikle sabittir (Değiştirilmez)
+        OpenCloseBtn.Position = UDim2.new(0, newXPos, OpenCloseBtn.Position.Y.Scale, OpenCloseBtn.Position.Y.Offset)
+    end
+end)
+
+--------------------------------------------------------------------------------
+-- İÇERİK KONTROL LİSTESİ
+--------------------------------------------------------------------------------
+local Container = Instance.new("ScrollingFrame")
+Container.Size = UDim2.new(1, -20, 1, -60)
+Container.Position = UDim2.new(0, 10, 0, 50)
+Container.BackgroundTransparency = 1
+Container.ScrollBarThickness = 4
+Container.CanvasSize = UDim2.new(0, 0, 0, 720)
+Container.Parent = MainFrame
+
+local UIListLayout = Instance.new("UIListLayout")
+UIListLayout.Padding = UDim.new(0, 10)
+UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+UIListLayout.Parent = Container
+
+-- [[ MASTER TOGGLE (GENEL SİSTEM DURUMU) ]] --
+local ToggleRow = Instance.new("Frame")
+ToggleRow.Size = UDim2.new(1, 0, 0, 40)
+ToggleRow.BackgroundTransparency = 1
+ToggleRow.Parent = Container
+
+local ToggleLabel = Instance.new("TextLabel")
+ToggleLabel.Size = UDim2.new(0.7, 0, 1, 0)
+ToggleLabel.BackgroundTransparency = 1
+ToggleLabel.Text = "Sistem Durumu (On/Off)"
+ToggleLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+ToggleLabel.Font = Enum.Font.Gotham
+ToggleLabel.TextSize = 14
+ToggleLabel.TextXAlignment = Enum.TextXAlignment.Left
+ToggleLabel.Parent = ToggleRow
+
+local ToggleSwitch = Instance.new("TextButton")
+ToggleSwitch.Size = UDim2.new(0, 60, 0, 28)
+ToggleSwitch.Position = UDim2.new(1, -65, 0.5, -14)
+ToggleSwitch.BackgroundColor3 = Color3.fromRGB(120, 120, 120)
+ToggleSwitch.Text = ""
+ToggleSwitch.Parent = ToggleRow
+Instance.new("UICorner", ToggleSwitch).CornerRadius = UDim.new(0, 14)
+
+local ToggleCircle = Instance.new("Frame")
+ToggleCircle.Size = UDim2.new(0, 22, 0, 22)
+ToggleCircle.Position = UDim2.new(0, 4, 0.5, -11)
+ToggleCircle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+ToggleCircle.Parent = ToggleSwitch
+Instance.new("UICorner", ToggleCircle).CornerRadius = UDim.new(0, 11)
+
+ToggleSwitch.MouseButton1Click:Connect(function()
+    getgenv().ChangeAnim = not getgenv().ChangeAnim
+    local active = getgenv().ChangeAnim
+    
+    TweenService:Create(ToggleSwitch, TweenInfo.new(0.2), {
+        BackgroundColor3 = active and Color3.fromRGB(46, 204, 113) or Color3.fromRGB(120, 120, 120)
+    }):Play()
+    
+    TweenService:Create(ToggleCircle, TweenInfo.new(0.2), {
+        Position = active and UDim2.new(0, 34, 0.5, -11) or UDim2.new(0, 4, 0.5, -11)
+    }):Play()
+    
+    if active then 
+        applyAnimations(CURRENT_ANIMS) 
+    else
+        if LocalPlayer.Character then
+            saveOriginalAnimations(LocalPlayer.Character)
+            applyAnimations(ORIGINAL_ANIMS)
+        end
+    end
+end)
+
+-- [[ HER ANİMASYON İÇİN BİREYSEL TOGGLE VE DROPDOWN OLUŞTURUCU ]] --
+local openDropdown = nil
+local function createDropdown(labelName, animTypeKey)
+    local WrapperFrame = Instance.new("Frame")
+    WrapperFrame.Size = UDim2.new(1, 0, 0, 40)
+    WrapperFrame.BackgroundTransparency = 1
+    WrapperFrame.Parent = Container
+
+    -- Dropdown Menüsü (Sol tarafta yer alır)
+    local DropdownFrame = Instance.new("Frame")
+    DropdownFrame.Size = UDim2.new(1, -55, 0, 40)
+    DropdownFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+    DropdownFrame.BackgroundTransparency = 0.3
+    DropdownFrame.ClipsDescendants = true
+    DropdownFrame.Parent = WrapperFrame
+    Instance.new("UICorner", DropdownFrame).CornerRadius = UDim.new(0, 6)
+
+    local HeaderBtn = Instance.new("TextButton")
+    HeaderBtn.Size = UDim2.new(1, 0, 0, 40)
+    HeaderBtn.BackgroundTransparency = 1
+    HeaderBtn.Text = "  " .. labelName .. " : Seçilmedi"
+    HeaderBtn.TextColor3 = Color3.fromRGB(235, 235, 235)
+    HeaderBtn.Font = Enum.Font.Gotham
+    HeaderBtn.TextSize = 12
+    HeaderBtn.TextXAlignment = Enum.TextXAlignment.Left
+    HeaderBtn.Parent = DropdownFrame
+
+    -- Her Animasyona Özel Ayrı Aç/Kapa (Toggle) Butonu (Sağ tarafta yer alır)
+    local SubToggle = Instance.new("TextButton")
+    SubToggle.Size = UDim2.new(0, 48, 0, 24)
+    SubToggle.Position = UDim2.new(1, -48, 0, 8)
+    SubToggle.BackgroundColor3 = Color3.fromRGB(46, 204, 113) -- Başlangıçta AÇIK
+    SubToggle.Text = "ON"
+    SubToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    SubToggle.Font = Enum.Font.GothamBold
+    SubToggle.TextSize = 10
+    SubToggle.Parent = WrapperFrame
+    Instance.new("UICorner", SubToggle).CornerRadius = UDim.new(0, 6)
+
+    SubToggle.MouseButton1Click:Connect(function()
+        TOGGLE_STATES[animTypeKey] = not TOGGLE_STATES[animTypeKey]
+        local isAnimOn = TOGGLE_STATES[animTypeKey]
+        
+        if isAnimOn then
+            SubToggle.BackgroundColor3 = Color3.fromRGB(46, 204, 113)
+            SubToggle.Text = "ON"
+        else
+            SubToggle.BackgroundColor3 = Color3.fromRGB(231, 76, 60)
+            SubToggle.Text = "OFF"
+        end
+        
+        if getgenv().ChangeAnim then
+            applyAnimations(CURRENT_ANIMS)
+        end
+    end)
+
+    -- Dropdown İçi Arama Çubuğu
+    local SearchBox = Instance.new("TextBox")
+    SearchBox.Size = UDim2.new(1, -16, 0, 28)
+    SearchBox.Position = UDim2.new(0, 8, 0, 45)
+    SearchBox.BackgroundColor3 = Color3.fromRGB(45, 45, 52)
+    SearchBox.PlaceholderText = "Ara..."
+    SearchBox.Text = ""
+    SearchBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+    SearchBox.PlaceholderColor3 = Color3.fromRGB(140, 140, 140)
+    SearchBox.Font = Enum.Font.Gotham
+    SearchBox.TextSize = 12
+    SearchBox.Visible = false
+    SearchBox.Parent = DropdownFrame
+    Instance.new("UICorner", SearchBox).CornerRadius = UDim.new(0, 4)
+
+    -- Liste Konteyneri
+    local ListContainer = Instance.new("ScrollingFrame")
+    ListContainer.Size = UDim2.new(1, 0, 0, 0)
+    ListContainer.Position = UDim2.new(0, 0, 0, 80)
+    ListContainer.BackgroundTransparency = 1
+    ListContainer.BorderSizePixel = 0
+    ListContainer.ScrollBarThickness = 4
+    ListContainer.CanvasSize = UDim2.new(0, 0, 0, 0)
+    ListContainer.Parent = DropdownFrame
+
+    local ListLayout = Instance.new("UIListLayout")
+    ListLayout.SortOrder = Enum.SortOrder.Name
+    ListLayout.Parent = ListContainer
+
+    ListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        ListContainer.CanvasSize = UDim2.new(0, 0, 0, ListLayout.AbsoluteContentSize.Y)
+    end)
+
+    local itemButtons = {}
+
+    for packName, anims in pairs(ANIMATION_DATA) do
+        local targetAssetId = anims[animTypeKey]
+        if not targetAssetId and animTypeKey == "idle2" then
+            targetAssetId = anims["idle1"]
+        end
+
+        if targetAssetId then
+            local ItemBtn = Instance.new("TextButton")
+            ItemBtn.Size = UDim2.new(1, 0, 0, 30)
+            ItemBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+            ItemBtn.BackgroundTransparency = 0.4
+            ItemBtn.Text = "   " .. packName
+            ItemBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+            ItemBtn.Font = Enum.Font.Gotham
+            ItemBtn.TextSize = 12
+            ItemBtn.TextXAlignment = Enum.TextXAlignment.Left
+            ItemBtn.Parent = ListContainer
+
+            table.insert(itemButtons, {btn = ItemBtn, name = packName:lower()})
+
+            ItemBtn.MouseButton1Click:Connect(function()
+                if string.find(targetAssetId, "http") then
+                    CURRENT_ANIMS[animTypeKey] = targetAssetId
+                else
+                    CURRENT_ANIMS[animTypeKey] = "rbxassetid://" .. targetAssetId
+                end
+                
+                HeaderBtn.Text = "  " .. labelName .. " : " .. packName
+                
+                TweenService:Create(DropdownFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quart), {Size = UDim2.new(1, -55, 0, 40)}):Play()
+                TweenService:Create(WrapperFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quart), {Size = UDim2.new(1, 0, 0, 40)}):Play()
+                TweenService:Create(ListContainer, TweenInfo.new(0.25, Enum.EasingStyle.Quart), {Size = UDim2.new(1, 0, 0, 0)}):Play()
+                SearchBox.Visible = false
+                openDropdown = nil
+                
+                if getgenv().ChangeAnim then applyAnimations(CURRENT_ANIMS) end
+            end)
+        end
+    end
+
+    -- Arama İşlevi
+    SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+        local query = SearchBox.Text:lower()
+        local visibleCount = 0
+        for _, data in ipairs(itemButtons) do
+            if query == "" or string.find(data.name, query) then
+                data.btn.Visible = true
+                visibleCount = visibleCount + 1
+            else
+                data.btn.Visible = false
+            end
+        end
+        
+        local calculatedHeight = math.clamp(visibleCount * 30, 0, 140)
+        ListContainer.Size = UDim2.new(1, 0, 0, calculatedHeight)
+        DropdownFrame.Size = UDim2.new(1, -55, 0, 85 + calculatedHeight)
+        WrapperFrame.Size = UDim2.new(1, 0, 0, 85 + calculatedHeight)
+    end)
+
+    HeaderBtn.MouseButton1Click:Connect(function()
+        local isClosed = (DropdownFrame.Size.Y.Offset == 40)
+        
+        if openDropdown and openDropdown ~= DropdownFrame then
+            local otherWrapper = openDropdown.Parent
+            local otherList = openDropdown:FindFirstChildWhichIsA("ScrollingFrame", true)
+            local otherSearch = openDropdown:FindFirstChildWhichIsA("TextBox", true)
+            
+            TweenService:Create(openDropdown, TweenInfo.new(0.25, Enum.EasingStyle.Quart), {Size = UDim2.new(1, -55, 0, 40)}):Play()
+            if otherWrapper then TweenService:Create(otherWrapper, TweenInfo.new(0.25, Enum.EasingStyle.Quart), {Size = UDim2.new(1, 0, 0, 40)}):Play() end
+            if otherList then TweenService:Create(otherList, TweenInfo.new(0.25, Enum.EasingStyle.Quart), {Size = UDim2.new(1, 0, 0, 0)}):Play() end
+            if otherSearch then otherSearch.Visible = false end
+        end
+        
+        if isClosed then
+            SearchBox.Text = ""
+            SearchBox.Visible = true
+            for _, data in ipairs(itemButtons) do data.btn.Visible = true end
+            
+            local contentHeight = math.clamp(ListLayout.AbsoluteContentSize.Y, 0, 140)
+            local targetHeight = 85 + contentHeight
+            
+            TweenService:Create(DropdownFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2.new(1, -55, 0, targetHeight)}):Play()
+            TweenService:Create(WrapperFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 0, targetHeight)}):Play()
+            TweenService:Create(ListContainer, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 0, contentHeight)}):Play()
+            openDropdown = DropdownFrame
+        else
+            TweenService:Create(DropdownFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quart), {Size = UDim2.new(1, -55, 0, 40)}):Play()
+            TweenService:Create(WrapperFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quart), {Size = UDim2.new(1, 0, 0, 40)}):Play()
+            TweenService:Create(ListContainer, TweenInfo.new(0.25, Enum.EasingStyle.Quart), {Size = UDim2.new(1, 0, 0, 0)}):Play()
+            SearchBox.Visible = false
+            openDropdown = nil
+        end
+    end)
+end
+
+-- İstenen Bütün Animasyon Türleri İçin Ayrı Ayrı Dropdown ve Toggle Oluştur
+createDropdown("Idle Animation 1", "idle1")
+createDropdown("Idle Animation 2", "idle2")
+createDropdown("Walk Animation", "walk")
+createDropdown("Run Animation", "run")
+createDropdown("Jump Animation", "jump")
+createDropdown("Fall Animation", "fall")
+createDropdown("Climb Animation", "climb")

@@ -1,20 +1,11 @@
---// Dev Console Log Recorder
---// /c chat toggle
---// Starts hidden
---// Inject notify added
---// Enum alignment bug fixed permanently
+--// Custom Dev Console Log Recorder //--
 
 -- Services
 local Players = game:GetService("Players")
 local LogService = game:GetService("LogService")
 local UIS = game:GetService("UserInputService")
 local StarterGui = game:GetService("StarterGui")
-
 local LP = Players.LocalPlayer
-
--- Config
-local MAX_LOGS = 100
-local CHAT_COMMAND = "/e"
 
 -- State
 local loggingEnabled = true
@@ -24,93 +15,187 @@ local logs = {}
 pcall(function()
     StarterGui:SetCore("SendNotification", {
         Title = "Mobile Console Loaded",
-        Text = "Type /e to open and Close",
+        Text = "Use the screen button to toggle console",
         Duration = 5
     })
 end)
 
--- GUI
+-- GUI ROOT
 local gui = Instance.new("ScreenGui")
 gui.Name = "LogRecorderGUI"
 gui.ResetOnSpawn = false
 gui.Parent = LP:WaitForChild("PlayerGui")
 
+-- MAIN FRAME (Kırmızı, yarı saydam, keskin kenarlar - %40 büyütüldü: 0.48 * 1.40 = ~0.67)
 local main = Instance.new("Frame")
-main.Size = UDim2.fromScale(0.48, 0.48)
-main.Position = UDim2.fromScale(0.26, 0.26)
-main.BackgroundColor3 = Color3.fromRGB(20,20,20)
+main.Size = UDim2.fromScale(0.67, 0.67)
+main.Position = UDim2.fromScale(0.165, 0.165)
+main.BackgroundColor3 = Color3.fromRGB(180, 0, 0) -- Kırmızı
+main.BackgroundTransparency = 0.4 -- Yarı saydam
 main.BorderSizePixel = 0
-main.Visible = false -- START HIDDEN
+main.Visible = false -- Başlangıçta gizli
 main.Parent = gui
-Instance.new("UICorner", main).CornerRadius = UDim.new(0,10)
 
--- Title
+-- TOP BAR (Siyah şerit)
+local topBar = Instance.new("Frame")
+topBar.Size = UDim2.new(1, 0, 0, 32)
+topBar.Position = UDim2.new(0, 0, 0, 0)
+topBar.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+topBar.BorderSizePixel = 0
+topBar.Parent = main
+
+-- Title ("Console Logs" - Sol tarafta)
 local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1,-10,0,34)
-title.Position = UDim2.new(0,5,0,5)
+title.Size = UDim2.new(1, -70, 1, 0)
+title.Position = UDim2.new(0, 8, 0, 0)
 title.BackgroundTransparency = 1
-title.Text = "Dev Console Log Recorder  |  /e"
+title.Text = "Console Logs"
 title.Font = Enum.Font.GothamBold
 title.TextSize = 14
-title.TextColor3 = Color3.new(1,1,1)
+title.TextColor3 = Color3.new(1, 1, 1)
 title.TextXAlignment = Enum.TextXAlignment.Left
 title.TextYAlignment = Enum.TextYAlignment.Center
-title.Parent = main
+title.Parent = topBar
 
--- Button factory
+-- TopBar Gizleme Butonu (-)
+local minimizeBtn = Instance.new("TextButton")
+minimizeBtn.Size = UDim2.new(0, 30, 1, 0)
+minimizeBtn.Position = UDim2.new(1, -60, 0, 0)
+minimizeBtn.BackgroundTransparency = 1
+minimizeBtn.Text = "-"
+minimizeBtn.Font = Enum.Font.GothamBold
+minimizeBtn.TextSize = 18
+minimizeBtn.TextColor3 = Color3.new(1, 1, 1)
+minimizeBtn.Parent = topBar
+
+-- TopBar Kapatma Butonu (X)
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.new(0, 30, 1, 0)
+closeBtn.Position = UDim2.new(1, -30, 0, 0)
+closeBtn.BackgroundTransparency = 1
+closeBtn.Text = "X"
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.TextSize = 15
+closeBtn.TextColor3 = Color3.new(1, 1, 1)
+closeBtn.Parent = topBar
+
+-- KONTROL BUTONLARI (Kırmızı zeminli, keskin kenarlı)
 local function makeBtn(text, x)
     local b = Instance.new("TextButton")
-    b.Size = UDim2.new(0,130,0,28)
-    b.Position = UDim2.new(0,x,0,44)
+    b.Size = UDim2.new(0, 130, 0, 28)
+    b.Position = UDim2.new(0, x, 0, 38)
     b.Text = text
     b.Font = Enum.Font.Gotham
     b.TextSize = 12
-    b.TextColor3 = Color3.new(1,1,1)
-    b.BackgroundColor3 = Color3.fromRGB(35,35,35)
+    b.TextColor3 = Color3.new(1, 1, 1)
+    b.BackgroundColor3 = Color3.fromRGB(200, 20, 20) -- Kırmızı zemin
     b.BorderSizePixel = 0
-    Instance.new("UICorner", b).CornerRadius = UDim.new(0,6)
     b.Parent = main
     return b
 end
 
--- Buttons
 local toggleBtn = makeBtn("Stop Logging", 5)
-local clearBtn  = makeBtn("Clear Logs", 145)
-local saveBtn   = makeBtn("Save to File", 285)
-local copyBtn   = makeBtn("Copy Logs", 425)
+local clearBtn = makeBtn("Clear Logs", 140)
+local saveBtn = makeBtn("Save to File", 275)
+local copyBtn = makeBtn("Copy Logs", 410)
 
--- Log frame
+-- LOG FRAME (Kırmızı zeminli, keskin kenarlı)
 local logFrame = Instance.new("ScrollingFrame")
-logFrame.Position = UDim2.new(0,5,0,80)
-logFrame.Size = UDim2.new(1,-10,1,-85)
-logFrame.CanvasSize = UDim2.new(0,0,0,0)
+logFrame.Position = UDim2.new(0, 5, 0, 72)
+logFrame.Size = UDim2.new(1, -10, 1, -77)
+logFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
 logFrame.ScrollBarImageTransparency = 0.25
-logFrame.BackgroundColor3 = Color3.fromRGB(15,15,15)
+logFrame.BackgroundColor3 = Color3.fromRGB(120, 10, 10) -- Kırmızı zemin
+logFrame.BackgroundTransparency = 0.3
 logFrame.BorderSizePixel = 0
 logFrame.Parent = main
-Instance.new("UICorner", logFrame).CornerRadius = UDim.new(0,6)
 
 local layout = Instance.new("UIListLayout", logFrame)
-layout.Padding = UDim.new(0,4)
+layout.Padding = UDim.new(0, 4)
 
--- Log writer
+-- TOGGLE BUTTON (Yalnızca sağ-sol sürüklenebilen kare buton)
+local toggleGuiBtn = Instance.new("TextButton")
+toggleGuiBtn.Name = "ConsoleToggleButton"
+toggleGuiBtn.Size = UDim2.new(0, 40, 0, 40) -- Kare boyut
+toggleGuiBtn.Position = UDim2.new(0, 168, 0.5, -375) -- Y ekseni sabitleme (Ekranın tam ortasında yüksekliği kilitli)
+toggleGuiBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+toggleGuiBtn.BorderSizePixel = 0
+toggleGuiBtn.Text = "C"
+toggleGuiBtn.Font = Enum.Font.GothamBold
+toggleGuiBtn.TextSize = 13
+toggleGuiBtn.TextColor3 = Color3.new(1, 1, 1)
+toggleGuiBtn.Parent = gui
+
+-- SADECE YATAY (SAĞ-SOL) SÜRÜKLENEN BUTON MANTIĞI
+do
+    local dragging = false
+    local dragStart, startPos
+
+    toggleGuiBtn.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = toggleGuiBtn.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+
+    UIS.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            local delta = input.Position - dragStart
+            toggleGuiBtn.Position = UDim2.new(
+                startPos.X.Scale, 
+                startPos.X.Offset + delta.X, 
+                startPos.Y.Scale, 
+                startPos.Y.Offset
+            )
+        end
+    end)
+end
+
+-- MAIN FRAME DRAG (Üst Siyah Şeritten Taşıma)
+do
+    local dragging = false
+    local dragStart, startPos
+
+    topBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = main.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+
+    UIS.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            local delta = input.Position - dragStart
+            main.Position = UDim2.new(
+                startPos.X.Scale,
+                startPos.X.Offset + delta.X,
+                startPos.Y.Scale,
+                startPos.Y.Offset + delta.Y
+            )
+        end
+    end)
+end
+
+-- LOG WRITER (Sınırsız Log + Renk Ayarları: Warn -> Sarı, Error -> Kırmızı, Print -> Beyaz)
 local function pushLog(text, msgType)
     if not loggingEnabled then return end
-
-    if #logs >= MAX_LOGS then
-        table.remove(logs,1)
-        for _,v in ipairs(logFrame:GetChildren()) do
-            if v:IsA("TextLabel") then
-                v:Destroy()
-                break
-            end
-        end
-    end
 
     table.insert(logs, text)
 
     local lbl = Instance.new("TextLabel")
-    lbl.Size = UDim2.new(1,-8,0,18)
+    lbl.Size = UDim2.new(1, -8, 0, 18)
     lbl.AutomaticSize = Enum.AutomaticSize.Y
     lbl.TextWrapped = true
     lbl.TextXAlignment = Enum.TextXAlignment.Left
@@ -118,37 +203,35 @@ local function pushLog(text, msgType)
     lbl.BackgroundTransparency = 1
     lbl.Font = Enum.Font.Code
     lbl.TextSize = 12
-
+    
+    -- Renk Koşulları
     if msgType == Enum.MessageType.MessageError then
-        lbl.TextColor3 = Color3.fromRGB(255,90,90)
+        lbl.TextColor3 = Color3.fromRGB(255, 60, 60) -- Kırmızı
     elseif msgType == Enum.MessageType.MessageWarning then
-        lbl.TextColor3 = Color3.fromRGB(255,210,90)
+        lbl.TextColor3 = Color3.fromRGB(255, 220, 40) -- Sarı
     else
-        lbl.TextColor3 = Color3.fromRGB(210,210,210)
+        lbl.TextColor3 = Color3.fromRGB(255, 255, 255) -- Beyaz (Print & Info)
     end
-
+    
     lbl.Text = text
     lbl.Parent = logFrame
 
     task.wait()
-    logFrame.CanvasSize = UDim2.new(0,0,0,layout.AbsoluteContentSize.Y + 6)
-    logFrame.CanvasPosition = Vector2.new(
-        0,
-        math.max(0, logFrame.CanvasSize.Y.Offset - logFrame.AbsoluteWindowSize.Y)
-    )
+    logFrame.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 6)
+    logFrame.CanvasPosition = Vector2.new(0, math.max(0, logFrame.CanvasSize.Y.Offset - logFrame.AbsoluteWindowSize.Y))
 end
 
--- Load existing logs
-for _,entry in ipairs(LogService:GetLogHistory()) do
+-- LOAD EXISTING LOGS
+for _, entry in ipairs(LogService:GetLogHistory()) do
     pushLog(os.date("[%H:%M:%S] ") .. entry.message, entry.messageType)
 end
 
--- Real-time logs
+-- REAL-TIME LOGS
 LogService.MessageOut:Connect(function(msg, msgType)
     pushLog(os.date("[%H:%M:%S] ") .. msg, msgType)
 end)
 
--- Buttons logic
+-- BUTTON EVENTS
 toggleBtn.MouseButton1Click:Connect(function()
     loggingEnabled = not loggingEnabled
     toggleBtn.Text = loggingEnabled and "Stop Logging" or "Start Logging"
@@ -156,10 +239,12 @@ end)
 
 clearBtn.MouseButton1Click:Connect(function()
     table.clear(logs)
-    for _,v in ipairs(logFrame:GetChildren()) do
-        if v:IsA("TextLabel") then v:Destroy() end
+    for _, v in ipairs(logFrame:GetChildren()) do
+        if v:IsA("TextLabel") then
+            v:Destroy()
+        end
     end
-    logFrame.CanvasSize = UDim2.new(0,0,0,0)
+    logFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
 end)
 
 saveBtn.MouseButton1Click:Connect(function()
@@ -169,7 +254,7 @@ saveBtn.MouseButton1Click:Connect(function()
     end
     local name = "DevConsoleLogs_" .. os.time() .. ".txt"
     writefile(name, table.concat(logs, "\n"))
-    pushLog("[INFO] Loglar kaydedildi: "..name, Enum.MessageType.MessageOutput)
+    pushLog("[INFO] Loglar kaydedildi: " .. name, Enum.MessageType.MessageOutput)
 end)
 
 copyBtn.MouseButton1Click:Connect(function()
@@ -181,43 +266,17 @@ copyBtn.MouseButton1Click:Connect(function()
     pushLog("[INFO] Loglar panoya kopyalandı", Enum.MessageType.MessageOutput)
 end)
 
--- Chat toggle (/c)
-LP.Chatted:Connect(function(msg)
-    if msg:lower() == CHAT_COMMAND then
-        main.Visible = not main.Visible
-    end
-end)
-
--- Mobile + PC drag
-do
-    local dragging = false
-    local dragStart, startPos
-
-    main.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1
-        or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-            dragStart = input.Position
-            startPos = main.Position
-
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    dragging = false
-                end
-            end)
-        end
-    end)
-
-    UIS.InputChanged:Connect(function(input)
-        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement
-        or input.UserInputType == Enum.UserInputType.Touch) then
-            local delta = input.Position - dragStart
-            main.Position = UDim2.new(
-                startPos.X.Scale, startPos.X.Offset + delta.X,
-                startPos.Y.Scale, startPos.Y.Offset + delta.Y
-            )
-        end
-    end)
+-- TOGGLE & CLOSE EVENTS
+local function toggleConsole()
+    main.Visible = not main.Visible
 end
 
-pushLog("[INFO] Injected. Type /c to open or close the console.", Enum.MessageType.MessageOutput)
+toggleGuiBtn.MouseButton1Click:Connect(toggleConsole)
+minimizeBtn.MouseButton1Click:Connect(function()
+    main.Visible = false
+end)
+closeBtn.MouseButton1Click:Connect(function()
+    main.Visible = false
+end)
+
+pushLog("[INFO] Console recorder initialized successfully.", Enum.MessageType.MessageOutput)

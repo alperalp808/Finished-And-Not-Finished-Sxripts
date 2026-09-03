@@ -1,93 +1,531 @@
---// SERVICES
+--[[
+	SATIN ALMA PANELİ - LocalScript
+	--------------------------------
+	Bu script çalıştığında GUI'yi kendisi oluşturur.
+	Kullanım: Bu scripti StarterPlayerScripts içine koy, oyunu başlat.
+
+	Kategoriler: Gamepass / Bundle / Catalog
+	Her kategoride bir ID textbox'ı var. ID girilip "Satın Al" basılınca
+	ilgili Roblox satın alma penceresi açılır.
+
+	Örnek: https://www.roblox.com/catalog/192557913/Sparkling-Angel-Wings
+	       -> textbox'a  192557913  yazılır (Catalog sekmesinde)
+]]
+
+local MarketplaceService = game:GetService("MarketplaceService")
+local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 
---// LIMITS
-local MAX_WALKSPEED = 16
-local MAX_JUMPPOWER = 50
-local MAX_REAL_SPEED = 35 -- gerçek hareket limiti (stud/s)
-local MAX_INSTANT_DISTANCE = 80 -- ani sıçrama
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
---// CACHE
-local PlayerData = {}
+----------------------------------------------------------------
+-- RENK / STİL SABİTLERİ
+----------------------------------------------------------------
 
------------------------------------------------------
--- CHARACTER MONITOR
------------------------------------------------------
+local COLOR_BG        = Color3.fromRGB(24, 25, 33)
+local COLOR_PANEL     = Color3.fromRGB(32, 34, 44)
+local COLOR_ACCENT    = Color3.fromRGB(94, 129, 244)
+local COLOR_ACCENT_2  = Color3.fromRGB(64, 96, 210)
+local COLOR_TEXT      = Color3.fromRGB(235, 236, 240)
+local COLOR_SUBTEXT   = Color3.fromRGB(150, 153, 165)
+local COLOR_STROKE    = Color3.fromRGB(52, 55, 68)
+local COLOR_SUCCESS   = Color3.fromRGB(87, 201, 138)
+local COLOR_ERROR     = Color3.fromRGB(224, 92, 92)
 
-local function MonitorCharacter(player, character)
+local FONT_TITLE = Enum.Font.GothamBold
+local FONT_BODY  = Enum.Font.Gotham
+local FONT_MED   = Enum.Font.GothamMedium
 
-	local humanoid = character:WaitForChild("Humanoid")
-	local root = character:WaitForChild("HumanoidRootPart")
+----------------------------------------------------------------
+-- YARDIMCI FONKSİYONLAR
+----------------------------------------------------------------
 
-	-------------------------------------------------
-	-- 1️⃣ PROPERTY CHANGE DETECT
-	-------------------------------------------------
-
-	humanoid:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
-		if humanoid.WalkSpeed > MAX_WALKSPEED then
-			player:Kick("WalkSpeed exploit detected.")
-		end
-	end)
-
-	humanoid:GetPropertyChangedSignal("JumpPower"):Connect(function()
-		if humanoid.UseJumpPower and humanoid.JumpPower > MAX_JUMPPOWER then
-			player:Kick("JumpPower exploit detected.")
-		end
-	end)
-
-	-------------------------------------------------
-	-- 2️⃣ REAL MOVEMENT CHECK
-	-------------------------------------------------
-
-	PlayerData[player] = {
-		LastPos = root.Position,
-		LastTime = tick()
-	}
-
-	RunService.Heartbeat:Connect(function()
-
-		if not PlayerData[player] then return end
-		if not player.Character or player.Character ~= character then return end
-
-		local now = tick()
-		local dt = now - PlayerData[player].LastTime
-		if dt <= 0 then return end
-
-		local currentPos = root.Position
-		local lastPos = PlayerData[player].LastPos
-
-		local distance = (currentPos - lastPos).Magnitude
-		local speed = distance / dt
-
-		-- Ani teleport
-		if distance > MAX_INSTANT_DISTANCE then
-			player:Kick("Teleport detected.")
-			return
-		end
-
-		-- Gerçek hız kontrolü
-		if speed > MAX_REAL_SPEED then
-			player:Kick("Speed exploit detected.")
-			return
-		end
-
-		PlayerData[player].LastPos = currentPos
-		PlayerData[player].LastTime = now
-
-	end)
+local function create(className, props)
+	local inst = Instance.new(className)
+	for propName, propValue in pairs(props) do
+		inst[propName] = propValue
+	end
+	return inst
 end
 
------------------------------------------------------
--- PLAYER INIT
------------------------------------------------------
+local function addCorner(parent, radius)
+	create("UICorner", {
+		CornerRadius = UDim.new(0, radius or 10),
+		Parent = parent,
+	})
+end
 
-Players.PlayerAdded:Connect(function(player)
-	player.CharacterAdded:Connect(function(character)
-		MonitorCharacter(player, character)
+local function addStroke(parent, color, thickness)
+	create("UIStroke", {
+		Color = color or COLOR_STROKE,
+		Thickness = thickness or 1,
+		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+		Parent = parent,
+	})
+end
+
+local function addPadding(parent, all)
+	create("UIPadding", {
+		PaddingTop = UDim.new(0, all),
+		PaddingBottom = UDim.new(0, all),
+		PaddingLeft = UDim.new(0, all),
+		PaddingRight = UDim.new(0, all),
+		Parent = parent,
+	})
+end
+
+local function tweenTo(inst, props, duration, style)
+	local tween = TweenService:Create(
+		inst,
+		TweenInfo.new(duration or 0.25, style or Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+		props
+	)
+	tween:Play()
+	return tween
+end
+
+----------------------------------------------------------------
+-- ANA GUI İSKELETİ
+----------------------------------------------------------------
+
+-- Varsa eski panели temizle (yeniden çalıştırınca çoğalmasın)
+local oldGui = PlayerGui:FindFirstChild("PurchasePanel")
+if oldGui then
+	oldGui:Destroy()
+end
+
+local ScreenGui = create("ScreenGui", {
+	Name = "PurchasePanel",
+	ResetOnSpawn = false,
+	ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+	Parent = PlayerGui,
+})
+
+-- Panel açma/kapama için küçük bir sağ-alt buton
+local ToggleButton = create("TextButton", {
+	Name = "ToggleButton",
+	Parent = ScreenGui,
+	Size = UDim2.fromOffset(56, 56),
+	Position = UDim2.new(1, -76, 1, -76),
+	AnchorPoint = Vector2.new(0, 0),
+	BackgroundColor3 = COLOR_ACCENT,
+	Text = "🛒",
+	TextSize = 24,
+	Font = FONT_TITLE,
+	TextColor3 = COLOR_TEXT,
+	AutoButtonColor = false,
+})
+addCorner(ToggleButton, 28)
+addStroke(ToggleButton, COLOR_ACCENT_2, 2)
+
+-- Ana pencere
+local MainFrame = create("Frame", {
+	Name = "MainFrame",
+	Parent = ScreenGui,
+	Size = UDim2.fromOffset(420, 340),
+	Position = UDim2.new(0.5, -210, 0.5, -170),
+	BackgroundColor3 = COLOR_BG,
+	Visible = false,
+	ClipsDescendants = true,
+})
+addCorner(MainFrame, 14)
+addStroke(MainFrame, COLOR_STROKE, 1)
+
+----------------------------------------------------------------
+-- ÜST BAR (Başlık + Geri + Kapat)
+----------------------------------------------------------------
+
+local TopBar = create("Frame", {
+	Name = "TopBar",
+	Parent = MainFrame,
+	Size = UDim2.new(1, 0, 0, 50),
+	BackgroundColor3 = COLOR_PANEL,
+	BorderSizePixel = 0,
+})
+addCorner(TopBar, 14)
+
+-- TopBar'ın alt köşelerinin yuvarlanmasını engellemek için maskeleme parçası
+create("Frame", {
+	Parent = TopBar,
+	Size = UDim2.new(1, 0, 0, 14),
+	Position = UDim2.new(0, 0, 1, -14),
+	BackgroundColor3 = COLOR_PANEL,
+	BorderSizePixel = 0,
+	ZIndex = 0,
+})
+
+local BackButton = create("TextButton", {
+	Name = "Back",
+	Parent = TopBar,
+	Size = UDim2.fromOffset(36, 36),
+	Position = UDim2.new(0, 8, 0.5, -18),
+	BackgroundColor3 = COLOR_BG,
+	Text = "‹",
+	TextSize = 22,
+	Font = FONT_TITLE,
+	TextColor3 = COLOR_TEXT,
+	Visible = false,
+	AutoButtonColor = false,
+})
+addCorner(BackButton, 10)
+
+local TitleLabel = create("TextLabel", {
+	Name = "TitleLabel",
+	Parent = TopBar,
+	Size = UDim2.new(1, -100, 1, 0),
+	Position = UDim2.new(0, 52, 0, 0),
+	BackgroundTransparency = 1,
+	Text = "Satın Alma Merkezi",
+	TextSize = 18,
+	Font = FONT_TITLE,
+	TextColor3 = COLOR_TEXT,
+	TextXAlignment = Enum.TextXAlignment.Left,
+})
+
+local CloseButton = create("TextButton", {
+	Name = "Close",
+	Parent = TopBar,
+	Size = UDim2.fromOffset(36, 36),
+	Position = UDim2.new(1, -44, 0.5, -18),
+	BackgroundColor3 = COLOR_BG,
+	Text = "✕",
+	TextSize = 16,
+	Font = FONT_MED,
+	TextColor3 = COLOR_SUBTEXT,
+	AutoButtonColor = false,
+})
+addCorner(CloseButton, 10)
+
+----------------------------------------------------------------
+-- ANA SAYFA: 3 KATEGORİ BUTONU
+----------------------------------------------------------------
+
+local HomePage = create("Frame", {
+	Name = "HomePage",
+	Parent = MainFrame,
+	Size = UDim2.new(1, 0, 1, -50),
+	Position = UDim2.new(0, 0, 0, 50),
+	BackgroundTransparency = 1,
+})
+addPadding(HomePage, 20)
+
+local HomeLayout = create("UIListLayout", {
+	Parent = HomePage,
+	Padding = UDim.new(0, 14),
+	HorizontalAlignment = Enum.HorizontalAlignment.Center,
+	SortOrder = Enum.SortOrder.LayoutOrder,
+})
+
+local function createCategoryButton(order, name, subtitle, icon)
+	local btn = create("TextButton", {
+		Name = name,
+		Parent = HomePage,
+		Size = UDim2.new(1, 0, 0, 68),
+		BackgroundColor3 = COLOR_PANEL,
+		Text = "",
+		AutoButtonColor = false,
+		LayoutOrder = order,
+	})
+	addCorner(btn, 12)
+	addStroke(btn, COLOR_STROKE, 1)
+
+	local iconLabel = create("TextLabel", {
+		Parent = btn,
+		Size = UDim2.fromOffset(40, 40),
+		Position = UDim2.new(0, 14, 0.5, -20),
+		BackgroundColor3 = COLOR_BG,
+		Text = icon,
+		TextSize = 20,
+		Font = FONT_BODY,
+		TextColor3 = COLOR_ACCENT,
+	})
+	addCorner(iconLabel, 10)
+
+	create("TextLabel", {
+		Parent = btn,
+		Size = UDim2.new(1, -140, 0, 22),
+		Position = UDim2.new(0, 66, 0, 12),
+		BackgroundTransparency = 1,
+		Text = name,
+		TextSize = 16,
+		Font = FONT_TITLE,
+		TextColor3 = COLOR_TEXT,
+		TextXAlignment = Enum.TextXAlignment.Left,
+	})
+
+	create("TextLabel", {
+		Parent = btn,
+		Size = UDim2.new(1, -140, 0, 18),
+		Position = UDim2.new(0, 66, 0, 34),
+		BackgroundTransparency = 1,
+		Text = subtitle,
+		TextSize = 12,
+		Font = FONT_BODY,
+		TextColor3 = COLOR_SUBTEXT,
+		TextXAlignment = Enum.TextXAlignment.Left,
+	})
+
+	create("TextLabel", {
+		Parent = btn,
+		Size = UDim2.fromOffset(20, 40),
+		Position = UDim2.new(1, -34, 0.5, -20),
+		BackgroundTransparency = 1,
+		Text = "›",
+		TextSize = 20,
+		Font = FONT_TITLE,
+		TextColor3 = COLOR_SUBTEXT,
+	})
+
+	-- Hover efekti
+	btn.MouseEnter:Connect(function()
+		tweenTo(btn, {BackgroundColor3 = COLOR_ACCENT}, 0.15)
 	end)
+	btn.MouseLeave:Connect(function()
+		tweenTo(btn, {BackgroundColor3 = COLOR_PANEL}, 0.15)
+	end)
+
+	return btn
+end
+
+local GamepassButton = createCategoryButton(1, "Gamepass", "Oyun içi ayrıcalıklar", "🎫")
+local BundleButton   = createCategoryButton(2, "Bundle", "Karakter paketleri", "📦")
+local CatalogButton  = createCategoryButton(3, "Catalog", "Aksesuar ve giyim", "👕")
+
+----------------------------------------------------------------
+-- SATIN ALMA SAYFASI (tüm kategoriler bu tek sayfayı paylaşır,
+-- içerik change_tab ile güncellenir)
+----------------------------------------------------------------
+
+local PurchasePage = create("Frame", {
+	Name = "PurchasePage",
+	Parent = MainFrame,
+	Size = UDim2.new(1, 0, 1, -50),
+	Position = UDim2.new(0, 0, 0, 50),
+	BackgroundTransparency = 1,
+	Visible = false,
+})
+addPadding(PurchasePage, 20)
+
+local CategoryIconLabel = create("TextLabel", {
+	Name = "CategoryIcon",
+	Parent = PurchasePage,
+	Size = UDim2.fromOffset(52, 52),
+	Position = UDim2.new(0.5, -26, 0, 0),
+	BackgroundColor3 = COLOR_PANEL,
+	Text = "🎫",
+	TextSize = 24,
+	Font = FONT_BODY,
+	TextColor3 = COLOR_ACCENT,
+})
+addCorner(CategoryIconLabel, 14)
+addStroke(CategoryIconLabel, COLOR_STROKE, 1)
+
+local CategoryDescLabel = create("TextLabel", {
+	Name = "CategoryDesc",
+	Parent = PurchasePage,
+	Size = UDim2.new(1, 0, 0, 20),
+	Position = UDim2.new(0, 0, 0, 60),
+	BackgroundTransparency = 1,
+	Text = "Ürün / Gamepass ID'sini aşağıya girin",
+	TextSize = 13,
+	Font = FONT_BODY,
+	TextColor3 = COLOR_SUBTEXT,
+	TextXAlignment = Enum.TextXAlignment.Center,
+})
+
+local IdTextBox = create("TextBox", {
+	Name = "IdTextBox",
+	Parent = PurchasePage,
+	Size = UDim2.new(1, 0, 0, 44),
+	Position = UDim2.new(0, 0, 0, 92),
+	BackgroundColor3 = COLOR_PANEL,
+	Text = "",
+	PlaceholderText = "Örn: 192557913",
+	PlaceholderColor3 = COLOR_SUBTEXT,
+	TextSize = 15,
+	Font = FONT_MED,
+	TextColor3 = COLOR_TEXT,
+	ClearTextOnFocus = false,
+})
+addCorner(IdTextBox, 10)
+addStroke(IdTextBox, COLOR_STROKE, 1)
+addPadding(IdTextBox, 14)
+
+-- Sadece rakam girilmesini sağla
+IdTextBox:GetPropertyChangedSignal("Text"):Connect(function()
+	local filtered = IdTextBox.Text:gsub("%D", "")
+	if filtered ~= IdTextBox.Text then
+		IdTextBox.Text = filtered
+	end
 end)
 
-Players.PlayerRemoving:Connect(function(player)
-	PlayerData[player] = nil
+local StatusLabel = create("TextLabel", {
+	Name = "StatusLabel",
+	Parent = PurchasePage,
+	Size = UDim2.new(1, 0, 0, 20),
+	Position = UDim2.new(0, 0, 0, 142),
+	BackgroundTransparency = 1,
+	Text = "",
+	TextSize = 12,
+	Font = FONT_MED,
+	TextColor3 = COLOR_ERROR,
+	TextXAlignment = Enum.TextXAlignment.Center,
+})
+
+local PurchaseButton = create("TextButton", {
+	Name = "PurchaseButton",
+	Parent = PurchasePage,
+	Size = UDim2.new(1, 0, 0, 46),
+	Position = UDim2.new(0, 0, 1, -46),
+	BackgroundColor3 = COLOR_ACCENT,
+	Text = "Satın Alma Penceresini Aç",
+	TextSize = 15,
+	Font = FONT_TITLE,
+	TextColor3 = COLOR_TEXT,
+	AutoButtonColor = false,
+})
+addCorner(PurchaseButton, 10)
+
+PurchaseButton.MouseEnter:Connect(function()
+	tweenTo(PurchaseButton, {BackgroundColor3 = COLOR_ACCENT_2}, 0.15)
+end)
+PurchaseButton.MouseLeave:Connect(function()
+	tweenTo(PurchaseButton, {BackgroundColor3 = COLOR_ACCENT}, 0.15)
+end)
+
+----------------------------------------------------------------
+-- SEKME (TAB) MANTIĞI
+----------------------------------------------------------------
+
+-- Şu an hangi kategoridesin ("Home", "Gamepass", "Bundle", "Catalog")
+local currentTab = "Home"
+
+local TAB_CONFIG = {
+	Gamepass = {
+		title = "Gamepass Satın Al",
+		icon = "🎫",
+		desc = "Gamepass ID'sini aşağıya girin",
+		placeholder = "Örn: 12345678",
+	},
+	Bundle = {
+		title = "Bundle Satın Al",
+		icon = "📦",
+		desc = "Bundle ID'sini aşağıya girin",
+		placeholder = "Örn: 96",
+	},
+	Catalog = {
+		title = "Catalog Ürünü Satın Al",
+		icon = "👕",
+		desc = "Ürün (Asset) ID'sini aşağıya girin",
+		placeholder = "Örn: 192557913",
+	},
+}
+
+local function changeTab(tabName)
+	currentTab = tabName
+
+	if tabName == "Home" then
+		TitleLabel.Text = "Satın Alma Merkezi"
+		BackButton.Visible = false
+		HomePage.Visible = true
+		PurchasePage.Visible = false
+		return
+	end
+
+	local config = TAB_CONFIG[tabName]
+	if not config then
+		return
+	end
+
+	TitleLabel.Text = config.title
+	BackButton.Visible = true
+	HomePage.Visible = false
+	PurchasePage.Visible = true
+
+	CategoryIconLabel.Text = config.icon
+	CategoryDescLabel.Text = config.desc
+	IdTextBox.PlaceholderText = config.placeholder
+	IdTextBox.Text = ""
+	StatusLabel.Text = ""
+end
+
+local function checkTab()
+	return currentTab
+end
+
+----------------------------------------------------------------
+-- BUTON BAĞLANTILARI
+----------------------------------------------------------------
+
+GamepassButton.MouseButton1Click:Connect(function()
+	changeTab("Gamepass")
+end)
+
+BundleButton.MouseButton1Click:Connect(function()
+	changeTab("Bundle")
+end)
+
+CatalogButton.MouseButton1Click:Connect(function()
+	changeTab("Catalog")
+end)
+
+BackButton.MouseButton1Click:Connect(function()
+	changeTab("Home")
+end)
+
+ToggleButton.MouseButton1Click:Connect(function()
+	MainFrame.Visible = not MainFrame.Visible
+	if MainFrame.Visible then
+		changeTab("Home")
+	end
+end)
+
+CloseButton.MouseButton1Click:Connect(function()
+	MainFrame.Visible = false
+end)
+
+----------------------------------------------------------------
+-- SATIN ALMA İŞLEMİ
+----------------------------------------------------------------
+
+local function showStatus(message, isError)
+	StatusLabel.Text = message
+	StatusLabel.TextColor3 = isError and COLOR_ERROR or COLOR_SUCCESS
+end
+
+PurchaseButton.MouseButton1Click:Connect(function()
+	local rawId = IdTextBox.Text
+	local id = tonumber(rawId)
+
+	if not id then
+		showStatus("Geçerli bir ID girin.", true)
+		return
+	end
+
+	local tab = checkTab()
+
+	local ok, err = pcall(function()
+		if tab == "Gamepass" then
+			MarketplaceService:PromptGamePassPurchase(LocalPlayer, id)
+		elseif tab == "Bundle" then
+			MarketplaceService:PromptBundlePurchase(LocalPlayer, id)
+		elseif tab == "Catalog" then
+			MarketplaceService:PromptPurchase(LocalPlayer, id)
+		end
+	end)
+
+	if ok then
+		showStatus("Satın alma penceresi açıldı.", false)
+	else
+		showStatus("Hata: pencere açılamadı.", true)
+		warn("[PurchasePanel] PromptPurchase hatası:", err)
+	end
+end)
+
+-- Enter tuşuyla da satın alma tetiklensin
+IdTextBox.FocusLost:Connect(function(enterPressed)
+	if enterPressed then
+		PurchaseButton:Activate()
+	end
 end)

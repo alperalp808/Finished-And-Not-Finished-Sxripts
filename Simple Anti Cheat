@@ -1,5 +1,5 @@
 --//========================================================
---// PROFESSIONAL PLAYER SETTINGS
+--// PROFESSIONAL PLAYER SETTINGS (DARK THEME)
 --// StarterPlayer > StarterPlayerScripts
 --// PC + MOBILE
 --//========================================================
@@ -23,29 +23,25 @@ local MAX_SPEED = 200
 local MIN_JUMP = 0
 local MAX_JUMP = 200
 
--- Settings button
-local BUTTON_X = 0
-local BUTTON_Y = 140
+-- Settings butonunun özel pozisyonu
+local BUTTON_POSITION = UDim2.new(0, 165, 0, 11)
 
 --========================================================
--- COLORS
+-- DARK COLORS PALETTE
 --========================================================
 
-local WHITE = Color3.fromRGB(255, 255, 255)
-local OFF_WHITE = Color3.fromRGB(248, 249, 251)
+local BACKGROUND_DARK = Color3.fromRGB(18, 19, 22)
+local CARD_DARK = Color3.fromRGB(28, 30, 36)
+local CARD_HOVER = Color3.fromRGB(36, 38, 46)
 
-local TEXT = Color3.fromRGB(25, 27, 31)
-local SUBTEXT = Color3.fromRGB(115, 120, 128)
+local TEXT_PRIMARY = Color3.fromRGB(240, 242, 245)
+local TEXT_SECONDARY = Color3.fromRGB(140, 145, 155)
 
-local CARD = Color3.fromRGB(245, 246, 248)
-local CARD_HOVER = Color3.fromRGB(238, 240, 243)
+local BORDER_DARK = Color3.fromRGB(42, 45, 54)
+local ACCENT_PRIMARY = Color3.fromRGB(255, 255, 255)
+local ACCENT_TEXT = Color3.fromRGB(18, 19, 22)
 
-local BORDER = Color3.fromRGB(224, 226, 230)
-
-local ACCENT = Color3.fromRGB(40, 40, 44)
-local ACCENT_LIGHT = Color3.fromRGB(70, 72, 78)
-
-local TRACK = Color3.fromRGB(220, 222, 226)
+local TRACK_DARK = Color3.fromRGB(45, 48, 58)
 
 --========================================================
 -- CHARACTER
@@ -55,36 +51,21 @@ local Character
 local Humanoid
 
 local function RefreshCharacter()
-
-	Character = LocalPlayer.Character
-		or LocalPlayer.CharacterAdded:Wait()
-
+	Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 	Humanoid = Character:WaitForChild("Humanoid")
 end
 
 RefreshCharacter()
-
-LocalPlayer.CharacterAdded:Connect(function(character)
-
-	Character = character
-
-	Humanoid = character:WaitForChild("Humanoid")
-
-	task.wait(0.2)
-
-end)
 
 --========================================================
 -- SCREEN GUI
 --========================================================
 
 local ScreenGui = Instance.new("ScreenGui")
-
 ScreenGui.Name = "ProfessionalPlayerSettings"
 ScreenGui.ResetOnSpawn = false
-ScreenGui.IgnoreGuiInset = false
+ScreenGui.IgnoreGuiInset = true
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-
 ScreenGui.Parent = PlayerGui
 
 --========================================================
@@ -92,109 +73,46 @@ ScreenGui.Parent = PlayerGui
 --========================================================
 
 local Performance = Instance.new("TextLabel")
-
 Performance.Name = "Performance"
-
 Performance.AnchorPoint = Vector2.new(1, 0)
-
-Performance.Position =
-	UDim2.new(
-		1,
-		-12,
-		0,
-		8
-	)
-
-Performance.Size =
-	UDim2.fromOffset(
-		170,
-		18
-	)
-
+Performance.Position = UDim2.new(1, -12, 0, 8)
+Performance.Size = UDim2.fromOffset(170, 18)
 Performance.BackgroundTransparency = 1
-
-Performance.Text =
-	"FPS --   •   0 ms"
-
-Performance.TextColor3 =
-	Color3.fromRGB(
-		255,
-		255,
-		255
-	)
-
-Performance.TextTransparency = 0.15
-
+Performance.Text = "FPS --   •   0 ms"
+Performance.TextColor3 = TEXT_PRIMARY
+Performance.TextTransparency = 0.2
 Performance.TextSize = 11
-
-Performance.Font =
-	Enum.Font.GothamMedium
-
-Performance.TextXAlignment =
-	Enum.TextXAlignment.Right
-
-Performance.TextYAlignment =
-	Enum.TextYAlignment.Center
-
+Performance.Font = Enum.Font.GothamMedium
+Performance.TextXAlignment = Enum.TextXAlignment.Right
+Performance.TextYAlignment = Enum.TextYAlignment.Center
 Performance.ZIndex = 200
-
 Performance.Parent = ScreenGui
 
 --========================================================
--- SETTINGS BUTTON
+-- SETTINGS BUTTON ({0, 165}, {0, 11})
 --========================================================
 
 local SettingsButton = Instance.new("TextButton")
-
 SettingsButton.Name = "SettingsButton"
-
-SettingsButton.Size =
-	UDim2.fromOffset(
-		42,
-		42
-	)
-
-SettingsButton.Position =
-	UDim2.fromOffset(
-		BUTTON_X,
-		BUTTON_Y
-	)
-
-SettingsButton.BackgroundColor3 = WHITE
-
+SettingsButton.Size = UDim2.fromOffset(36, 36)
+SettingsButton.Position = BUTTON_POSITION
+SettingsButton.BackgroundColor3 = BACKGROUND_DARK
 SettingsButton.BorderSizePixel = 0
-
--- Professional symbol instead of emoji
 SettingsButton.Text = "≡"
-
-SettingsButton.TextColor3 = TEXT
-
-SettingsButton.TextSize = 25
-
-SettingsButton.Font =
-	Enum.Font.GothamMedium
-
+SettingsButton.TextColor3 = TEXT_PRIMARY
+SettingsButton.TextSize = 22
+SettingsButton.Font = Enum.Font.GothamBold
 SettingsButton.AutoButtonColor = false
-
 SettingsButton.ZIndex = 100
-
 SettingsButton.Parent = ScreenGui
 
 local ButtonCorner = Instance.new("UICorner")
-
-ButtonCorner.CornerRadius =
-	UDim.new(
-		0,
-		11
-	)
-
+ButtonCorner.CornerRadius = UDim.new(0, 8)
 ButtonCorner.Parent = SettingsButton
 
 local ButtonStroke = Instance.new("UIStroke")
-
-ButtonStroke.Color = BORDER
+ButtonStroke.Color = BORDER_DARK
 ButtonStroke.Thickness = 1
-
 ButtonStroke.Parent = SettingsButton
 
 --========================================================
@@ -202,57 +120,24 @@ ButtonStroke.Parent = SettingsButton
 --========================================================
 
 local Window = Instance.new("Frame")
-
 Window.Name = "SettingsWindow"
-
-Window.AnchorPoint =
-	Vector2.new(
-		0.5,
-		0.5
-	)
-
-Window.Size =
-	UDim2.fromOffset(
-		355,
-		470
-	)
-
-Window.Position =
-	UDim2.new(
-		0.5,
-		0,
-		0.5,
-		0
-	)
-
-Window.BackgroundColor3 =
-	WHITE
-
+Window.AnchorPoint = Vector2.new(0.5, 0.5)
+Window.Size = UDim2.fromOffset(355, 470)
+Window.Position = UDim2.new(0.5, 0, 0.5, 0)
+Window.BackgroundColor3 = BACKGROUND_DARK
 Window.BorderSizePixel = 0
-
 Window.Visible = false
-
 Window.ClipsDescendants = true
-
 Window.ZIndex = 80
-
 Window.Parent = ScreenGui
 
 local WindowCorner = Instance.new("UICorner")
-
-WindowCorner.CornerRadius =
-	UDim.new(
-		0,
-		18
-	)
-
+WindowCorner.CornerRadius = UDim.new(0, 16)
 WindowCorner.Parent = Window
 
 local WindowStroke = Instance.new("UIStroke")
-
-WindowStroke.Color = BORDER
+WindowStroke.Color = BORDER_DARK
 WindowStroke.Thickness = 1
-
 WindowStroke.Parent = Window
 
 --========================================================
@@ -260,85 +145,30 @@ WindowStroke.Parent = Window
 --========================================================
 
 local Header = Instance.new("Frame")
-
-Header.Size =
-	UDim2.new(
-		1,
-		0,
-		0,
-		76
-	)
-
+Header.Size = UDim2.new(1, 0, 0, 76)
 Header.BackgroundTransparency = 1
-
 Header.Parent = Window
 
 local HeaderTitle = Instance.new("TextLabel")
-
-HeaderTitle.Position =
-	UDim2.fromOffset(
-		20,
-		14
-	)
-
-HeaderTitle.Size =
-	UDim2.new(
-		1,
-		-40,
-		0,
-		28
-	)
-
+HeaderTitle.Position = UDim2.fromOffset(20, 16)
+HeaderTitle.Size = UDim2.new(1, -40, 0, 24)
 HeaderTitle.BackgroundTransparency = 1
-
-HeaderTitle.Text =
-	"Settings"
-
-HeaderTitle.TextColor3 =
-	TEXT
-
-HeaderTitle.TextSize = 21
-
-HeaderTitle.Font =
-	Enum.Font.GothamBold
-
-HeaderTitle.TextXAlignment =
-	Enum.TextXAlignment.Left
-
+HeaderTitle.Text = "Ayarlar"
+HeaderTitle.TextColor3 = TEXT_PRIMARY
+HeaderTitle.TextSize = 20
+HeaderTitle.Font = Enum.Font.GothamBold
+HeaderTitle.TextXAlignment = Enum.TextXAlignment.Left
 HeaderTitle.Parent = Header
 
 local HeaderSubtitle = Instance.new("TextLabel")
-
-HeaderSubtitle.Position =
-	UDim2.fromOffset(
-		21,
-		43
-	)
-
-HeaderSubtitle.Size =
-	UDim2.new(
-		1,
-		-42,
-		0,
-		18
-	)
-
+HeaderSubtitle.Position = UDim2.fromOffset(20, 42)
+HeaderSubtitle.Size = UDim2.new(1, -40, 0, 18)
 HeaderSubtitle.BackgroundTransparency = 1
-
-HeaderSubtitle.Text =
-	"Character and avatar configuration"
-
-HeaderSubtitle.TextColor3 =
-	SUBTEXT
-
+HeaderSubtitle.Text = "Karakter ve performans yapılandırması"
+HeaderSubtitle.TextColor3 = TEXT_SECONDARY
 HeaderSubtitle.TextSize = 11
-
-HeaderSubtitle.Font =
-	Enum.Font.Gotham
-
-HeaderSubtitle.TextXAlignment =
-	Enum.TextXAlignment.Left
-
+HeaderSubtitle.Font = Enum.Font.Gotham
+HeaderSubtitle.TextXAlignment = Enum.TextXAlignment.Left
 HeaderSubtitle.Parent = Header
 
 --========================================================
@@ -346,82 +176,26 @@ HeaderSubtitle.Parent = Header
 --========================================================
 
 local Content = Instance.new("ScrollingFrame")
-
 Content.Name = "Content"
-
-Content.Position =
-	UDim2.fromOffset(
-		8,
-		76
-	)
-
-Content.Size =
-	UDim2.new(
-		1,
-		-16,
-		1,
-		-84
-	)
-
+Content.Position = UDim2.fromOffset(8, 76)
+Content.Size = UDim2.new(1, -16, 1, -84)
 Content.BackgroundTransparency = 1
-
 Content.BorderSizePixel = 0
-
-Content.ScrollBarThickness = 2
-
-Content.ScrollBarImageColor3 =
-	Color3.fromRGB(
-		170,
-		173,
-		180
-	)
-
-Content.AutomaticCanvasSize =
-	Enum.AutomaticSize.Y
-
-Content.CanvasSize =
-	UDim2.new(
-		0,
-		0,
-		0,
-		0
-	)
-
+Content.ScrollBarThickness = 3
+Content.ScrollBarImageColor3 = CARD_HOVER
+Content.AutomaticCanvasSize = Enum.AutomaticSize.Y
+Content.CanvasSize = UDim2.new(0, 0, 0, 0)
 Content.Parent = Window
 
 local ContentPadding = Instance.new("UIPadding")
-
-ContentPadding.PaddingLeft =
-	UDim.new(
-		0,
-		7
-	)
-
-ContentPadding.PaddingRight =
-	UDim.new(
-		0,
-		7
-	)
-
-ContentPadding.PaddingBottom =
-	UDim.new(
-		0,
-		15
-	)
-
+ContentPadding.PaddingLeft = UDim.new(0, 6)
+ContentPadding.PaddingRight = UDim.new(0, 6)
+ContentPadding.PaddingBottom = UDim.new(0, 15)
 ContentPadding.Parent = Content
 
 local Layout = Instance.new("UIListLayout")
-
-Layout.Padding =
-	UDim.new(
-		0,
-		9
-	)
-
-Layout.SortOrder =
-	Enum.SortOrder.LayoutOrder
-
+Layout.Padding = UDim.new(0, 9)
+Layout.SortOrder = Enum.SortOrder.LayoutOrder
 Layout.Parent = Content
 
 --========================================================
@@ -429,38 +203,15 @@ Layout.Parent = Content
 --========================================================
 
 local function CreateSection(text)
-
 	local Label = Instance.new("TextLabel")
-
-	Label.Size =
-		UDim2.new(
-			1,
-			0,
-			0,
-			20
-		)
-
+	Label.Size = UDim2.new(1, 0, 0, 20)
 	Label.BackgroundTransparency = 1
-
-	Label.Text = text
-
-	Label.TextColor3 =
-		Color3.fromRGB(
-			85,
-			88,
-			95
-		)
-
+	Label.Text = string.upper(text)
+	Label.TextColor3 = TEXT_SECONDARY
 	Label.TextSize = 10
-
-	Label.Font =
-		Enum.Font.GothamBold
-
-	Label.TextXAlignment =
-		Enum.TextXAlignment.Left
-
+	Label.Font = Enum.Font.GothamBold
+	Label.TextXAlignment = Enum.TextXAlignment.Left
 	Label.Parent = Content
-
 	return Label
 end
 
@@ -469,99 +220,41 @@ end
 --========================================================
 
 local function CreateInfo(title, value)
-
 	local CardFrame = Instance.new("Frame")
-
-	CardFrame.Size =
-		UDim2.new(
-			1,
-			0,
-			0,
-			44
-		)
-
-	CardFrame.BackgroundColor3 =
-		CARD
-
+	CardFrame.Size = UDim2.new(1, 0, 0, 44)
+	CardFrame.BackgroundColor3 = CARD_DARK
 	CardFrame.BorderSizePixel = 0
-
 	CardFrame.Parent = Content
 
 	local Corner = Instance.new("UICorner")
-
-	Corner.CornerRadius =
-		UDim.new(
-			0,
-			11
-		)
-
+	Corner.CornerRadius = UDim.new(0, 10)
 	Corner.Parent = CardFrame
 
+	local Stroke = Instance.new("UIStroke")
+	Stroke.Color = BORDER_DARK
+	Stroke.Thickness = 1
+	Stroke.Parent = CardFrame
+
 	local Title = Instance.new("TextLabel")
-
-	Title.Position =
-		UDim2.fromOffset(
-			13,
-			0
-		)
-
-	Title.Size =
-		UDim2.new(
-			0.55,
-			0,
-			1,
-			0
-		)
-
+	Title.Position = UDim2.fromOffset(13, 0)
+	Title.Size = UDim2.new(0.5, 0, 1, 0)
 	Title.BackgroundTransparency = 1
-
 	Title.Text = title
-
-	Title.TextColor3 = TEXT
-
+	Title.TextColor3 = TEXT_PRIMARY
 	Title.TextSize = 12
-
-	Title.Font =
-		Enum.Font.GothamMedium
-
-	Title.TextXAlignment =
-		Enum.TextXAlignment.Left
-
+	Title.Font = Enum.Font.GothamMedium
+	Title.TextXAlignment = Enum.TextXAlignment.Left
 	Title.Parent = CardFrame
 
 	local Value = Instance.new("TextLabel")
-
-	Value.Position =
-		UDim2.new(
-			0.55,
-			0,
-			0,
-			0
-		)
-
-	Value.Size =
-		UDim2.new(
-			0.42,
-			-10,
-			1,
-			0
-		)
-
+	Value.Position = UDim2.new(0.5, 0, 0, 0)
+	Value.Size = UDim2.new(0.5, -13, 1, 0)
 	Value.BackgroundTransparency = 1
-
 	Value.Text = value
-
-	Value.TextColor3 =
-		SUBTEXT
-
+	Value.TextColor3 = TEXT_SECONDARY
 	Value.TextSize = 12
-
-	Value.Font =
-		Enum.Font.GothamMedium
-
-	Value.TextXAlignment =
-		Enum.TextXAlignment.Right
-
+	Value.Font = Enum.Font.GothamMedium
+	Value.TextXAlignment = Enum.TextXAlignment.Right
 	Value.Parent = CardFrame
 
 	return Value
@@ -571,630 +264,295 @@ end
 -- SLIDER
 --========================================================
 
-local function CreateSlider(
-	title,
-	minimum,
-	maximum,
-	default,
-	callback
-)
-
+local function CreateSlider(title, minimum, maximum, default, callback)
 	local Holder = Instance.new("Frame")
-
-	Holder.Size =
-		UDim2.new(
-			1,
-			0,
-			0,
-			78
-		)
-
-	Holder.BackgroundColor3 =
-		CARD
-
+	Holder.Size = UDim2.new(1, 0, 0, 78)
+	Holder.BackgroundColor3 = CARD_DARK
 	Holder.BorderSizePixel = 0
-
 	Holder.Parent = Content
 
 	local Corner = Instance.new("UICorner")
-
-	Corner.CornerRadius =
-		UDim.new(
-			0,
-			11
-		)
-
+	Corner.CornerRadius = UDim.new(0, 10)
 	Corner.Parent = Holder
 
+	local Stroke = Instance.new("UIStroke")
+	Stroke.Color = BORDER_DARK
+	Stroke.Thickness = 1
+	Stroke.Parent = Holder
+
 	local Title = Instance.new("TextLabel")
-
-	Title.Position =
-		UDim2.fromOffset(
-			13,
-			8
-		)
-
-	Title.Size =
-		UDim2.new(
-			0.65,
-			0,
-			0,
-			23
-		)
-
+	Title.Position = UDim2.fromOffset(13, 10)
+	Title.Size = UDim2.new(0.6, 0, 0, 20)
 	Title.BackgroundTransparency = 1
-
 	Title.Text = title
-
-	Title.TextColor3 = TEXT
-
+	Title.TextColor3 = TEXT_PRIMARY
 	Title.TextSize = 12
-
-	Title.Font =
-		Enum.Font.GothamMedium
-
-	Title.TextXAlignment =
-		Enum.TextXAlignment.Left
-
+	Title.Font = Enum.Font.GothamMedium
+	Title.TextXAlignment = Enum.TextXAlignment.Left
 	Title.Parent = Holder
 
 	local Value = Instance.new("TextLabel")
-
-	Value.Position =
-		UDim2.new(
-			1,
-			-75,
-			0,
-			8
-		)
-
-	Value.Size =
-		UDim2.fromOffset(
-			60,
-			23
-		)
-
+	Value.Position = UDim2.new(1, -73, 0, 10)
+	Value.Size = UDim2.fromOffset(60, 20)
 	Value.BackgroundTransparency = 1
-
-	Value.TextColor3 = TEXT
-
+	Value.TextColor3 = TEXT_PRIMARY
 	Value.TextSize = 12
-
-	Value.Font =
-		Enum.Font.GothamBold
-
-	Value.TextXAlignment =
-		Enum.TextXAlignment.Right
-
+	Value.Font = Enum.Font.GothamBold
+	Value.TextXAlignment = Enum.TextXAlignment.Right
 	Value.Parent = Holder
 
-	-- Large touch area
 	local TouchArea = Instance.new("TextButton")
-
-	TouchArea.Position =
-		UDim2.fromOffset(
-			14,
-			42
-		)
-
-	TouchArea.Size =
-		UDim2.new(
-			1,
-			-28,
-			0,
-			25
-		)
-
+	TouchArea.Position = UDim2.fromOffset(13, 42)
+	TouchArea.Size = UDim2.new(1, -26, 0, 24)
 	TouchArea.BackgroundTransparency = 1
-
 	TouchArea.Text = ""
-
 	TouchArea.AutoButtonColor = false
-
 	TouchArea.ZIndex = 10
-
 	TouchArea.Parent = Holder
 
 	local Track = Instance.new("Frame")
-
-	Track.Position =
-		UDim2.new(
-			0,
-			0,
-			0.5,
-			-3
-		)
-
-	Track.Size =
-		UDim2.new(
-			1,
-			0,
-			0,
-			6
-		)
-
-	Track.BackgroundColor3 =
-		TRACK
-
+	Track.Position = UDim2.new(0, 0, 0.5, -3)
+	Track.Size = UDim2.new(1, 0, 0, 6)
+	Track.BackgroundColor3 = TRACK_DARK
 	Track.BorderSizePixel = 0
-
 	Track.Parent = TouchArea
 
 	local TrackCorner = Instance.new("UICorner")
-
-	TrackCorner.CornerRadius =
-		UDim.new(
-			1,
-			0
-		)
-
+	TrackCorner.CornerRadius = UDim.new(1, 0)
 	TrackCorner.Parent = Track
 
 	local Fill = Instance.new("Frame")
-
-	Fill.Size =
-		UDim2.new(
-			0,
-			0,
-			1,
-			0
-		)
-
-	Fill.BackgroundColor3 =
-		ACCENT
-
+	Fill.Size = UDim2.new(0, 0, 1, 0)
+	Fill.BackgroundColor3 = ACCENT_PRIMARY
 	Fill.BorderSizePixel = 0
-
 	Fill.Parent = Track
 
 	local FillCorner = Instance.new("UICorner")
-
-	FillCorner.CornerRadius =
-		UDim.new(
-			1,
-			0
-		)
-
+	FillCorner.CornerRadius = UDim.new(1, 0)
 	FillCorner.Parent = Fill
 
 	local Knob = Instance.new("Frame")
-
-	Knob.Size =
-		UDim2.fromOffset(
-			16,
-			16
-		)
-
-	Knob.AnchorPoint =
-		Vector2.new(
-			0.5,
-			0.5
-		)
-
-	Knob.Position =
-		UDim2.new(
-			0,
-			0,
-			0.5,
-			0
-		)
-
-	Knob.BackgroundColor3 =
-		WHITE
-
+	Knob.Size = UDim2.fromOffset(16, 16)
+	Knob.AnchorPoint = Vector2.new(0.5, 0.5)
+	Knob.Position = UDim2.new(0, 0, 0.5, 0)
+	Knob.BackgroundColor3 = ACCENT_PRIMARY
 	Knob.BorderSizePixel = 0
-
 	Knob.ZIndex = 12
-
 	Knob.Parent = Track
 
 	local KnobCorner = Instance.new("UICorner")
-
-	KnobCorner.CornerRadius =
-		UDim.new(
-			1,
-			0
-		)
-
+	KnobCorner.CornerRadius = UDim.new(1, 0)
 	KnobCorner.Parent = Knob
-
-	local KnobStroke = Instance.new("UIStroke")
-
-	KnobStroke.Color =
-		Color3.fromRGB(
-			205,
-			207,
-			211
-		)
-
-	KnobStroke.Thickness = 1
-
-	KnobStroke.Parent = Knob
 
 	local Dragging = false
 
 	local function SetValue(number)
+		number = math.clamp(number, minimum, maximum)
+		number = math.floor(number + 0.5)
 
-		number =
-			math.clamp(
-				number,
-				minimum,
-				maximum
-			)
+		local percentage = (number - minimum) / (maximum - minimum)
+		percentage = math.clamp(percentage, 0, 1)
 
-		number =
-			math.floor(
-				number + 0.5
-			)
-
-		local percentage =
-			(number - minimum)
-			/
-			(maximum - minimum)
-
-		percentage =
-			math.clamp(
-				percentage,
-				0,
-				1
-			)
-
-		Fill.Size =
-			UDim2.new(
-				percentage,
-				0,
-				1,
-				0
-			)
-
-		Knob.Position =
-			UDim2.new(
-				percentage,
-				0,
-				0.5,
-				0
-			)
-
-		Value.Text =
-			tostring(number)
+		Fill.Size = UDim2.new(percentage, 0, 1, 0)
+		Knob.Position = UDim2.new(percentage, 0, 0.5, 0)
+		Value.Text = tostring(number)
 
 		callback(number)
 	end
 
 	local function UpdateFromX(x)
+		local start = TouchArea.AbsolutePosition.X
+		local width = TouchArea.AbsoluteSize.X
+		if width <= 0 then return end
 
-		local start =
-			TouchArea.AbsolutePosition.X
+		local percentage = (x - start) / width
+		percentage = math.clamp(percentage, 0, 1)
 
-		local width =
-			TouchArea.AbsoluteSize.X
-
-		if width <= 0 then
-			return
-		end
-
-		local percentage =
-			(x - start)
-			/
-			width
-
-		percentage =
-			math.clamp(
-				percentage,
-				0,
-				1
-			)
-
-		local number =
-			minimum
-			+
-			(
-				maximum - minimum
-			)
-			*
-			percentage
-
+		local number = minimum + (maximum - minimum) * percentage
 		SetValue(number)
 	end
 
 	TouchArea.InputBegan:Connect(function(input)
-
-		if
-			input.UserInputType ==
-				Enum.UserInputType.Touch
-			or
-			input.UserInputType ==
-				Enum.UserInputType.MouseButton1
-		then
-
+		if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
 			Dragging = true
-
-			UpdateFromX(
-				input.Position.X
-			)
-
+			UpdateFromX(input.Position.X)
 		end
 	end)
 
 	UserInputService.InputChanged:Connect(function(input)
-
-		if not Dragging then
-			return
-		end
-
-		if
-			input.UserInputType ==
-				Enum.UserInputType.Touch
-			or
-			input.UserInputType ==
-				Enum.UserInputType.MouseMovement
-		then
-
-			UpdateFromX(
-				input.Position.X
-			)
-
+		if not Dragging then return end
+		if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement then
+			UpdateFromX(input.Position.X)
 		end
 	end)
 
 	UserInputService.InputEnded:Connect(function(input)
-
-		if
-			input.UserInputType ==
-				Enum.UserInputType.Touch
-			or
-			input.UserInputType ==
-				Enum.UserInputType.MouseButton1
-		then
-
+		if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
 			Dragging = false
-
 		end
 	end)
 
 	SetValue(default)
-
 	return Holder
 end
 
 --========================================================
--- RIG SELECTOR
+-- RIG CONVERTER (GERÇEK R6 / R15 RESPAWN DÖNÜŞÜMÜ)
 --========================================================
 
+local RigInfo
+
+local function ChangeRigType(targetRigType)
+	if not Character or not Humanoid then return end
+
+	local currentEnum = (targetRigType == "R6") and Enum.HumanoidRigType.R6 or Enum.HumanoidRigType.R15
+	if Humanoid.RigType == currentEnum then return end
+
+	local oldCFrame = nil
+	local hrp = Character:FindFirstChild("HumanoidRootPart")
+	if hrp then
+		oldCFrame = hrp.CFrame
+	end
+
+	-- Avatar aksesuarları ve kıyafet tanımını çek
+	local desc = nil
+	pcall(function()
+		desc = Players:GetHumanoidDescriptionFromUserId(LocalPlayer.UserId)
+	end)
+
+	if not desc then
+		pcall(function()
+			desc = Humanoid:GetAppliedDescription()
+		end)
+	end
+
+	-- İstemci tarafında yeni Rig modelini oluştur
+	local newModel
+	if desc then
+		pcall(function()
+			newModel = Players:CreateHumanoidModelFromDescription(desc, currentEnum)
+		end)
+	end
+
+	if not newModel then
+		newModel = Instance.new("Model")
+		local newHum = Instance.new("Humanoid")
+		newHum.RigType = currentEnum
+		newHum.Parent = newModel
+	end
+
+	newModel.Name = LocalPlayer.Name
+
+	-- Eski karakteri kaldır ve yeni karakteri tanımla
+	if oldCFrame and newModel:FindFirstChild("HumanoidRootPart") then
+		newModel:SetPrimaryPartCFrame(oldCFrame)
+	end
+
+	Character:Destroy()
+	newModel.Parent = workspace
+	LocalPlayer.Character = newModel
+
+	local camera = workspace.CurrentCamera
+	if camera then
+		local newHum = newModel:FindFirstChildOfClass("Humanoid")
+		if newHum then
+			camera.CameraSubject = newHum
+		end
+	end
+
+	Character = newModel
+	Humanoid = newModel:WaitForChild("Humanoid")
+
+	if RigInfo then
+		RigInfo.Text = (targetRigType == "R6") and "R6" or "R15"
+	end
+end
+
 local function CreateRigSelector()
-
 	local Holder = Instance.new("Frame")
-
-	Holder.Size =
-		UDim2.new(
-			1,
-			0,
-			0,
-			78
-		)
-
-	Holder.BackgroundColor3 =
-		CARD
-
+	Holder.Size = UDim2.new(1, 0, 0, 78)
+	Holder.BackgroundColor3 = CARD_DARK
 	Holder.BorderSizePixel = 0
-
 	Holder.Parent = Content
 
 	local Corner = Instance.new("UICorner")
-
-	Corner.CornerRadius =
-		UDim.new(
-			0,
-			11
-		)
-
+	Corner.CornerRadius = UDim.new(0, 10)
 	Corner.Parent = Holder
 
+	local Stroke = Instance.new("UIStroke")
+	Stroke.Color = BORDER_DARK
+	Stroke.Thickness = 1
+	Stroke.Parent = Holder
+
 	local Title = Instance.new("TextLabel")
-
-	Title.Position =
-		UDim2.fromOffset(
-			13,
-			8
-		)
-
-	Title.Size =
-		UDim2.new(
-			0.5,
-			0,
-			0,
-			23
-		)
-
+	Title.Position = UDim2.fromOffset(13, 10)
+	Title.Size = UDim2.new(0.5, 0, 0, 20)
 	Title.BackgroundTransparency = 1
-
-	Title.Text =
-		"Rig Type"
-
-	Title.TextColor3 =
-		TEXT
-
+	Title.Text = "Rig Tipi"
+	Title.TextColor3 = TEXT_PRIMARY
 	Title.TextSize = 12
-
-	Title.Font =
-		Enum.Font.GothamMedium
-
-	Title.TextXAlignment =
-		Enum.TextXAlignment.Left
-
+	Title.Font = Enum.Font.GothamMedium
+	Title.TextXAlignment = Enum.TextXAlignment.Left
 	Title.Parent = Holder
 
 	local CurrentRig = "R15"
-
 	if Humanoid then
-
-		if Humanoid.RigType ==
-			Enum.HumanoidRigType.R6 then
-
-			CurrentRig = "R6"
-
-		else
-
-			CurrentRig = "R15"
-
-		end
+		CurrentRig = (Humanoid.RigType == Enum.HumanoidRigType.R6) and "R6" or "R15"
 	end
 
 	local R6Button = Instance.new("TextButton")
-
-	R6Button.Position =
-		UDim2.new(
-			0,
-			13,
-			0,
-			39
-		)
-
-	R6Button.Size =
-		UDim2.new(
-			0.5,
-			-18,
-			0,
-			28
-		)
-
-	R6Button.BackgroundColor3 =
-		CurrentRig == "R6"
-		and ACCENT
-		or WHITE
-
+	R6Button.Position = UDim2.new(0, 13, 0, 38)
+	R6Button.Size = UDim2.new(0.5, -18, 0, 28)
+	R6Button.BackgroundColor3 = (CurrentRig == "R6") and ACCENT_PRIMARY or CARD_HOVER
 	R6Button.BorderSizePixel = 0
-
-	R6Button.Text =
-		"R6"
-
-	R6Button.TextColor3 =
-		CurrentRig == "R6"
-		and WHITE
-		or TEXT
-
+	R6Button.Text = "R6"
+	R6Button.TextColor3 = (CurrentRig == "R6") and ACCENT_TEXT or TEXT_PRIMARY
 	R6Button.TextSize = 11
-
-	R6Button.Font =
-		Enum.Font.GothamBold
-
+	R6Button.Font = Enum.Font.GothamBold
 	R6Button.AutoButtonColor = false
-
 	R6Button.Parent = Holder
 
 	local R6Corner = Instance.new("UICorner")
-
-	R6Corner.CornerRadius =
-		UDim.new(
-			0,
-			8
-		)
-
+	R6Corner.CornerRadius = UDim.new(0, 6)
 	R6Corner.Parent = R6Button
 
 	local R15Button = Instance.new("TextButton")
-
-	R15Button.Position =
-		UDim2.new(
-			0.5,
-			4,
-			0,
-			39
-		)
-
-	R15Button.Size =
-		UDim2.new(
-			0.5,
-			-17,
-			0,
-			28
-		)
-
-	R15Button.BackgroundColor3 =
-		CurrentRig == "R15"
-		and ACCENT
-		or WHITE
-
+	R15Button.Position = UDim2.new(0.5, 5, 0, 38)
+	R15Button.Size = UDim2.new(0.5, -18, 0, 28)
+	R15Button.BackgroundColor3 = (CurrentRig == "R15") and ACCENT_PRIMARY or CARD_HOVER
 	R15Button.BorderSizePixel = 0
-
-	R15Button.Text =
-		"R15"
-
-	R15Button.TextColor3 =
-		CurrentRig == "R15"
-		and WHITE
-		or TEXT
-
+	R15Button.Text = "R15"
+	R15Button.TextColor3 = (CurrentRig == "R15") and ACCENT_TEXT or TEXT_PRIMARY
 	R15Button.TextSize = 11
-
-	R15Button.Font =
-		Enum.Font.GothamBold
-
+	R15Button.Font = Enum.Font.GothamBold
 	R15Button.AutoButtonColor = false
-
 	R15Button.Parent = Holder
 
 	local R15Corner = Instance.new("UICorner")
-
-	R15Corner.CornerRadius =
-		UDim.new(
-			0,
-			8
-		)
-
+	R15Corner.CornerRadius = UDim.new(0, 6)
 	R15Corner.Parent = R15Button
 
 	local function SelectRig(rig)
-
+		if CurrentRig == rig then return end
 		CurrentRig = rig
 
 		if rig == "R6" then
-
-			R6Button.BackgroundColor3 =
-				ACCENT
-
-			R6Button.TextColor3 =
-				WHITE
-
-			R15Button.BackgroundColor3 =
-				WHITE
-
-			R15Button.TextColor3 =
-				TEXT
-
+			R6Button.BackgroundColor3 = ACCENT_PRIMARY
+			R6Button.TextColor3 = ACCENT_TEXT
+			R15Button.BackgroundColor3 = CARD_HOVER
+			R15Button.TextColor3 = TEXT_PRIMARY
 		else
-
-			R15Button.BackgroundColor3 =
-				ACCENT
-
-			R15Button.TextColor3 =
-				WHITE
-
-			R6Button.BackgroundColor3 =
-				WHITE
-
-			R6Button.TextColor3 =
-				TEXT
-
+			R15Button.BackgroundColor3 = ACCENT_PRIMARY
+			R15Button.TextColor3 = ACCENT_TEXT
+			R6Button.BackgroundColor3 = CARD_HOVER
+			R6Button.TextColor3 = TEXT_PRIMARY
 		end
 
-		-- IMPORTANT:
-		-- A LocalScript cannot actually convert
-		-- the Roblox character R6 <-> R15.
-		-- The selection is therefore stored here.
+		ChangeRigType(rig)
 	end
 
-	R6Button.Activated:Connect(function()
-
-		SelectRig("R6")
-
-	end)
-
-	R15Button.Activated:Connect(function()
-
-		SelectRig("R15")
-
-	end)
+	R6Button.Activated:Connect(function() SelectRig("R6") end)
+	R15Button.Activated:Connect(function() SelectRig("R15") end)
 
 	return Holder
 end
@@ -1203,348 +561,155 @@ end
 -- BUILD MENU
 --========================================================
 
-CreateSection("CHARACTER")
+CreateSection("Karakter")
 
 CreateSlider(
-
-	"Walk Speed",
-
+	"Yürüme Hızı",
 	MIN_SPEED,
-
 	MAX_SPEED,
-
-	Humanoid
-		and Humanoid.WalkSpeed
-		or 16,
-
+	Humanoid and Humanoid.WalkSpeed or 16,
 	function(value)
-
-		if Humanoid then
-
-			Humanoid.WalkSpeed =
-				value
-
-		end
+		if Humanoid then Humanoid.WalkSpeed = value end
 	end
 )
 
 CreateSlider(
-
-	"Jump Power",
-
+	"Zıplama Gücü",
 	MIN_JUMP,
-
 	MAX_JUMP,
-
-	Humanoid
-		and Humanoid.JumpPower
-		or 50,
-
+	Humanoid and Humanoid.JumpPower or 50,
 	function(value)
-
 		if Humanoid then
-
 			Humanoid.UseJumpPower = true
-
-			Humanoid.JumpPower =
-				value
-
+			Humanoid.JumpPower = value
 		end
 	end
 )
 
-CreateSection("AVATAR")
+CreateSection("Avatar & Bilgi")
 
 CreateRigSelector()
 
-local RigInfo =
-	CreateInfo(
-		"Current Rig",
-		"Loading..."
-	)
-
-local DisplayInfo =
-	CreateInfo(
-		"Display Name",
-		LocalPlayer.DisplayName
-	)
-
-local UsernameInfo =
-	CreateInfo(
-		"Username",
-		"@" .. LocalPlayer.Name
-	)
+RigInfo = CreateInfo("Aktif Rig", "Yükleniyor...")
+CreateInfo("Görünen Ad", LocalPlayer.DisplayName)
+CreateInfo("Kullanıcı Adı", "@" .. LocalPlayer.Name)
 
 --========================================================
--- UPDATE CURRENT RIG
+-- UPDATE CURRENT RIG INFO
 --========================================================
 
 local function UpdateRigInfo()
+	if not Character then return end
+	local Hum = Character:FindFirstChildOfClass("Humanoid")
+	if not Hum or not RigInfo then return end
 
-	if not Character then
-		return
-	end
-
-	local Hum =
-		Character:FindFirstChildOfClass(
-			"Humanoid"
-		)
-
-	if not Hum then
-		return
-	end
-
-	if Hum.RigType ==
-		Enum.HumanoidRigType.R6 then
-
+	if Hum.RigType == Enum.HumanoidRigType.R6 then
 		RigInfo.Text = "R6"
-
 	else
-
 		RigInfo.Text = "R15"
-
 	end
 end
 
 UpdateRigInfo()
 
 --========================================================
--- PERFORMANCE CALCULATION
+-- ACCURATE PERFORMANCE (FPS & PING)
 --========================================================
 
 local FrameCount = 0
 local LastFPSUpdate = os.clock()
 
 RunService.RenderStepped:Connect(function()
-
 	FrameCount += 1
-
-	local now =
-		os.clock()
+	local now = os.clock()
 
 	if now - LastFPSUpdate >= 0.5 then
-
-		local FPS =
-			FrameCount
-			/
-			(now - LastFPSUpdate)
-
+		local FPS = FrameCount / (now - LastFPSUpdate)
 		FrameCount = 0
-
 		LastFPSUpdate = now
 
 		local ping = 0
 
-		pcall(function()
-
-			local Network =
-				Stats:FindFirstChild(
-					"Network"
-				)
-
-			if Network then
-
-				local ServerStats =
-					Network:FindFirstChild(
-						"ServerStatsItem"
-					)
-
-				if ServerStats then
-
-					local DataPing =
-						ServerStats:FindFirstChild(
-							"Data Ping"
-						)
-
-					if DataPing then
-
-						ping =
-							DataPing:GetValue()
-
-					end
-				end
-			end
+		local success, result = pcall(function()
+			return math.floor(LocalPlayer:GetNetworkPing() * 2000)
 		end)
 
-		if ping and ping > 0 then
-
-			Performance.Text =
-				string.format(
-					"FPS %d   •   %d ms",
-					math.floor(
-						FPS + 0.5
-					),
-					math.floor(
-						ping
-					)
-				)
-
+		if success and result then
+			ping = result
 		else
-
-			Performance.Text =
-				string.format(
-					"FPS %d   •   -- ms",
-					math.floor(
-						FPS + 0.5
-					)
-				)
-
+			pcall(function()
+				local Network = Stats:FindFirstChild("Network")
+				if Network then
+					local ServerStats = Network:FindFirstChild("ServerStatsItem")
+					if ServerStats then
+						local DataPing = ServerStats:FindFirstChild("Data Ping")
+						if DataPing then
+							ping = math.floor(DataPing:GetValue())
+						end
+					end
+				end
+			end)
 		end
+
+		Performance.Text = string.format("FPS %d   •   %d ms", math.floor(FPS + 0.5), ping)
 	end
 end)
 
 --========================================================
--- OPEN / CLOSE
+-- OPEN / CLOSE ANIMS
 --========================================================
 
 local Open = false
 local Animating = false
 
 local function OpenMenu()
-
-	if Open or Animating then
-		return
-	end
-
+	if Open or Animating then return end
 	Animating = true
 	Open = true
 
 	Window.Visible = true
-
-	Window.Size =
-		UDim2.new(
-			Window.Size.X.Scale,
-			Window.Size.X.Offset,
-			0,
-			0
-		)
+	Window.Size = UDim2.new(Window.Size.X.Scale, Window.Size.X.Offset, 0, 0)
 
 	TweenService:Create(
-
 		Window,
-
-		TweenInfo.new(
-			0.25,
-			Enum.EasingStyle.Quint,
-			Enum.EasingDirection.Out
-		),
-
-		{
-			Size =
-				UDim2.fromOffset(
-					355,
-					470
-				)
-		}
-
+		TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+		{ Size = UDim2.fromOffset(355, 470) }
 	):Play()
 
 	TweenService:Create(
-
 		SettingsButton,
-
-		TweenInfo.new(
-			0.15,
-			Enum.EasingStyle.Quad,
-			Enum.EasingDirection.Out
-		),
-
-		{
-			BackgroundColor3 =
-				Color3.fromRGB(
-					235,
-					236,
-					239
-				)
-		}
-
+		TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+		{ BackgroundColor3 = CARD_HOVER }
 	):Play()
 
-	task.delay(
-		0.26,
-		function()
-
-			Animating = false
-
-		end
-	)
+	task.delay(0.26, function() Animating = false end)
 end
 
 local function CloseMenu()
-
-	if not Open or Animating then
-		return
-	end
-
+	if not Open or Animating then return end
 	Animating = true
 	Open = false
 
 	TweenService:Create(
-
 		Window,
-
-		TweenInfo.new(
-			0.18,
-			Enum.EasingStyle.Quint,
-			Enum.EasingDirection.In
-		),
-
-		{
-			Size =
-				UDim2.new(
-					Window.Size.X.Scale,
-					Window.Size.X.Offset,
-					0,
-					0
-				)
-		}
-
+		TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.In),
+		{ Size = UDim2.new(Window.Size.X.Scale, Window.Size.X.Offset, 0, 0) }
 	):Play()
 
 	TweenService:Create(
-
 		SettingsButton,
-
-		TweenInfo.new(
-			0.15
-		),
-
-		{
-			BackgroundColor3 =
-				WHITE
-		}
-
+		TweenInfo.new(0.15),
+		{ BackgroundColor3 = BACKGROUND_DARK }
 	):Play()
 
-	task.delay(
-		0.19,
-		function()
-
-			if not Open then
-
-				Window.Visible =
-					false
-
-			end
-
-			Animating = false
-
-		end
-	)
+	task.delay(0.19, function()
+		if not Open then Window.Visible = false end
+		Animating = false
+	end)
 end
 
 SettingsButton.Activated:Connect(function()
-
-	if Open then
-
-		CloseMenu()
-
-	else
-
-		OpenMenu()
-
-	end
-
+	if Open then CloseMenu() else OpenMenu() end
 end)
 
 --========================================================
@@ -1552,118 +717,44 @@ end)
 --========================================================
 
 local function UpdateResponsive()
+	local Camera = workspace.CurrentCamera
+	if not Camera then return end
 
-	local Camera =
-		workspace.CurrentCamera
+	local Viewport = Camera.ViewportSize
 
-	if not Camera then
-		return
-	end
-
-	local Viewport =
-		Camera.ViewportSize
-
-	-- Small Android devices
 	if Viewport.X <= 500 then
-
-		local Width =
-			math.min(
-				Viewport.X - 20,
-				390
-			)
-
-		local Height =
-			math.min(
-				Viewport.Y - 80,
-				520
-			)
-
-		Window.Size =
-			UDim2.fromOffset(
-				Width,
-				Height
-			)
-
+		local Width = math.min(Viewport.X - 20, 390)
+		local Height = math.min(Viewport.Y - 80, 520)
+		Window.Size = UDim2.fromOffset(Width, Height)
 	else
-
-		Window.Size =
-			UDim2.fromOffset(
-				355,
-				470
-			)
-
+		Window.Size = UDim2.fromOffset(355, 470)
 	end
 end
-
---========================================================
--- CAMERA RESIZE
---========================================================
 
 local function ConnectCamera(Camera)
-
-	if not Camera then
-		return
-	end
-
-	Camera:GetPropertyChangedSignal(
-		"ViewportSize"
-	):Connect(function()
-
-		UpdateResponsive()
-
-	end)
+	if not Camera then return end
+	Camera:GetPropertyChangedSignal("ViewportSize"):Connect(UpdateResponsive)
 end
 
-if workspace.CurrentCamera then
-
-	ConnectCamera(
-		workspace.CurrentCamera
-	)
-
-end
-
-workspace:GetPropertyChangedSignal(
-	"CurrentCamera"
-):Connect(function()
-
-	if workspace.CurrentCamera then
-
-		ConnectCamera(
-			workspace.CurrentCamera
-		)
-
-	end
+if workspace.CurrentCamera then ConnectCamera(workspace.CurrentCamera) end
+workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+	if workspace.CurrentCamera then ConnectCamera(workspace.CurrentCamera) end
 end)
 
 --========================================================
--- INITIALIZE
+-- INITIALIZE & REFRESH
 --========================================================
 
 task.defer(function()
-
 	task.wait(0.3)
-
 	UpdateResponsive()
-
 end)
 
---========================================================
--- CHARACTER UPDATE
---========================================================
-
 LocalPlayer.CharacterAdded:Connect(function(character)
-
 	Character = character
-
-	Humanoid =
-		character:WaitForChild(
-			"Humanoid"
-		)
-
+	Humanoid = character:WaitForChild("Humanoid")
 	task.wait(0.2)
-
 	UpdateRigInfo()
-
 end)
 
 --========================================================

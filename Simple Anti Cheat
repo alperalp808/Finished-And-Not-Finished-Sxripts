@@ -1,45 +1,1105 @@
+--//==================================================
+--// MODERN PLAYER SETTINGS
+--// StarterPlayer > StarterPlayerScripts
+--//==================================================
+
 local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Stats = game:GetService("Stats")
+local TweenService = game:GetService("TweenService")
+local CoreGui = game:GetService("CoreGui")
 
-local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
-local itemBuyer = playerGui:WaitForChild("ItemBuyer")
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
---// GUI
-local gui = Instance.new("ScreenGui")
-gui.Name = "ItemBuyerToggle"
-gui.ResetOnSpawn = false
-gui.IgnoreGuiInset = true
-gui.Parent = playerGui
+--//==================================================
+--// CONFIG
+--//==================================================
 
---// Buton
-local button = Instance.new("TextButton")
-button.Name = "ToggleButton"
-button.Size = UDim2.fromOffset(55, 55)
-button.Position = UDim2.new(0, 12, 0.5, -27)
-button.AnchorPoint = Vector2.new(0, 0)
-button.BackgroundColor3 = Color3.fromRGB(35, 130, 255)
-button.Text = "🔧"
-button.TextColor3 = Color3.fromRGB(255, 255, 255)
-button.TextSize = 25
-button.Font = Enum.Font.GothamBold
-button.AutoButtonColor = true
-button.Active = true
-button.Draggable = false
-button.Parent = gui
+local MIN_WALKSPEED = 0
+local MAX_WALKSPEED = 200
 
---// Yuvarlatma
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 12)
-corner.Parent = button
+local MIN_JUMPPOWER = 0
+local MAX_JUMPPOWER = 200
 
---// Kenarlık
-local stroke = Instance.new("UIStroke")
-stroke.Color = Color3.fromRGB(255, 255, 255)
-stroke.Thickness = 2
-stroke.Transparency = 0.15
-stroke.Parent = button
+local ACCENT = Color3.fromRGB(75, 145, 255)
+local ACCENT_DARK = Color3.fromRGB(45, 105, 210)
 
---// Tıklama
-button.Activated:Connect(function()
-	itemBuyer.Enabled = not itemBuyer.Enabled
+local BG = Color3.fromRGB(16, 18, 24)
+local BG2 = Color3.fromRGB(22, 25, 33)
+local BG3 = Color3.fromRGB(29, 33, 43)
+
+local TEXT = Color3.fromRGB(240, 243, 250)
+local SUBTEXT = Color3.fromRGB(145, 151, 165)
+
+--//==================================================
+--// CHARACTER
+--//==================================================
+
+local Character
+local Humanoid
+
+local function UpdateCharacter()
+
+	Character = LocalPlayer.Character
+		or LocalPlayer.CharacterAdded:Wait()
+
+	Humanoid = Character:WaitForChild("Humanoid")
+end
+
+UpdateCharacter()
+
+LocalPlayer.CharacterAdded:Connect(function(character)
+
+	Character = character
+	Humanoid = character:WaitForChild("Humanoid")
+
+	task.wait(0.2)
 end)
+
+--//==================================================
+--// GUI
+--//==================================================
+
+local Gui = Instance.new("ScreenGui")
+Gui.Name = "ModernPlayerSettings"
+Gui.ResetOnSpawn = false
+Gui.IgnoreGuiInset = false
+Gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+Gui.Parent = PlayerGui
+
+--//==================================================
+--// SETTINGS BUTTON
+--//==================================================
+
+local OpenButton = Instance.new("TextButton")
+
+OpenButton.Name = "SettingsButton"
+OpenButton.Size = UDim2.fromOffset(42, 42)
+
+-- İlk güvenli konum
+OpenButton.Position = UDim2.fromOffset(145, 6)
+
+OpenButton.BackgroundColor3 = BG2
+OpenButton.BorderSizePixel = 0
+OpenButton.Text = "⚙"
+OpenButton.TextColor3 = TEXT
+OpenButton.TextSize = 23
+OpenButton.Font = Enum.Font.GothamBold
+OpenButton.AutoButtonColor = false
+OpenButton.ZIndex = 50
+
+OpenButton.Parent = Gui
+
+local ButtonCorner = Instance.new("UICorner")
+ButtonCorner.CornerRadius = UDim.new(0, 11)
+ButtonCorner.Parent = OpenButton
+
+local ButtonStroke = Instance.new("UIStroke")
+ButtonStroke.Color = Color3.fromRGB(55, 61, 75)
+ButtonStroke.Thickness = 1
+ButtonStroke.Parent = OpenButton
+
+--//==================================================
+--// SETTINGS MENU
+--//==================================================
+
+local Main = Instance.new("Frame")
+
+Main.Name = "SettingsMenu"
+Main.Size = UDim2.fromOffset(340, 430)
+
+Main.Position = UDim2.fromOffset(145, 56)
+
+Main.BackgroundColor3 = BG
+Main.BorderSizePixel = 0
+Main.Visible = false
+Main.ZIndex = 40
+
+Main.Parent = Gui
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 15)
+MainCorner.Parent = Main
+
+local MainStroke = Instance.new("UIStroke")
+MainStroke.Color = Color3.fromRGB(50, 56, 70)
+MainStroke.Thickness = 1
+MainStroke.Parent = Main
+
+--//==================================================
+--// HEADER
+--//==================================================
+
+local Header = Instance.new("Frame")
+
+Header.Size = UDim2.new(1, 0, 0, 65)
+Header.BackgroundTransparency = 1
+Header.Parent = Main
+
+local Title = Instance.new("TextLabel")
+
+Title.Size = UDim2.new(1, -30, 0, 30)
+Title.Position = UDim2.fromOffset(18, 10)
+
+Title.BackgroundTransparency = 1
+Title.Text = "Player Settings"
+Title.TextColor3 = TEXT
+Title.TextSize = 19
+Title.Font = Enum.Font.GothamBold
+
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = Header
+
+local Subtitle = Instance.new("TextLabel")
+
+Subtitle.Size = UDim2.new(1, -30, 0, 20)
+Subtitle.Position = UDim2.fromOffset(19, 36)
+
+Subtitle.BackgroundTransparency = 1
+Subtitle.Text = "Customize your character"
+Subtitle.TextColor3 = SUBTEXT
+Subtitle.TextSize = 11
+Subtitle.Font = Enum.Font.Gotham
+
+Subtitle.TextXAlignment = Enum.TextXAlignment.Left
+Subtitle.Parent = Header
+
+--//==================================================
+--// SCROLLING FRAME
+--//==================================================
+
+local Scroll = Instance.new("ScrollingFrame")
+
+Scroll.Size = UDim2.new(1, -20, 1, -75)
+Scroll.Position = UDim2.fromOffset(10, 68)
+
+Scroll.BackgroundTransparency = 1
+Scroll.BorderSizePixel = 0
+
+Scroll.ScrollBarThickness = 3
+Scroll.ScrollBarImageColor3 = ACCENT
+
+Scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+Scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+
+Scroll.Parent = Main
+
+local Layout = Instance.new("UIListLayout")
+
+Layout.Padding = UDim.new(0, 9)
+Layout.SortOrder = Enum.SortOrder.LayoutOrder
+
+Layout.Parent = Scroll
+
+local Padding = Instance.new("UIPadding")
+
+Padding.PaddingLeft = UDim.new(0, 5)
+Padding.PaddingRight = UDim.new(0, 5)
+Padding.PaddingBottom = UDim.new(0, 12)
+
+Padding.Parent = Scroll
+
+--//==================================================
+--// HELPERS
+--//==================================================
+
+local function CreateSection(text)
+
+	local Label = Instance.new("TextLabel")
+
+	Label.Size = UDim2.new(1, 0, 0, 22)
+
+	Label.BackgroundTransparency = 1
+	Label.Text = text
+	Label.TextColor3 = ACCENT
+	Label.TextSize = 11
+	Label.Font = Enum.Font.GothamBold
+
+	Label.TextXAlignment = Enum.TextXAlignment.Left
+
+	Label.Parent = Scroll
+
+	return Label
+end
+
+
+local function CreateInfo(name, value)
+
+	local Frame = Instance.new("Frame")
+
+	Frame.Size = UDim2.new(1, 0, 0, 43)
+
+	Frame.BackgroundColor3 = BG2
+	Frame.BorderSizePixel = 0
+
+	Frame.Parent = Scroll
+
+	local Corner = Instance.new("UICorner")
+
+	Corner.CornerRadius = UDim.new(0, 9)
+	Corner.Parent = Frame
+
+	local NameLabel = Instance.new("TextLabel")
+
+	NameLabel.Size = UDim2.new(0.55, 0, 1, 0)
+	NameLabel.Position = UDim2.fromOffset(12, 0)
+
+	NameLabel.BackgroundTransparency = 1
+	NameLabel.Text = name
+	NameLabel.TextColor3 = TEXT
+	NameLabel.TextSize = 12
+	NameLabel.Font = Enum.Font.GothamMedium
+
+	NameLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+	NameLabel.Parent = Frame
+
+	local ValueLabel = Instance.new("TextLabel")
+
+	ValueLabel.Size = UDim2.new(0.4, -10, 1, 0)
+	ValueLabel.Position = UDim2.new(0.6, 0, 0, 0)
+
+	ValueLabel.BackgroundTransparency = 1
+	ValueLabel.Text = value
+	ValueLabel.TextColor3 = SUBTEXT
+	ValueLabel.TextSize = 12
+	ValueLabel.Font = Enum.Font.Gotham
+
+	ValueLabel.TextXAlignment = Enum.TextXAlignment.Right
+
+	ValueLabel.Parent = Frame
+
+	return ValueLabel
+end
+
+--//==================================================
+--// SLIDER
+--//==================================================
+
+local function CreateSlider(
+	title,
+	minValue,
+	maxValue,
+	defaultValue,
+	callback
+)
+
+	local Container = Instance.new("Frame")
+
+	Container.Size = UDim2.new(1, 0, 0, 72)
+
+	Container.BackgroundColor3 = BG2
+	Container.BorderSizePixel = 0
+
+	Container.Parent = Scroll
+
+	local Corner = Instance.new("UICorner")
+
+	Corner.CornerRadius = UDim.new(0, 9)
+	Corner.Parent = Container
+
+	local NameLabel = Instance.new("TextLabel")
+
+	NameLabel.Size = UDim2.new(0.65, 0, 0, 25)
+	NameLabel.Position = UDim2.fromOffset(12, 7)
+
+	NameLabel.BackgroundTransparency = 1
+	NameLabel.Text = title
+	NameLabel.TextColor3 = TEXT
+	NameLabel.TextSize = 12
+	NameLabel.Font = Enum.Font.GothamMedium
+
+	NameLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+	NameLabel.Parent = Container
+
+	local ValueLabel = Instance.new("TextLabel")
+
+	ValueLabel.Size = UDim2.fromOffset(65, 25)
+	ValueLabel.Position = UDim2.new(1, -77, 0, 7)
+
+	ValueLabel.BackgroundTransparency = 1
+	ValueLabel.TextColor3 = ACCENT
+	ValueLabel.TextSize = 12
+	ValueLabel.Font = Enum.Font.GothamBold
+
+	ValueLabel.TextXAlignment = Enum.TextXAlignment.Right
+
+	ValueLabel.Parent = Container
+
+	local Bar = Instance.new("Frame")
+
+	Bar.Size = UDim2.new(1, -24, 0, 6)
+	Bar.Position = UDim2.fromOffset(12, 48)
+
+	Bar.BackgroundColor3 = BG3
+	Bar.BorderSizePixel = 0
+
+	Bar.Parent = Container
+
+	local BarCorner = Instance.new("UICorner")
+
+	BarCorner.CornerRadius = UDim.new(1, 0)
+	BarCorner.Parent = Bar
+
+	local Fill = Instance.new("Frame")
+
+	Fill.Size = UDim2.new(0, 0, 1, 0)
+
+	Fill.BackgroundColor3 = ACCENT
+	Fill.BorderSizePixel = 0
+
+	Fill.Parent = Bar
+
+	local FillCorner = Instance.new("UICorner")
+
+	FillCorner.CornerRadius = UDim.new(1, 0)
+	FillCorner.Parent = Fill
+
+	local Knob = Instance.new("Frame")
+
+	Knob.Size = UDim2.fromOffset(14, 14)
+	Knob.AnchorPoint = Vector2.new(0.5, 0.5)
+
+	Knob.BackgroundColor3 = Color3.fromRGB(245, 247, 255)
+	Knob.BorderSizePixel = 0
+
+	Knob.Parent = Bar
+
+	local KnobCorner = Instance.new("UICorner")
+
+	KnobCorner.CornerRadius = UDim.new(1, 0)
+	KnobCorner.Parent = Knob
+
+	local dragging = false
+
+	local function SetValue(value)
+
+		value = math.clamp(
+			value,
+			minValue,
+			maxValue
+		)
+
+		value = math.floor(value + 0.5)
+
+		local percent
+
+		if maxValue == minValue then
+			percent = 0
+		else
+			percent =
+				(value - minValue)
+				/
+				(maxValue - minValue)
+		end
+
+		Fill.Size =
+			UDim2.new(percent, 0, 1, 0)
+
+		Knob.Position =
+			UDim2.new(percent, 0, 0.5, 0)
+
+		ValueLabel.Text = tostring(value)
+
+		callback(value)
+	end
+
+
+	local function UpdateFromX(x)
+
+		local width = Bar.AbsoluteSize.X
+
+		if width <= 0 then
+			return
+		end
+
+		local relative =
+			(x - Bar.AbsolutePosition.X)
+			/
+			width
+
+		relative = math.clamp(
+			relative,
+			0,
+			1
+		)
+
+		local value =
+			minValue
+			+
+			((maxValue - minValue) * relative)
+
+		SetValue(value)
+	end
+
+
+	Bar.InputBegan:Connect(function(input)
+
+		if
+			input.UserInputType
+				== Enum.UserInputType.MouseButton1
+			or
+			input.UserInputType
+				== Enum.UserInputType.Touch
+		then
+
+			dragging = true
+
+			UpdateFromX(
+				input.Position.X
+			)
+		end
+	end)
+
+
+	UserInputService.InputChanged:Connect(function(input)
+
+		if not dragging then
+			return
+		end
+
+		if
+			input.UserInputType
+				== Enum.UserInputType.MouseMovement
+			or
+			input.UserInputType
+				== Enum.UserInputType.Touch
+		then
+
+			UpdateFromX(
+				input.Position.X
+			)
+		end
+	end)
+
+
+	UserInputService.InputEnded:Connect(function(input)
+
+		if
+			input.UserInputType
+				== Enum.UserInputType.MouseButton1
+			or
+			input.UserInputType
+				== Enum.UserInputType.Touch
+		then
+
+			dragging = false
+		end
+	end)
+
+
+	SetValue(defaultValue)
+
+	return Container
+end
+
+--//==================================================
+--// CHARACTER SETTINGS
+--//==================================================
+
+CreateSection("CHARACTER")
+
+CreateSlider(
+	"Walk Speed",
+	MIN_WALKSPEED,
+	MAX_WALKSPEED,
+
+	Humanoid
+		and Humanoid.WalkSpeed
+		or 16,
+
+	function(value)
+
+		if Humanoid then
+			Humanoid.WalkSpeed = value
+		end
+	end
+)
+
+
+CreateSlider(
+	"Jump Power",
+	MIN_JUMPPOWER,
+	MAX_JUMPPOWER,
+
+	Humanoid
+		and Humanoid.JumpPower
+		or 50,
+
+	function(value)
+
+		if Humanoid then
+
+			Humanoid.UseJumpPower = true
+			Humanoid.JumpPower = value
+
+		end
+	end
+)
+
+--//==================================================
+--// AVATAR INFO
+--//==================================================
+
+CreateSection("AVATAR")
+
+local RigLabel =
+	CreateInfo("Rig Type", "Loading...")
+
+local DisplayNameLabel =
+	CreateInfo(
+		"Display Name",
+		LocalPlayer.DisplayName
+	)
+
+local UsernameLabel =
+	CreateInfo(
+		"Username",
+		"@" .. LocalPlayer.Name
+	)
+
+
+local function UpdateRig()
+
+	if not Character then
+		return
+	end
+
+	local hum =
+		Character:FindFirstChildOfClass("Humanoid")
+
+	if not hum then
+		return
+	end
+
+	if hum.RigType == Enum.HumanoidRigType.R6 then
+
+		RigLabel.Text = "R6"
+
+	else
+
+		RigLabel.Text = "R15"
+
+	end
+end
+
+UpdateRig()
+
+--//==================================================
+--// PERFORMANCE
+--//==================================================
+
+CreateSection("PERFORMANCE")
+
+local FPSLabel =
+	CreateInfo("FPS", "0 FPS")
+
+local PingLabel =
+	CreateInfo("Latency", "-- ms")
+
+local PlayerCountLabel =
+	CreateInfo(
+		"Players",
+		tostring(#Players:GetPlayers())
+	)
+
+--//==================================================
+--// FPS
+--//==================================================
+
+local Frames = 0
+local LastFPSUpdate = os.clock()
+
+RunService.RenderStepped:Connect(function()
+
+	Frames += 1
+
+	local now = os.clock()
+
+	if now - LastFPSUpdate >= 1 then
+
+		local fps =
+			Frames
+			/
+			(now - LastFPSUpdate)
+
+		Frames = 0
+		LastFPSUpdate = now
+
+		FPSLabel.Text =
+			string.format(
+				"%d FPS",
+				math.floor(fps + 0.5)
+			)
+	end
+end)
+
+--//==================================================
+--// PING
+--//==================================================
+
+task.spawn(function()
+
+	while Gui.Parent do
+
+		task.wait(1)
+
+		local ping
+
+		pcall(function()
+
+			local network =
+				Stats:FindFirstChild("Network")
+
+			if network then
+
+				local serverStats =
+					network:FindFirstChild(
+						"ServerStatsItem"
+					)
+
+				if serverStats then
+
+					local dataPing =
+						serverStats:FindFirstChild(
+							"Data Ping"
+						)
+
+					if dataPing then
+
+						ping =
+							math.floor(
+								dataPing:GetValue()
+							)
+					end
+				end
+			end
+		end)
+
+
+		if ping and ping > 0 then
+
+			PingLabel.Text =
+				tostring(ping) .. " ms"
+
+		else
+
+			PingLabel.Text = "-- ms"
+
+		end
+	end
+end)
+
+--//==================================================
+--// PLAYER COUNT
+--//==================================================
+
+Players.PlayerAdded:Connect(function()
+
+	PlayerCountLabel.Text =
+		tostring(#Players:GetPlayers())
+
+end)
+
+Players.PlayerRemoving:Connect(function()
+
+	task.defer(function()
+
+		PlayerCountLabel.Text =
+			tostring(#Players:GetPlayers())
+
+	end)
+end)
+
+--//==================================================
+--// FIND ROBLOX CHAT BUTTON
+--//==================================================
+
+local function FindChatButton()
+
+	-- Öncelikli isimler
+	local possibleNames = {
+
+		"ChatButton",
+		"Chat",
+		"ChatWindow",
+		"BubbleChat",
+		"TextChatService"
+
+	}
+
+	for _, name in ipairs(possibleNames) do
+
+		local object
+
+		pcall(function()
+
+			object =
+				CoreGui:FindFirstChild(
+					name,
+					true
+				)
+		end)
+
+		if object
+			and object:IsA("GuiButton")
+		then
+
+			return object
+		end
+	end
+
+
+	-- İsim üzerinden genel arama
+	local descendants
+
+	pcall(function()
+
+		descendants =
+			CoreGui:GetDescendants()
+
+	end)
+
+	if descendants then
+
+		for _, object in ipairs(descendants) do
+
+			if object:IsA("GuiButton") then
+
+				local name =
+					object.Name:lower()
+
+				if
+					name:find("chat")
+					or
+					name:find("textchat")
+				then
+
+					return object
+				end
+			end
+		end
+	end
+
+	return nil
+end
+
+--//==================================================
+--// POSITION BUTTON BESIDE CHAT
+--//==================================================
+
+local function PositionSettingsButton()
+
+	local chatButton =
+		FindChatButton()
+
+	if chatButton then
+
+		local position =
+			chatButton.AbsolutePosition
+
+		local size =
+			chatButton.AbsoluteSize
+
+		local x =
+			position.X
+			+
+			size.X
+			+
+			6
+
+		local y =
+			position.Y
+
+		OpenButton.Position =
+			UDim2.fromOffset(
+				x,
+				y
+			)
+
+	else
+
+		-- Chat bulunamazsa
+		-- güvenli varsayılan konum
+
+		if UserInputService.TouchEnabled then
+
+			OpenButton.Position =
+				UDim2.fromOffset(
+					145,
+					6
+				)
+
+		else
+
+			OpenButton.Position =
+				UDim2.fromOffset(
+					150,
+					6
+				)
+		end
+	end
+end
+
+--//==================================================
+--// MENU POSITION
+--//==================================================
+
+local function UpdateMenuPosition()
+
+	local camera =
+		workspace.CurrentCamera
+
+	if not camera then
+		return
+	end
+
+	local viewport =
+		camera.ViewportSize
+
+
+	if viewport.X < 500 then
+
+		Main.Size =
+			UDim2.new(
+				1,
+				-20,
+				0,
+				420
+			)
+
+		Main.Position =
+			UDim2.fromOffset(
+				10,
+				55
+			)
+
+	else
+
+		Main.Size =
+			UDim2.fromOffset(
+				340,
+				430
+			)
+
+		local buttonPosition =
+			OpenButton.AbsolutePosition
+
+		local buttonSize =
+			OpenButton.AbsoluteSize
+
+		Main.Position =
+			UDim2.fromOffset(
+				buttonPosition.X,
+				buttonPosition.Y
+					+
+					buttonSize.Y
+					+
+					8
+			)
+	end
+end
+
+--//==================================================
+--// OPEN / CLOSE
+--//==================================================
+
+local Opened = false
+
+local function OpenMenu()
+
+	Opened = true
+
+	Main.Visible = true
+
+	Main.Size =
+		UDim2.fromOffset(
+			320,
+			400
+		)
+
+	UpdateMenuPosition()
+
+	TweenService:Create(
+		Main,
+
+		TweenInfo.new(
+			0.18,
+			Enum.EasingStyle.Quint,
+			Enum.EasingDirection.Out
+		),
+
+		{
+			Size =
+				UserInputService.TouchEnabled
+				and UDim2.new(
+					1,
+					-20,
+					0,
+					420
+				)
+				or UDim2.fromOffset(
+					340,
+					430
+				)
+		}
+
+	):Play()
+
+
+	TweenService:Create(
+		OpenButton,
+
+		TweenInfo.new(0.15),
+
+		{
+			BackgroundColor3 =
+				ACCENT_DARK
+		}
+
+	):Play()
+end
+
+
+local function CloseMenu()
+
+	Opened = false
+
+	local tween =
+		TweenService:Create(
+
+			Main,
+
+			TweenInfo.new(
+				0.14,
+				Enum.EasingStyle.Quint,
+				Enum.EasingDirection.In
+			),
+
+			{
+				Size =
+					UDim2.fromOffset(
+						320,
+						400
+					)
+			}
+		)
+
+	tween:Play()
+
+	tween.Completed:Connect(function()
+
+		if not Opened then
+			Main.Visible = false
+		end
+	end)
+
+
+	TweenService:Create(
+
+		OpenButton,
+
+		TweenInfo.new(0.15),
+
+		{
+			BackgroundColor3 = BG2
+		}
+
+	):Play()
+end
+
+
+OpenButton.Activated:Connect(function()
+
+	if Opened then
+
+		CloseMenu()
+
+	else
+
+		OpenMenu()
+
+	end
+end)
+
+--//==================================================
+--// CAMERA / SCREEN SIZE UPDATE
+--//==================================================
+
+local function ConnectCamera()
+
+	local camera =
+		workspace.CurrentCamera
+
+	if not camera then
+		return
+	end
+
+	camera:GetPropertyChangedSignal(
+		"ViewportSize"
+	):Connect(function()
+
+		task.defer(function()
+
+			PositionSettingsButton()
+			UpdateMenuPosition()
+
+		end)
+	end)
+end
+
+ConnectCamera()
+
+workspace:GetPropertyChangedSignal(
+	"CurrentCamera"
+):Connect(function()
+
+	task.wait()
+
+	ConnectCamera()
+
+	PositionSettingsButton()
+	UpdateMenuPosition()
+
+end)
+
+--//==================================================
+--// CHAT GUI LOAD / POSITION MONITOR
+--//==================================================
+
+task.spawn(function()
+
+	-- Roblox CoreGui'nin yüklenmesini bekle
+	task.wait(1)
+
+	while Gui.Parent do
+
+		PositionSettingsButton()
+
+		if Opened then
+			UpdateMenuPosition()
+		end
+
+		task.wait(1)
+	end
+end)
+
+--//==================================================
+--// INITIAL POSITION
+--//==================================================
+
+task.defer(function()
+
+	task.wait(0.5)
+
+	PositionSettingsButton()
+	UpdateMenuPosition()
+
+end)
+
+--//==================================================
+--// END
+--//==================================================

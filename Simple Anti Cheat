@@ -1,402 +1,197 @@
--- ServerScriptService > Script (isim: RagdollDeathSystem)
+--[[
+	Sword - Script (SERVER)
+	Tüm hasar hesaplaması ve doğrulaması burada yapılır.
+	İstemci (LocalScript) sadece "saldırdım" bilgisini gönderir;
+	gerçek hasar, dokunma kontrolü ve zamanlama tamamen sunucu otoritesindedir.
+]]
+
+local Tool = script.Parent
+local Handle = Tool:WaitForChild("Handle")
 
 local Players = game:GetService("Players")
-local Workspace = game:GetService("Workspace")
 local Debris = game:GetService("Debris")
 
---// AYARLAR //--
-local DEAD_BODY_LIFETIME = 20 -- saniye, klon Dead klasöründe ne kadar kalacak
-local SETTLE_TIMEOUT = 5 -- saniye, ragdoll'un yere düşüp sakinleşmesi için maksimum bekleme
-local SETTLE_CHECK_INTERVAL = 0.1
-local SETTLE_VELOCITY_THRESHOLD = 0.6 -- bu hızın altına inince "durdu" sayılır
-
--- Kullanıcı "Dead" klasörünü Workspace'e kendisi ekleyecek; burada sadece bekliyoruz.
-local deadFolder = Workspace:WaitForChild("Dead", 30)
-if not deadFolder then
-	warn("[RagdollDeathSystem] Workspace içinde 'Dead' adında bir Folder bulunamadı. Script devam edecek ama klonlar konulamayacak; lütfen Workspace'e 'Dead' isimli bir Folder ekleyin.")
+--// RemoteEvent: istemci "saldırdım" (Slash/Lunge) bilgisini buraya gönderir
+local AttackRemote = Tool:FindFirstChild("AttackRemote")
+if not AttackRemote then
+	AttackRemote = Instance.new("RemoteEvent")
+	AttackRemote.Name = "AttackRemote"
+	AttackRemote.Parent = Tool
 end
 
---// R15 EKLEM HARİTASI (parça ve ek isimleri zaten karakterde hazır geliyor) //--
-local R15_JOINTS = {
-	{"UpperTorso", "LowerTorso", "WaistRigAttachment", "WaistRigAttachment"},
-	{"Head", "UpperTorso", "NeckRigAttachment", "NeckRigAttachment"},
-	{"UpperTorso", "LeftUpperArm", "LeftShoulderRigAttachment", "LeftShoulderRigAttachment"},
-	{"LeftUpperArm", "LeftLowerArm", "LeftElbowRigAttachment", "LeftElbowRigAttachment"},
-	{"LeftLowerArm", "LeftHand", "LeftWristRigAttachment", "LeftWristRigAttachment"},
-	{"UpperTorso", "RightUpperArm", "RightShoulderRigAttachment", "RightShoulderRigAttachment"},
-	{"RightUpperArm", "RightLowerArm", "RightElbowRigAttachment", "RightElbowRigAttachment"},
-	{"RightLowerArm", "RightHand", "RightWristRigAttachment", "RightWristRigAttachment"},
-	{"LowerTorso", "LeftUpperLeg", "LeftHipRigAttachment", "LeftHipRigAttachment"},
-	{"LeftUpperLeg", "LeftLowerLeg", "LeftKneeRigAttachment", "LeftKneeRigAttachment"},
-	{"LeftLowerLeg", "LeftFoot", "LeftAnkleRigAttachment", "LeftAnkleRigAttachment"},
-	{"LowerTorso", "RightUpperLeg", "RightHipRigAttachment", "RightHipRigAttachment"},
-	{"RightUpperLeg", "RightLowerLeg", "RightKneeRigAttachment", "RightKneeRigAttachment"},
-	{"RightLowerLeg", "RightFoot", "RightAnkleRigAttachment", "RightAnkleRigAttachment"},
+local DamageValues = {
+	Slash = 10,
+	Lunge = 30,
 }
 
---// R6 EKLEM HARİTASI: R6'da hazır Attachment yok, bu yüzden Motor6D'nin C0/C1 CFrame'lerini
---// kendimiz Attachment olarak kuruyoruz. Değerler R6 rigi için standart, doğrulanmış CFrame'lerdir.
-local R6_JOINTS = {
-	{
-		part0 = "Torso", part1 = "Head", motorName = "Neck",
-		c0 = CFrame.new(0, 1, 0, 0, -1, 0, 1, 0, 0, 0, 0, 1),
-		c1 = CFrame.new(0, -0.5, 0, 0, -1, 0, 1, 0, 0, 0, 0, 1),
-	},
-	{
-		part0 = "Torso", part1 = "Left Arm", motorName = "Left Shoulder",
-		c0 = CFrame.new(-1.3, 0.75, 0, -1, 0, 0, 0, -1, 0, 0, 0, 1),
-		c1 = CFrame.new(0.2, 0.75, 0, -1, 0, 0, 0, -1, 0, 0, 0, 1),
-	},
-	{
-		part0 = "Torso", part1 = "Right Arm", motorName = "Right Shoulder",
-		c0 = CFrame.new(1.3, 0.75, 0, 1, 0, 0, 0, -1, 0, 0, 0, -1),
-		c1 = CFrame.new(-0.2, 0.75, 0, 1, 0, 0, 0, -1, 0, 0, 0, -1),
-	},
-	{
-		part0 = "Torso", part1 = "Left Leg", motorName = "Left Hip",
-		c0 = CFrame.new(-0.5, -1, 0, -1, 0, 0, 0, 0, 1, 0, 1, 0),
-		c1 = CFrame.new(0, 1, 0, -1, 0, 0, 0, 0, 1, 0, 1, 0),
-	},
-	{
-		part0 = "Torso", part1 = "Right Leg", motorName = "Right Hip",
-		c0 = CFrame.new(0.5, -1, 0, 1, 0, 0, 0, 0, -1, 0, 1, 0),
-		c1 = CFrame.new(0, 1, 0, 1, 0, 0, 0, 0, -1, 0, 1, 0),
-	},
+-- Sunucu tarafı cooldown: istemci ne gönderirse göndersin, bu limitlerin altına inemez
+local Cooldowns = {
+	Slash = 0.5, -- iki slash arası minimum süre
+	Lunge = 1.0, -- iki lunge arası minimum süre
 }
 
---// YARDIMCI FONKSİYONLAR //--
+local Grips = {
+	Up = CFrame.new(0, 0, -1.70000005, 0, 0, 1, 1, 0, 0, 0, 1, 0),
+	Out = CFrame.new(0, 0, -1.70000005, 0, 1, 0, 1, -0, 0, 0, 0, -1),
+}
 
--- R15 karakterin Avatar Joint Upgrade (yeni sistem) mi yoksa klasik Motor6D mi kullandığını tespit eder.
-local function usesAvatarJointUpgrade(character)
-	for _, descendant in ipairs(character:GetDescendants()) do
-		if descendant:IsA("AnimationConstraint") then
-			return true
-		end
-	end
-	return false
+local ToolEquipped = false
+local Character, Player, Humanoid, Torso
+
+local LastAttackType = nil
+local LastAttackTime = {
+	Slash = 0,
+	Lunge = 0,
+}
+
+-- Aktif saldırı penceresi: sadece bu süre içindeki dokunuşlar hasar verir.
+-- Bu, "aktive ol, animasyon bitince de vurmaya devam et" hilesini engeller.
+local CurrentDamage = 0
+local AttackWindowEndsAt = 0
+
+local function IsTeamMate(Player1, Player2)
+	return Player1
+		and Player2
+		and not Player1.Neutral
+		and not Player2.Neutral
+		and Player1.TeamColor == Player2.TeamColor
 end
 
--- Aksesuarların (saç, şapka, sırt çantası, vb.) ragdoll sırasında vücuttan ayrılıp
--- düşmemesi için Handle'larını sağlam bir WeldConstraint ile en yakın vücut parçasına bağlar.
--- ÖNEMLİ: Mevcut weld'in sınıfına veya konumuna güvenmiyoruz (Weld, Motor6D, WeldConstraint,
--- AccessoryWeld gibi farklı isim/sınıflarda gelebiliyor) — bunun yerine Handle'ın o anki
--- dünya konumuna bakıp fiziksel olarak en yakın ana vücut parçasını buluyoruz.
-local function securizeAccessories(character)
-	local candidateParts = {}
-	local candidateNames = {"Head", "UpperTorso", "LowerTorso", "Torso"}
-	for _, name in ipairs(candidateNames) do
-		local part = character:FindFirstChild(name)
-		if part and part:IsA("BasePart") then
-			table.insert(candidateParts, part)
-		end
-	end
+local function TagHumanoid(humanoid, player)
+	local CreatorTag = Instance.new("ObjectValue")
+	CreatorTag.Name = "creator"
+	CreatorTag.Value = player
+	Debris:AddItem(CreatorTag, 2)
+	CreatorTag.Parent = humanoid
+end
 
-	if #candidateParts == 0 then
-		return -- karakterin gövde parçaları bulunamadıysa yapacak bir şey yok
-	end
-
-	-- GetDescendants kullanıyoruz ki bir alt klasörde saklı aksesuarları da yakalayalım.
-	for _, accessory in ipairs(character:GetDescendants()) do
-		if accessory:IsA("Accessory") then
-			local handle = accessory:FindFirstChild("Handle")
-			if not handle or not handle:IsA("BasePart") then
-				continue
-			end
-
-			-- Handle'ın altındaki TÜM eski bağlantı türlerini temizle (sınıf ne olursa olsun).
-			for _, oldJoint in ipairs(handle:GetChildren()) do
-				if oldJoint:IsA("Weld")
-					or oldJoint:IsA("Motor6D")
-					or oldJoint:IsA("WeldConstraint")
-					or oldJoint:IsA("RigidConstraint") then
-					oldJoint:Destroy()
-				end
-			end
-
-			-- Gövde parçalarının içinde bu Handle'a referans veren weld'ler de olabilir
-			-- (örneğin Head'in içinde duran bir "HeadWeld"). Onları da bulup temizle.
-			for _, otherPart in ipairs(candidateParts) do
-				for _, maybeJoint in ipairs(otherPart:GetChildren()) do
-					if maybeJoint:IsA("Weld") or maybeJoint:IsA("WeldConstraint") or maybeJoint:IsA("Motor6D") then
-						local part0 = maybeJoint.Part0
-						local part1 = maybeJoint.Part1
-						if part0 == handle or part1 == handle then
-							maybeJoint:Destroy()
-						end
-					end
-				end
-			end
-
-			-- Handle'ın o anki dünya konumuna en yakın gövde parçasını bul (mesafe hesabıyla).
-			local closestPart = nil
-			local closestDistance = math.huge
-			for _, part in ipairs(candidateParts) do
-				local distance = (part.Position - handle.Position).Magnitude
-				if distance < closestDistance then
-					closestDistance = distance
-					closestPart = part
-				end
-			end
-
-			if not closestPart then
-				continue
-			end
-
-			-- Yeni, sağlam bir WeldConstraint kur. C0/C1 gerektirmez, iki parçanın
-			-- o anki göreceli konumunu otomatik kilitler.
-			local secureWeld = Instance.new("WeldConstraint")
-			secureWeld.Name = "RagdollAccessoryWeld"
-			secureWeld.Part0 = handle
-			secureWeld.Part1 = closestPart
-			secureWeld.Parent = handle
-
-			-- Handle karakterin geri kalanıyla birlikte çarpışabilir kalsın, ama artık
-			-- WeldConstraint pozisyonunu tamamen sabitlediği için ayrı bir cisim gibi
-			-- fırlayıp uçamaz.
-			handle.CanCollide = false
+local function UntagHumanoid(humanoid)
+	for _, v in ipairs(humanoid:GetChildren()) do
+		if v:IsA("ObjectValue") and v.Name == "creator" then
+			v:Destroy()
 		end
 	end
 end
 
--- R15 - YENİ SİSTEM (AJU): Zaten var olan AnimationConstraint'leri devre dışı bırakıp
--- BallSocketConstraint'lerin fizik kontrolünü almasını sağlar.
-local function ragdollR15ViaAJU(character)
-	for _, descendant in ipairs(character:GetDescendants()) do
-		if descendant:IsA("AnimationConstraint") then
-			descendant.Enabled = false
-		elseif descendant:IsA("BallSocketConstraint") then
-			descendant.Enabled = true
-		elseif descendant:IsA("Motor6D") then
-			descendant.Enabled = false
-		end
-	end
+local function CheckIfAlive()
+	return Player
+		and Player.Parent
+		and Character
+		and Character.Parent
+		and Humanoid
+		and Humanoid.Parent
+		and Humanoid.Health > 0
+		and Torso
+		and Torso.Parent
 end
 
--- R15 - ESKİ SİSTEM (klasik): Motor6D'leri yok edip yerine BallSocketConstraint kurar.
-local function ragdollR15ViaMotor6D(character)
-	for _, jointInfo in ipairs(R15_JOINTS) do
-		local part0Name, part1Name, att0Name, att1Name = jointInfo[1], jointInfo[2], jointInfo[3], jointInfo[4]
-
-		local part0 = character:FindFirstChild(part0Name)
-		local part1 = character:FindFirstChild(part1Name)
-		if not (part0 and part1) then
-			continue
-		end
-
-		local motor = part1:FindFirstChildOfClass("Motor6D")
-		if motor and (motor.Part0 == part0 or motor.Part1 == part0) then
-			motor:Destroy()
-		end
-
-		local att0 = part0:FindFirstChild(att0Name)
-		local att1 = part1:FindFirstChild(att1Name)
-		if not (att0 and att1) then
-			continue
-		end
-
-		local socket = Instance.new("BallSocketConstraint")
-		socket.Name = "RagdollSocket_" .. part0Name .. "_" .. part1Name
-		socket.Attachment0 = att0
-		socket.Attachment1 = att1
-		socket.LimitsEnabled = true
-		socket.TwistLimitsEnabled = true
-		socket.Restitution = 0
-		socket.Parent = part0
-	end
-end
-
--- R6: Attachment'lar karakterde hazır gelmediği için, her Motor6D'nin C0/C1 CFrame'lerinden
--- kendimiz Attachment oluşturup BallSocketConstraint kuruyoruz.
-local function ragdollR6(character)
-	for _, jointInfo in ipairs(R6_JOINTS) do
-		local part0 = character:FindFirstChild(jointInfo.part0)
-		local part1 = character:FindFirstChild(jointInfo.part1)
-		if not (part0 and part1) then
-			continue
-		end
-
-		local motor = part1:FindFirstChild(jointInfo.motorName)
-			or part0:FindFirstChild(jointInfo.motorName)
-
-		if motor and motor:IsA("Motor6D") then
-			motor.Enabled = false
-		end
-
-		local att0 = Instance.new("Attachment")
-		att0.Name = "RagdollAttachment_" .. jointInfo.motorName .. "_0"
-		att0.CFrame = jointInfo.c0
-		att0.Parent = part0
-
-		local att1 = Instance.new("Attachment")
-		att1.Name = "RagdollAttachment_" .. jointInfo.motorName .. "_1"
-		att1.CFrame = jointInfo.c1
-		att1.Parent = part1
-
-		local socket = Instance.new("BallSocketConstraint")
-		socket.Name = "RagdollSocket_" .. jointInfo.motorName
-		socket.Attachment0 = att0
-		socket.Attachment1 = att1
-		socket.LimitsEnabled = true
-		socket.TwistLimitsEnabled = true
-		socket.Restitution = 0
-		socket.Parent = part0
-	end
-end
-
--- Karakteri ragdoll durumuna geçirir: RigType'a bakıp doğru yolu seçer.
-local function ragdollCharacter(character, humanoid)
-	humanoid.BreakJointsOnDeath = false -- Roblox'un varsayılan "parçala" davranışını engelle
-	humanoid:ChangeState(Enum.HumanoidStateType.Physics)
-	humanoid.PlatformStand = true
-	humanoid.RequiresNeck = false -- R6'da baş kopup gitmesin
-
-	-- Aksesuarları vücuda sağlam şekilde weld'le. Bu, eklemler kırılmadan/devre dışı kalmadan
-	-- ÖNCE yapılmalı ki saç/şapka gibi parçalar o an bir "boşluk" yaşamasın.
-	securizeAccessories(character)
-
-	if humanoid.RigType == Enum.HumanoidRigType.R6 then
-		ragdollR6(character)
-	else
-		if usesAvatarJointUpgrade(character) then
-			ragdollR15ViaAJU(character)
-		else
-			ragdollR15ViaMotor6D(character)
-		end
-	end
-
-	for _, part in ipairs(character:GetDescendants()) do
-		if part:IsA("BasePart") then
-			part.CanCollide = true
-		end
-	end
-end
-
--- Karakterin fiziksel olarak "durduğunu" (yere yığılıp sakinleştiğini) tespit eder.
-local function waitUntilSettled(character, timeoutSeconds)
-	local startTime = os.clock()
-
-	while os.clock() - startTime < timeoutSeconds do
-		local maxSpeed = 0
-
-		for _, part in ipairs(character:GetDescendants()) do
-			if part:IsA("BasePart") then
-				local speed = part.AssemblyLinearVelocity.Magnitude
-				if speed > maxSpeed then
-					maxSpeed = speed
-				end
-			end
-		end
-
-		if maxSpeed < SETTLE_VELOCITY_THRESHOLD then
-			return true
-		end
-
-		task.wait(SETTLE_CHECK_INTERVAL)
-	end
-
-	return false
-end
-
--- Ragdoll halindeki karakteri klonlar, Dead klasörüne koyar, sabitler ve zamanlayıcıya bağlar.
-local function cloneToDeadFolder(character, player)
-	if not deadFolder then
+--// Handle bir şeye değdiğinde çalışır — GERÇEK hasar burada verilir
+local function OnTouched(Hit)
+	if not Hit or not Hit.Parent or not CheckIfAlive() or not ToolEquipped then
 		return
 	end
 
-	local clone = character:Clone()
-	clone.Name = (player and player.Name or character.Name) .. "_Dead"
-
-	-- Önce silinecekleri bir listede topluyoruz, döngü bittikten SONRA yok ediyoruz.
-	-- GetDescendants() çağrıldığı andaki sabit bir liste döner; döngü içinde :Destroy() çağırırsak
-	-- zincirleme yok etme yüzünden listede sırada bekleyen eleman "nil" haline gelip hataya yol açabilir.
-	local toDestroy = {}
-
-	for _, part in ipairs(clone:GetDescendants()) do
-		if part:IsA("BasePart") then
-			part.Anchored = true
-			part.CanCollide = false
-		elseif part:IsA("Constraint") or part:IsA("Motor6D") or part:IsA("Attachment") or part:IsA("Weld") then
-			table.insert(toDestroy, part)
-		end
-	end
-
-	for _, part in ipairs(toDestroy) do
-		if part and part.Parent then
-			part:Destroy()
-		end
-	end
-
-	local cloneHumanoid = clone:FindFirstChildOfClass("Humanoid")
-	if cloneHumanoid then
-		cloneHumanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
-		cloneHumanoid.Health = 0
-		cloneHumanoid.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
-	end
-
-	clone.Parent = deadFolder
-	Debris:AddItem(clone, DEAD_BODY_LIFETIME)
-
-	return clone
-end
-
---// ÖLÜM İŞLEME AKIŞI //--
-
-local function onCharacterDied(player, character, humanoid)
-	if character:GetAttribute("DeathHandled") then
-		return
-	end
-	character:SetAttribute("DeathHandled", true)
-
-	ragdollCharacter(character, humanoid)
-
-	task.spawn(function()
-		waitUntilSettled(character, SETTLE_TIMEOUT)
-
-		if not character.Parent then
-			return
-		end
-
-		cloneToDeadFolder(character, player)
-		character:Destroy()
-
-		if player and player.Parent then
-			player:LoadCharacter()
-		end
-	end)
-end
-
-local function setupHumanoidTracking(player, character)
-	local humanoid = character:WaitForChild("Humanoid", 5)
-	if not humanoid then
+	-- Saldırı penceresi dışındaysa (yani oyuncu aktive etmeden Handle bir şeye değdiyse) hasar yok
+	if os.clock() > AttackWindowEndsAt or CurrentDamage <= 0 then
 		return
 	end
 
-	character:SetAttribute("DeathHandled", false)
+	local RightArm = Character:FindFirstChild("Right Arm")
+	if not RightArm then
+		return
+	end
+	local RightGrip = RightArm:FindFirstChild("RightGrip")
+	if not RightGrip or (RightGrip.Part0 ~= Handle and RightGrip.Part1 ~= Handle) then
+		return
+	end
 
-	humanoid.Died:Connect(function()
-		onCharacterDied(player, character, humanoid)
-	end)
+	local hitCharacter = Hit.Parent
+	if hitCharacter == Character then
+		return
+	end
+
+	local hitHumanoid = hitCharacter:FindFirstChildOfClass("Humanoid")
+	if not hitHumanoid or hitHumanoid.Health == 0 then
+		return
+	end
+
+	local hitPlayer = Players:GetPlayerFromCharacter(hitCharacter)
+	if hitPlayer and (hitPlayer == Player or IsTeamMate(Player, hitPlayer)) then
+		return
+	end
+
+	UntagHumanoid(hitHumanoid)
+	TagHumanoid(hitHumanoid, Player)
+	hitHumanoid:TakeDamage(CurrentDamage)
+
+	-- Bir vuruş yeterli: aynı saldırıyla iki kez dokunup çift hasar vermeyi engelle
+	CurrentDamage = 0
 end
 
---// TÜM OYUNCULARA UYGULAMA (herkes için geçerli, rig tipi ve admin ayrımı yok) //--
-
-Players.PlayerAdded:Connect(function(player)
-	player.CharacterAdded:Connect(function(character)
-		setupHumanoidTracking(player, character)
-	end)
-
-	if player.Character then
-		setupHumanoidTracking(player, player.Character)
+--// İstemciden "saldırdım" sinyali geldiğinde çalışır
+-- Burada asıl iş: istemcinin dediğini KÖRÜ KÖRÜNE onaylamamak.
+-- Cooldown, canlılık ve ekipli olma durumu sunucuda tekrar kontrol edilir.
+local function OnAttackRequested(player, attackType)
+	if player ~= Player then
+		return -- bu tool'un sahibi değilse yok say
 	end
-end)
-
-for _, player in ipairs(Players:GetPlayers()) do
-	if player.Character then
-		setupHumanoidTracking(player, player.Character)
+	if not CheckIfAlive() or not ToolEquipped then
+		return
 	end
-	player.CharacterAdded:Connect(function(character)
-		setupHumanoidTracking(player, character)
-	end)
+	if attackType ~= "Slash" and attackType ~= "Lunge" then
+		return
+	end
+
+	local now = os.clock()
+	local cooldown = Cooldowns[attackType]
+	if (now - LastAttackTime[attackType]) < cooldown then
+		-- İstemci cooldown'u aşmaya çalışıyor (hile veya gecikme) — reddet
+		return
+	end
+	LastAttackTime[attackType] = now
+
+	if attackType == "Slash" then
+		CurrentDamage = DamageValues.Slash
+		AttackWindowEndsAt = now + 0.4 -- slash animasyonunun etkili vuruş penceresi
+	elseif attackType == "Lunge" then
+		CurrentDamage = DamageValues.Lunge
+		AttackWindowEndsAt = now + 0.6 -- lunge biraz daha uzun sürer
+
+		task.delay(0.2, function()
+			if CheckIfAlive() and ToolEquipped then
+				Tool.Grip = Grips.Out
+			end
+		end)
+		task.delay(0.8, function()
+			if CheckIfAlive() and ToolEquipped then
+				Tool.Grip = Grips.Up
+			end
+		end)
+	end
 end
 
--- Rizzler
+local function Equipped()
+	Character = Tool.Parent
+	Player = Players:GetPlayerFromCharacter(Character)
+	Humanoid = Character:FindFirstChildOfClass("Humanoid")
+	Torso = Character:FindFirstChild("Torso")
+
+	if not CheckIfAlive() then
+		return
+	end
+
+	ToolEquipped = true
+end
+
+local function Unequipped()
+	Tool.Grip = Grips.Up
+	ToolEquipped = false
+	CurrentDamage = 0
+end
+
+Tool.Equipped:Connect(Equipped)
+Tool.Unequipped:Connect(Unequipped)
+Handle.Touched:Connect(OnTouched)
+AttackRemote.OnServerEvent:Connect(OnAttackRequested)
+
+Tool.Grip = Grips.Up

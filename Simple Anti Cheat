@@ -1,709 +1,312 @@
--- StarterPlayer > StarterPlayerScripts > LocalScript (isim: AdminClient)
+-- ServerScriptService > Script (isim: RagdollDeathSystem)
 
 local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TweenService = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
+local Debris = game:GetService("Debris")
 
-local localPlayer = Players.LocalPlayer
+--// AYARLAR //--
+local DEAD_BODY_LIFETIME = 20 -- saniye, klon Dead klasöründe ne kadar kalacak
+local SETTLE_TIMEOUT = 5 -- saniye, ragdoll'un yere düşüp sakinleşmesi için maksimum bekleme
+local SETTLE_CHECK_INTERVAL = 0.1
+local SETTLE_VELOCITY_THRESHOLD = 0.6 -- bu hızın altına inince "durdu" sayılır
 
--- Sunucunun oluşturduğu remote'ları bekle
-local remotesFolder = ReplicatedStorage:WaitForChild("AdminRemotes", 15)
-if not remotesFolder then return end
-
-local CommandRemote = remotesFolder:WaitForChild("AdminCommand")
-local StateRemote = remotesFolder:WaitForChild("AdminState")
-
---// ARAYÜZ OLUŞTURMA //--
-
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "AdminPanelGui"
-screenGui.ResetOnSpawn = false
-screenGui.IgnoreGuiInset = true
-screenGui.DisplayOrder = 999
-screenGui.Enabled = false -- yetki gelene kadar hiçbir şey render edilmez
-screenGui.Parent = localPlayer:WaitForChild("PlayerGui")
-
--- Basit renk paleti
-local COLOR_BG = Color3.fromRGB(18, 18, 24)
-local COLOR_ACCENT = Color3.fromRGB(120, 90, 255)
-local COLOR_ACCENT2 = Color3.fromRGB(255, 80, 130)
-local COLOR_TEXT = Color3.fromRGB(235, 235, 245)
-local COLOR_SUBTEXT = Color3.fromRGB(160, 160, 175)
-local COLOR_PANEL2 = Color3.fromRGB(28, 28, 36)
-
--- Panelin TASARIM (base) boyutu. Gerçek boyut buna UIScale çarpanıyla uygulanır.
--- Orijinal 760x300'ün %35 küçültülmüş hali:
-local BASE_WIDTH = 494
-local BASE_HEIGHT = 195
-
-local function corner(instance, radius)
-	local c = Instance.new("UICorner")
-	c.CornerRadius = UDim.new(0, radius or 10)
-	c.Parent = instance
-	return c
+-- Kullanıcı "Dead" klasörünü Workspace'e kendisi ekleyecek; burada sadece bekliyoruz.
+local deadFolder = Workspace:WaitForChild("Dead", 30)
+if not deadFolder then
+	warn("[RagdollDeathSystem] Workspace içinde 'Dead' adında bir Folder bulunamadı. Script devam edecek ama klonlar konulamayacak; lütfen Workspace'e 'Dead' isimli bir Folder ekleyin.")
 end
 
-local function stroke(instance, color, thickness)
-	local s = Instance.new("UIStroke")
-	s.Color = color or COLOR_ACCENT
-	s.Thickness = thickness or 1
-	s.Transparency = 0.4
-	s.Parent = instance
-	return s
+--// R15 EKLEM HARİTASI (parça ve ek isimleri zaten karakterde hazır geliyor) //--
+local R15_JOINTS = {
+	{"UpperTorso", "LowerTorso", "WaistRigAttachment", "WaistRigAttachment"},
+	{"Head", "UpperTorso", "NeckRigAttachment", "NeckRigAttachment"},
+	{"UpperTorso", "LeftUpperArm", "LeftShoulderRigAttachment", "LeftShoulderRigAttachment"},
+	{"LeftUpperArm", "LeftLowerArm", "LeftElbowRigAttachment", "LeftElbowRigAttachment"},
+	{"LeftLowerArm", "LeftHand", "LeftWristRigAttachment", "LeftWristRigAttachment"},
+	{"UpperTorso", "RightUpperArm", "RightShoulderRigAttachment", "RightShoulderRigAttachment"},
+	{"RightUpperArm", "RightLowerArm", "RightElbowRigAttachment", "RightElbowRigAttachment"},
+	{"RightLowerArm", "RightHand", "RightWristRigAttachment", "RightWristRigAttachment"},
+	{"LowerTorso", "LeftUpperLeg", "LeftHipRigAttachment", "LeftHipRigAttachment"},
+	{"LeftUpperLeg", "LeftLowerLeg", "LeftKneeRigAttachment", "LeftKneeRigAttachment"},
+	{"LeftLowerLeg", "LeftFoot", "LeftAnkleRigAttachment", "LeftAnkleRigAttachment"},
+	{"LowerTorso", "RightUpperLeg", "RightHipRigAttachment", "RightHipRigAttachment"},
+	{"RightUpperLeg", "RightLowerLeg", "RightKneeRigAttachment", "RightKneeRigAttachment"},
+	{"RightLowerLeg", "RightFoot", "RightAnkleRigAttachment", "RightAnkleRigAttachment"},
+}
+
+--// R6 EKLEM HARİTASI: R6'da hazır Attachment yok, bu yüzden Motor6D'nin C0/C1 CFrame'lerini
+--// kendimiz Attachment olarak kuruyoruz. Değerler R6 rigi için standart, doğrulanmış CFrame'lerdir.
+local R6_JOINTS = {
+	{
+		part0 = "Torso", part1 = "Head", motorName = "Neck",
+		c0 = CFrame.new(0, 1, 0, 0, -1, 0, 1, 0, 0, 0, 0, 1),
+		c1 = CFrame.new(0, -0.5, 0, 0, -1, 0, 1, 0, 0, 0, 0, 1),
+	},
+	{
+		part0 = "Torso", part1 = "Left Arm", motorName = "Left Shoulder",
+		c0 = CFrame.new(-1.3, 0.75, 0, -1, 0, 0, 0, -1, 0, 0, 0, 1),
+		c1 = CFrame.new(0.2, 0.75, 0, -1, 0, 0, 0, -1, 0, 0, 0, 1),
+	},
+	{
+		part0 = "Torso", part1 = "Right Arm", motorName = "Right Shoulder",
+		c0 = CFrame.new(1.3, 0.75, 0, 1, 0, 0, 0, -1, 0, 0, 0, -1),
+		c1 = CFrame.new(-0.2, 0.75, 0, 1, 0, 0, 0, -1, 0, 0, 0, -1),
+	},
+	{
+		part0 = "Torso", part1 = "Left Leg", motorName = "Left Hip",
+		c0 = CFrame.new(-0.5, -1, 0, -1, 0, 0, 0, 0, 1, 0, 1, 0),
+		c1 = CFrame.new(0, 1, 0, -1, 0, 0, 0, 0, 1, 0, 1, 0),
+	},
+	{
+		part0 = "Torso", part1 = "Right Leg", motorName = "Right Hip",
+		c0 = CFrame.new(0.5, -1, 0, 1, 0, 0, 0, 0, -1, 0, 1, 0),
+		c1 = CFrame.new(0, 1, 0, 1, 0, 0, 0, 0, -1, 0, 1, 0),
+	},
+}
+
+--// YARDIMCI FONKSİYONLAR //--
+
+-- R15 karakterin Avatar Joint Upgrade (yeni sistem) mi yoksa klasik Motor6D mi kullandığını tespit eder.
+-- Resmi API referansına göre doğru arama yöntemi budur (sadece R15'te anlamlı).
+local function usesAvatarJointUpgrade(character)
+	for _, descendant in ipairs(character:GetDescendants()) do
+		if descendant:IsA("AnimationConstraint") then
+			return true
+		end
+	end
+	return false
 end
 
-local function gradient(instance, rotation, colorSeq)
-	local g = Instance.new("UIGradient")
-	g.Rotation = rotation or 0
-	g.Color = colorSeq or ColorSequence.new(COLOR_ACCENT, COLOR_ACCENT2)
-	g.Parent = instance
-	return g
+-- R15 - YENİ SİSTEM (AJU): Zaten var olan AnimationConstraint'leri devre dışı bırakıp
+-- BallSocketConstraint'lerin fizik kontrolünü almasını sağlar.
+local function ragdollR15ViaAJU(character)
+	for _, descendant in ipairs(character:GetDescendants()) do
+		if descendant:IsA("AnimationConstraint") then
+			descendant.Enabled = false
+		elseif descendant:IsA("BallSocketConstraint") then
+			descendant.Enabled = true
+		elseif descendant:IsA("Motor6D") then
+			descendant.Enabled = false
+		end
+	end
 end
 
---// ANA PENCERE (yatay dikdörtgen, yarı saydam, tam ortada) //--
+-- R15 - ESKİ SİSTEM (klasik): Motor6D'leri yok edip yerine BallSocketConstraint kurar.
+-- R15'te Attachment'lar zaten karakterde hazır geldiği için yeniden oluşturmaya gerek yok.
+local function ragdollR15ViaMotor6D(character)
+	for _, jointInfo in ipairs(R15_JOINTS) do
+		local part0Name, part1Name, att0Name, att1Name = jointInfo[1], jointInfo[2], jointInfo[3], jointInfo[4]
 
-local mainFrame = Instance.new("Frame")
-mainFrame.Name = "MainPanel"
-mainFrame.Size = UDim2.fromOffset(BASE_WIDTH, BASE_HEIGHT)
-mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-mainFrame.Position = UDim2.new(0.5, 0, 0.5, 0) -- ekranın tam ortası, her cihazda
-mainFrame.BackgroundColor3 = COLOR_BG
-mainFrame.BackgroundTransparency = 0.12 -- yarı saydam
-mainFrame.BorderSizePixel = 0
-mainFrame.ClipsDescendants = true
-mainFrame.Active = true -- input'u yutar, arkadaki dünyaya geçmesin
--- Sürüklenemesin diye: Draggable özelliği hiç eklenmiyor, herhangi bir sürükleme
--- bağlantısı (Drag/InputBegan+CFrame güncelleme) kasıtlı olarak YOK.
-mainFrame.Parent = screenGui
-corner(mainFrame, 18)
-stroke(mainFrame, COLOR_ACCENT, 1.5)
+		local part0 = character:FindFirstChild(part0Name)
+		local part1 = character:FindFirstChild(part1Name)
+		if not (part0 and part1) then
+			continue
+		end
 
--- Tüm cihazlarda (mobil/tablet/PC/konsol) orantılı görünmesi için ölçekleme.
--- Boyutu Size ile değil, bu UIScale ile büyütüp küçültüyoruz; Size sabit "tasarım" boyutu kalıyor.
-local panelScale = Instance.new("UIScale")
-panelScale.Scale = 1
-panelScale.Parent = mainFrame
+		local motor = part1:FindFirstChildOfClass("Motor6D")
+		if motor and (motor.Part0 == part0 or motor.Part1 == part0) then
+			motor:Destroy()
+		end
 
-do
-	local blurGradient = Instance.new("Frame")
-	blurGradient.Name = "GlowBorder"
-	blurGradient.Size = UDim2.new(1, 0, 0, 4)
-	blurGradient.Position = UDim2.new(0, 0, 0, 0)
-	blurGradient.BackgroundColor3 = Color3.new(1, 1, 1)
-	blurGradient.BorderSizePixel = 0
-	blurGradient.Parent = mainFrame
-	gradient(blurGradient, 0)
-	corner(blurGradient, 18)
+		local att0 = part0:FindFirstChild(att0Name)
+		local att1 = part1:FindFirstChild(att1Name)
+		if not (att0 and att1) then
+			continue
+		end
+
+		local socket = Instance.new("BallSocketConstraint")
+		socket.Name = "RagdollSocket_" .. part0Name .. "_" .. part1Name
+		socket.Attachment0 = att0
+		socket.Attachment1 = att1
+		socket.LimitsEnabled = true
+		socket.TwistLimitsEnabled = true
+		socket.Restitution = 0
+		socket.Parent = part0
+	end
 end
 
--- Başlık çubuğu
-local titleBar = Instance.new("Frame")
-titleBar.Name = "TitleBar"
-titleBar.Size = UDim2.new(1, 0, 0, 30)
-titleBar.BackgroundColor3 = COLOR_PANEL2
-titleBar.BackgroundTransparency = 0.15
-titleBar.BorderSizePixel = 0
-titleBar.Parent = mainFrame
-corner(titleBar, 18)
+-- R6: Attachment'lar karakterde hazır gelmediği için, her Motor6D'nin C0/C1 CFrame'lerinden
+-- kendimiz Attachment oluşturup BallSocketConstraint kuruyoruz. Motor6D yok edilmiyor,
+-- sadece devre dışı bırakılıyor (geri dönüş / hata ayıklama için daha güvenli).
+local function ragdollR6(character)
+	for _, jointInfo in ipairs(R6_JOINTS) do
+		local part0 = character:FindFirstChild(jointInfo.part0)
+		local part1 = character:FindFirstChild(jointInfo.part1)
+		if not (part0 and part1) then
+			continue
+		end
 
-do
-	-- Alt köşeleri kare yapmak için maskeleme
-	local mask = Instance.new("Frame")
-	mask.Size = UDim2.new(1, 0, 0, 12)
-	mask.Position = UDim2.new(0, 0, 1, -12)
-	mask.BackgroundColor3 = COLOR_PANEL2
-	mask.BackgroundTransparency = 0.15
-	mask.BorderSizePixel = 0
-	mask.ZIndex = 0
-	mask.Parent = titleBar
+		local motor = part1:FindFirstChild(jointInfo.motorName)
+			or part0:FindFirstChild(jointInfo.motorName)
+
+		if motor and motor:IsA("Motor6D") then
+			motor.Enabled = false
+		end
+
+		local att0 = Instance.new("Attachment")
+		att0.Name = "RagdollAttachment_" .. jointInfo.motorName .. "_0"
+		att0.CFrame = jointInfo.c0
+		att0.Parent = part0
+
+		local att1 = Instance.new("Attachment")
+		att1.Name = "RagdollAttachment_" .. jointInfo.motorName .. "_1"
+		att1.CFrame = jointInfo.c1
+		att1.Parent = part1
+
+		local socket = Instance.new("BallSocketConstraint")
+		socket.Name = "RagdollSocket_" .. jointInfo.motorName
+		socket.Attachment0 = att0
+		socket.Attachment1 = att1
+		socket.LimitsEnabled = true
+		socket.TwistLimitsEnabled = true
+		socket.Restitution = 0
+		socket.Parent = part0
+	end
 end
 
-local titleText = Instance.new("TextLabel")
-titleText.BackgroundTransparency = 1
-titleText.Position = UDim2.new(0, 14, 0, 0)
-titleText.Size = UDim2.new(0.6, 0, 1, 0)
-titleText.Font = Enum.Font.GothamBold
-titleText.TextSize = 13
-titleText.TextColor3 = COLOR_TEXT
-titleText.TextXAlignment = Enum.TextXAlignment.Left
-titleText.TextScaled = false
-titleText.Text = "ADMIN PANEL  •  " .. localPlayer.Name
-titleText.Parent = titleBar
+-- Karakteri ragdoll durumuna geçirir: RigType'a bakıp doğru yolu seçer.
+-- İki rig tipini de kapsar; sadece R15'e özel hiçbir varsayım R6 yoluna sızmaz.
+local function ragdollCharacter(character, humanoid)
+	humanoid.BreakJointsOnDeath = false -- Roblox'un varsayılan "parçala" davranışını engelle, her iki rig için de geçerli
+	humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+	humanoid.PlatformStand = true
+	humanoid.RequiresNeck = false -- R6'da baş kopup gitmesin
 
-local statusDot = Instance.new("Frame")
-statusDot.Size = UDim2.fromOffset(6, 6)
-statusDot.Position = UDim2.new(1, -95, 0.5, -3)
-statusDot.BackgroundColor3 = Color3.fromRGB(90, 255, 140)
-statusDot.BorderSizePixel = 0
-statusDot.Parent = titleBar
-corner(statusDot, 3)
-
-local statusText = Instance.new("TextLabel")
-statusText.BackgroundTransparency = 1
-statusText.Position = UDim2.new(1, -84, 0, 0)
-statusText.Size = UDim2.new(0, 72, 1, 0)
-statusText.Font = Enum.Font.Gotham
-statusText.TextSize = 10
-statusText.TextColor3 = COLOR_SUBTEXT
-statusText.TextXAlignment = Enum.TextXAlignment.Left
-statusText.Text = "Yetkili Bağlı"
-statusText.Parent = titleBar
-
---// GÖVDE — 3 SÜTUN //--
-
-local body = Instance.new("Frame")
-body.Name = "Body"
-body.Size = UDim2.new(1, -16, 1, -38)
-body.Position = UDim2.new(0, 8, 0, 34)
-body.BackgroundTransparency = 1
-body.Parent = mainFrame
-
-local layout = Instance.new("UIListLayout")
-layout.FillDirection = Enum.FillDirection.Horizontal
-layout.Padding = UDim.new(0, 8)
-layout.SortOrder = Enum.SortOrder.LayoutOrder
-layout.Parent = body
-
-local function makeColumn(name, widthScale, order)
-	local col = Instance.new("Frame")
-	col.Name = name
-	col.Size = UDim2.new(widthScale, -6, 1, 0)
-	col.BackgroundColor3 = COLOR_PANEL2
-	col.BackgroundTransparency = 0.25
-	col.BorderSizePixel = 0
-	col.LayoutOrder = order
-	col.Parent = body
-	corner(col, 12)
-	stroke(col, Color3.fromRGB(60, 60, 75), 1)
-
-	local pad = Instance.new("UIPadding")
-	pad.PaddingTop = UDim.new(0, 8)
-	pad.PaddingBottom = UDim.new(0, 8)
-	pad.PaddingLeft = UDim.new(0, 8)
-	pad.PaddingRight = UDim.new(0, 8)
-	pad.Parent = col
-
-	local colLayout = Instance.new("UIListLayout")
-	colLayout.Padding = UDim.new(0, 6)
-	colLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	colLayout.Parent = col
-
-	return col
-end
-
-local function sectionLabel(parent, text, order)
-	local lbl = Instance.new("TextLabel")
-	lbl.BackgroundTransparency = 1
-	lbl.Size = UDim2.new(1, 0, 0, 12)
-	lbl.Font = Enum.Font.GothamBold
-	lbl.TextSize = 10
-	lbl.TextColor3 = COLOR_ACCENT
-	lbl.TextXAlignment = Enum.TextXAlignment.Left
-	lbl.Text = string.upper(text)
-	lbl.LayoutOrder = order
-	lbl.Parent = parent
-	return lbl
-end
-
---// SÜTUN 1: GODMODE + HIZ + ZIPLAMA //--
-local col1 = makeColumn("SelfControls", 0.34, 1)
-sectionLabel(col1, "Kendi Ayarların", 1)
-
--- Godmode toggle satırı
-local godRow = Instance.new("Frame")
-godRow.Size = UDim2.new(1, 0, 0, 24)
-godRow.BackgroundTransparency = 1
-godRow.LayoutOrder = 2
-godRow.Parent = col1
-
-local godLabel = Instance.new("TextLabel")
-godLabel.BackgroundTransparency = 1
-godLabel.Size = UDim2.new(0.6, 0, 1, 0)
-godLabel.Font = Enum.Font.Gotham
-godLabel.TextSize = 12
-godLabel.TextColor3 = COLOR_TEXT
-godLabel.TextXAlignment = Enum.TextXAlignment.Left
-godLabel.Text = "God Mode"
-godLabel.Parent = godRow
-
-local godToggle = Instance.new("Frame")
-godToggle.Size = UDim2.fromOffset(34, 18)
-godToggle.Position = UDim2.new(1, -34, 0.5, -9)
-godToggle.BackgroundColor3 = Color3.fromRGB(70, 70, 85)
-godToggle.BorderSizePixel = 0
-godToggle.Parent = godRow
-corner(godToggle, 9)
-
-local godKnob = Instance.new("Frame")
-godKnob.Size = UDim2.fromOffset(14, 14)
-godKnob.Position = UDim2.new(0, 2, 0.5, -7)
-godKnob.BackgroundColor3 = Color3.fromRGB(230, 230, 235)
-godKnob.BorderSizePixel = 0
-godKnob.Parent = godToggle
-corner(godKnob, 7)
-
-local godButton = Instance.new("TextButton")
-godButton.Size = UDim2.fromScale(1, 1)
-godButton.BackgroundTransparency = 1
-godButton.Text = ""
-godButton.Parent = godToggle
-
-local godmodeEnabled = false
-local function setGodToggleVisual(enabled, animate)
-	local knobGoal = enabled and UDim2.new(1, -16, 0.5, -7) or UDim2.new(0, 2, 0.5, -7)
-	local bgGoal = enabled and Color3.fromRGB(90, 255, 140) or Color3.fromRGB(70, 70, 85)
-	if animate then
-		TweenService:Create(godKnob, TweenInfo.new(0.18, Enum.EasingStyle.Quad), {Position = knobGoal}):Play()
-		TweenService:Create(godToggle, TweenInfo.new(0.18, Enum.EasingStyle.Quad), {BackgroundColor3 = bgGoal}):Play()
+	if humanoid.RigType == Enum.HumanoidRigType.R6 then
+		ragdollR6(character)
 	else
-		godKnob.Position = knobGoal
-		godToggle.BackgroundColor3 = bgGoal
+		-- R15
+		if usesAvatarJointUpgrade(character) then
+			ragdollR15ViaAJU(character)
+		else
+			ragdollR15ViaMotor6D(character)
+		end
+	end
+
+	-- Her iki rig tipinde de tüm parçaların çarpışabilir olduğundan emin ol,
+	-- yoksa ragdoll yere düşmeden havada asılı kalabilir.
+	for _, part in ipairs(character:GetDescendants()) do
+		if part:IsA("BasePart") then
+			part.CanCollide = true
+		end
 	end
 end
 
-godButton.MouseButton1Click:Connect(function()
-	godmodeEnabled = not godmodeEnabled
-	setGodToggleVisual(godmodeEnabled, true)
-	CommandRemote:FireServer("SetGodmode", {enabled = godmodeEnabled})
-end)
+-- Karakterin fiziksel olarak "durduğunu" (yere yığılıp sakinleştiğini) tespit eder.
+-- Rig tipinden bağımsız çalışır çünkü sadece BasePart hızlarına bakıyor.
+local function waitUntilSettled(character, timeoutSeconds)
+	local startTime = os.clock()
 
--- Hız/jump satırı (+/- butonlu, textbox'lı)
-local function makeStatRow(parent, label, order, defaultValue, min, max, onChange)
-	local row = Instance.new("Frame")
-	row.Size = UDim2.new(1, 0, 0, 24)
-	row.BackgroundTransparency = 1
-	row.LayoutOrder = order
-	row.Parent = parent
+	while os.clock() - startTime < timeoutSeconds do
+		local maxSpeed = 0
 
-	local lbl = Instance.new("TextLabel")
-	lbl.BackgroundTransparency = 1
-	lbl.Size = UDim2.new(0.4, 0, 1, 0)
-	lbl.Font = Enum.Font.Gotham
-	lbl.TextSize = 11
-	lbl.TextColor3 = COLOR_TEXT
-	lbl.TextXAlignment = Enum.TextXAlignment.Left
-	lbl.Text = label
-	lbl.Parent = row
+		for _, part in ipairs(character:GetDescendants()) do
+			if part:IsA("BasePart") then
+				local speed = part.AssemblyLinearVelocity.Magnitude
+				if speed > maxSpeed then
+					maxSpeed = speed
+				end
+			end
+		end
 
-	local minusBtn = Instance.new("TextButton")
-	minusBtn.Size = UDim2.fromOffset(18, 18)
-	minusBtn.Position = UDim2.new(0.4, 0, 0.5, -9)
-	minusBtn.BackgroundColor3 = COLOR_BG
-	minusBtn.Font = Enum.Font.GothamBold
-	minusBtn.TextSize = 13
-	minusBtn.TextColor3 = COLOR_TEXT
-	minusBtn.Text = "-"
-	minusBtn.AutoButtonColor = true
-	minusBtn.Parent = row
-	corner(minusBtn, 5)
+		if maxSpeed < SETTLE_VELOCITY_THRESHOLD then
+			return true
+		end
 
-	local box = Instance.new("TextBox")
-	box.Size = UDim2.fromOffset(40, 18)
-	box.Position = UDim2.new(0.4, 22, 0.5, -9)
-	box.BackgroundColor3 = COLOR_BG
-	box.Font = Enum.Font.GothamBold
-	box.TextSize = 11
-	box.TextColor3 = COLOR_ACCENT
-	box.Text = tostring(defaultValue)
-	box.ClearTextOnFocus = false
-	box.Parent = row
-	corner(box, 5)
-
-	local plusBtn = Instance.new("TextButton")
-	plusBtn.Size = UDim2.fromOffset(18, 18)
-	plusBtn.Position = UDim2.new(0.4, 66, 0.5, -9)
-	plusBtn.BackgroundColor3 = COLOR_BG
-	plusBtn.Font = Enum.Font.GothamBold
-	plusBtn.TextSize = 13
-	plusBtn.TextColor3 = COLOR_TEXT
-	plusBtn.Text = "+"
-	plusBtn.Parent = row
-	corner(plusBtn, 5)
-
-	local currentValue = defaultValue
-
-	local function commit(newVal)
-		newVal = math.clamp(tonumber(newVal) or currentValue, min, max)
-		currentValue = newVal
-		box.Text = tostring(newVal)
-		onChange(newVal)
+		task.wait(SETTLE_CHECK_INTERVAL)
 	end
 
-	minusBtn.MouseButton1Click:Connect(function()
-		commit(currentValue - (max > 100 and 10 or 4))
-	end)
-	plusBtn.MouseButton1Click:Connect(function()
-		commit(currentValue + (max > 100 and 10 or 4))
-	end)
-	box.FocusLost:Connect(function(enterPressed)
-		commit(box.Text)
-	end)
-
-	return row
+	return false
 end
 
-makeStatRow(col1, "Hareket Hızı", 3, 16, 0, 500, function(v)
-	CommandRemote:FireServer("SetSpeed", {value = v})
-end)
-
-makeStatRow(col1, "Zıplama Gücü", 4, 50, 0, 500, function(v)
-	CommandRemote:FireServer("SetJump", {value = v})
-end)
-
-local hintLabel = Instance.new("TextLabel")
-hintLabel.BackgroundTransparency = 1
-hintLabel.Size = UDim2.new(1, 0, 0, 24)
-hintLabel.Font = Enum.Font.Gotham
-hintLabel.TextSize = 9
-hintLabel.TextColor3 = COLOR_SUBTEXT
-hintLabel.TextWrapped = true
-hintLabel.TextXAlignment = Enum.TextXAlignment.Left
-hintLabel.TextYAlignment = Enum.TextYAlignment.Top
-hintLabel.LayoutOrder = 5
-hintLabel.Text = "Değerler anında sunucuya iletilir ve respawnda otomatik tekrar uygulanır."
-hintLabel.Parent = col1
-
---// SÜTUN 2: HEDEF SEÇİMİ VE AKSİYONLAR //--
-local col2 = makeColumn("TargetControls", 0.34, 2)
-sectionLabel(col2, "Hedef Yönetimi", 1)
-
-local targetBoxRow = Instance.new("Frame")
-targetBoxRow.Size = UDim2.new(1, 0, 0, 24)
-targetBoxRow.BackgroundTransparency = 1
-targetBoxRow.LayoutOrder = 2
-targetBoxRow.Parent = col2
-
-local targetBox = Instance.new("TextBox")
-targetBox.Size = UDim2.fromScale(1, 1)
-targetBox.BackgroundColor3 = COLOR_BG
-targetBox.Font = Enum.Font.Gotham
-targetBox.TextSize = 11
-targetBox.TextColor3 = COLOR_TEXT
-targetBox.PlaceholderText = "Hedef oyuncu adı yaz..."
-targetBox.PlaceholderColor3 = COLOR_SUBTEXT
-targetBox.ClearTextOnFocus = false
-targetBox.Text = ""
-targetBox.Parent = targetBoxRow
-corner(targetBox, 6)
-stroke(targetBox, COLOR_ACCENT, 1)
-
-local actionGrid = Instance.new("Frame")
-actionGrid.Size = UDim2.new(1, 0, 0, 100)
-actionGrid.BackgroundTransparency = 1
-actionGrid.LayoutOrder = 3
-actionGrid.Parent = col2
-
-local gridLayout = Instance.new("UIGridLayout")
-gridLayout.CellSize = UDim2.new(0, 62, 0, 22)
-gridLayout.CellPadding = UDim2.fromOffset(4, 4)
-gridLayout.SortOrder = Enum.SortOrder.LayoutOrder
-gridLayout.Parent = actionGrid
-
-local frozenState = {} -- targetName -> bool (client-side sadece buton metnini değiştirmek için)
-
-local function sendTargetAction(command)
-	local name = targetBox.Text
-	if not name or name == "" then
-		targetBox.PlaceholderText = "Önce bir isim yaz!"
+-- Ragdoll halindeki karakteri klonlar, Dead klasörüne koyar, sabitler ve zamanlayıcıya bağlar.
+-- Rig tipinden bağımsız: klonlama her zaman aynı, çünkü sadece var olan parça/constraint'leri temizliyor.
+local function cloneToDeadFolder(character, player)
+	if not deadFolder then
 		return
 	end
-	CommandRemote:FireServer("TargetAction", {targetName = name, command = command})
-end
 
-local function actionButton(text, order, colorA, colorB, onClick)
-	local btn = Instance.new("TextButton")
-	btn.Size = UDim2.fromOffset(62, 22)
-	btn.LayoutOrder = order
-	btn.AutoButtonColor = false
-	btn.Font = Enum.Font.GothamBold
-	btn.TextSize = 10
-	btn.TextColor3 = Color3.new(1, 1, 1)
-	btn.Text = text
-	btn.BackgroundColor3 = colorA
-	btn.Parent = actionGrid
-	corner(btn, 6)
-	gradient(btn, 90, ColorSequence.new(colorA, colorB))
+	local clone = character:Clone()
+	clone.Name = (player and player.Name or character.Name) .. "_Dead"
 
-	btn.MouseEnter:Connect(function()
-		TweenService:Create(btn, TweenInfo.new(0.12), {Size = UDim2.fromOffset(65, 24)}):Play()
-	end)
-	btn.MouseLeave:Connect(function()
-		TweenService:Create(btn, TweenInfo.new(0.12), {Size = UDim2.fromOffset(62, 22)}):Play()
-	end)
-	btn.MouseButton1Click:Connect(function()
-		TweenService:Create(btn, TweenInfo.new(0.08), {BackgroundTransparency = 0.4}):Play()
-		task.delay(0.08, function()
-			if btn and btn.Parent then
-				TweenService:Create(btn, TweenInfo.new(0.08), {BackgroundTransparency = 0}):Play()
-			end
-		end)
-		onClick(btn)
-	end)
-
-	return btn
-end
-
-actionButton("Kick", 1, Color3.fromRGB(255, 100, 100), Color3.fromRGB(200, 40, 40), function()
-	sendTargetAction("kick")
-end)
-
-actionButton("Kill", 2, Color3.fromRGB(200, 60, 220), Color3.fromRGB(130, 30, 160), function()
-	sendTargetAction("kill")
-end)
-
-actionButton("Bring", 3, Color3.fromRGB(90, 170, 255), Color3.fromRGB(50, 110, 220), function()
-	sendTargetAction("bring")
-end)
-
-actionButton("Goto", 4, Color3.fromRGB(90, 200, 255), Color3.fromRGB(50, 140, 220), function()
-	sendTargetAction("goto")
-end)
-
-local freezeBtn
-freezeBtn = actionButton("Freeze", 5, Color3.fromRGB(120, 220, 255), Color3.fromRGB(70, 160, 220), function(btn)
-	local name = targetBox.Text
-	if frozenState[name] then
-		sendTargetAction("unfreeze")
-		frozenState[name] = false
-		btn.Text = "Freeze"
-	else
-		sendTargetAction("freeze")
-		frozenState[name] = true
-		btn.Text = "Unfreeze"
-	end
-end)
-
-local viewingNow = false
-local viewBtn
-viewBtn = actionButton("View", 6, Color3.fromRGB(255, 190, 90), Color3.fromRGB(220, 140, 40), function(btn)
-	if viewingNow then
-		CommandRemote:FireServer("TargetAction", {targetName = targetBox.Text, command = "unview"})
-		viewingNow = false
-		btn.Text = "View"
-	else
-		sendTargetAction("view")
-		viewingNow = true
-		btn.Text = "Unview"
-	end
-end)
-
---// SÜTUN 3: LOG / BİLDİRİMLER //--
-local col3 = makeColumn("LogPanel", 0.32, 3)
-sectionLabel(col3, "Bildirimler", 1)
-
-local logScroll = Instance.new("ScrollingFrame")
-logScroll.Size = UDim2.new(1, 0, 1, -16)
-logScroll.LayoutOrder = 2
-logScroll.BackgroundTransparency = 1
-logScroll.BorderSizePixel = 0
-logScroll.ScrollBarThickness = 3
-logScroll.ScrollBarImageColor3 = COLOR_ACCENT
-logScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-logScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-logScroll.Parent = col3
-
-local logLayout = Instance.new("UIListLayout")
-logLayout.Padding = UDim.new(0, 4)
-logLayout.SortOrder = Enum.SortOrder.LayoutOrder
-logLayout.Parent = logScroll
-
-local logCount = 0
-local function pushLog(text)
-	logCount += 1
-	local entry = Instance.new("TextLabel")
-	entry.BackgroundColor3 = COLOR_BG
-	entry.BackgroundTransparency = 0.3
-	entry.Size = UDim2.new(1, 0, 0, 0)
-	entry.AutomaticSize = Enum.AutomaticSize.Y
-	entry.Font = Enum.Font.Gotham
-	entry.TextSize = 9
-	entry.TextColor3 = COLOR_SUBTEXT
-	entry.TextWrapped = true
-	entry.TextXAlignment = Enum.TextXAlignment.Left
-	entry.LayoutOrder = logCount
-	entry.Text = "• " .. text
-	entry.Parent = logScroll
-	corner(entry, 5)
-
-	local pad = Instance.new("UIPadding")
-	pad.PaddingTop = UDim.new(0, 3)
-	pad.PaddingBottom = UDim.new(0, 3)
-	pad.PaddingLeft = UDim.new(0, 5)
-	pad.PaddingRight = UDim.new(0, 5)
-	pad.Parent = entry
-
-	task.wait()
-	logScroll.CanvasPosition = Vector2.new(0, logScroll.AbsoluteCanvasSize.Y)
-end
-
-pushLog("Panel yüklendi. Komut bekleniyor...")
-
---// SAĞ ALT AÇ/KAPA TOGGLE (SABİT, SÜRÜKLENEMEZ) //--
-
-local toggleButton = Instance.new("TextButton")
-toggleButton.Name = "AdminToggle"
-toggleButton.Size = UDim2.fromOffset(50, 50)
-toggleButton.AnchorPoint = Vector2.new(1, 1)
-toggleButton.Position = UDim2.new(1, -20, 1, -20)
-toggleButton.BackgroundColor3 = COLOR_BG
-toggleButton.BackgroundTransparency = 0.1
-toggleButton.Text = ""
-toggleButton.AutoButtonColor = false
--- Sürüklenemesin diye Draggable/Drag mantığı burada da yok.
-toggleButton.Parent = screenGui
-corner(toggleButton, 25)
-stroke(toggleButton, COLOR_ACCENT, 2)
-
-local toggleIcon = Instance.new("TextLabel")
-toggleIcon.BackgroundTransparency = 1
-toggleIcon.Size = UDim2.fromScale(1, 1)
-toggleIcon.Font = Enum.Font.GothamBold
-toggleIcon.TextSize = 19
-toggleIcon.TextColor3 = COLOR_ACCENT
-toggleIcon.Text = "A"
-toggleIcon.Parent = toggleButton
-
-local panelOpen = false
-
--- Ekran boyutuna göre ölçek katsayısı hesapla: tüm cihazlarda (mobil/tablet/PC/konsol)
--- panel taşmasın ve orantılı kalsın diye. Tasarım genişliği baz alınıp, ekran dar/kısa ise küçültülüyor.
-local MIN_SCALE = 0.55
-local MAX_SCALE = 1.0
-local SCREEN_MARGIN = 40 -- panelin ekran kenarına yapışmaması için pay
-
-local function computeTargetScale()
-	local viewportSize = screenGui.AbsoluteSize
-	if viewportSize.X <= 0 or viewportSize.Y <= 0 then
-		return 1
-	end
-
-	local availableWidth = viewportSize.X - SCREEN_MARGIN
-	local availableHeight = viewportSize.Y - SCREEN_MARGIN
-
-	local scaleByWidth = availableWidth / BASE_WIDTH
-	local scaleByHeight = availableHeight / BASE_HEIGHT
-
-	local scale = math.min(scaleByWidth, scaleByHeight, MAX_SCALE)
-	scale = math.clamp(scale, MIN_SCALE, MAX_SCALE)
-	return scale
-end
-
-local function setPanelOpen(open, instant)
-	panelOpen = open
-	if open then
-		mainFrame.Visible = true
-	end
-
-	local targetScale = open and computeTargetScale() or 0
-	local goalTransparency = open and 0.12 or 1
-
-	if instant then
-		panelScale.Scale = targetScale
-		mainFrame.BackgroundTransparency = goalTransparency
-		mainFrame.Visible = open
-	else
-		local tween = TweenService:Create(
-			panelScale,
-			TweenInfo.new(0.32, Enum.EasingStyle.Back, open and Enum.EasingDirection.Out or Enum.EasingDirection.In),
-			{Scale = targetScale}
-		)
-		local fadeTween = TweenService:Create(
-			mainFrame,
-			TweenInfo.new(0.28),
-			{BackgroundTransparency = goalTransparency}
-		)
-		tween:Play()
-		fadeTween:Play()
-		if not open then
-			tween.Completed:Connect(function()
-				if not panelOpen then
-					mainFrame.Visible = false
-				end
-			end)
+	for _, part in ipairs(clone:GetDescendants()) do
+		if part:IsA("BasePart") then
+			part.Anchored = true
+			part.CanCollide = false
+		elseif part:IsA("Constraint") or part:IsA("Motor6D") or part:IsA("Attachment") then
+			part:Destroy() -- klon statik bir görsel, fizik kısıtlamalarına ihtiyacı yok (R6 için oluşturulan Attachment'lar dahil)
 		end
 	end
 
-	TweenService:Create(toggleIcon, TweenInfo.new(0.25), {
-		Rotation = open and 45 or 0
-	}):Play()
+	local cloneHumanoid = clone:FindFirstChildOfClass("Humanoid")
+	if cloneHumanoid then
+		cloneHumanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+		cloneHumanoid.Health = 0
+		cloneHumanoid.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
+	end
+
+	clone.Parent = deadFolder
+	Debris:AddItem(clone, DEAD_BODY_LIFETIME)
+
+	return clone
 end
 
-mainFrame.Visible = false
-panelScale.Scale = 0
+--// ÖLÜM İŞLEME AKIŞI //--
 
-toggleButton.MouseButton1Click:Connect(function()
-	setPanelOpen(not panelOpen)
-end)
-
-toggleButton.MouseEnter:Connect(function()
-	TweenService:Create(toggleButton, TweenInfo.new(0.15), {Size = UDim2.fromOffset(54, 54)}):Play()
-end)
-toggleButton.MouseLeave:Connect(function()
-	TweenService:Create(toggleButton, TweenInfo.new(0.15), {Size = UDim2.fromOffset(50, 50)}):Play()
-end)
-
---// SUNUCUDAN GELEN MESAJLARI DİNLE //--
-
-local viewConnection = nil
-
-local function stopViewing()
-	if viewConnection then
-		viewConnection:Disconnect()
-		viewConnection = nil
+local function onCharacterDied(player, character, humanoid)
+	if character:GetAttribute("DeathHandled") then
+		return
 	end
-	local camera = Workspace.CurrentCamera
-	if camera then
-		camera.CameraType = Enum.CameraType.Custom
-		camera.CameraSubject = localPlayer.Character and localPlayer.Character:FindFirstChildOfClass("Humanoid")
-	end
-end
+	character:SetAttribute("DeathHandled", true)
 
-local function startViewing(targetName)
-	stopViewing()
-	local targetPlayer = Players:FindFirstChild(targetName)
-	if not targetPlayer then return end
+	ragdollCharacter(character, humanoid)
 
-	local camera = Workspace.CurrentCamera
-	local function attach()
-		local char = targetPlayer.Character
-		if char then
-			local hum = char:FindFirstChildOfClass("Humanoid")
-			if hum and camera then
-				camera.CameraType = Enum.CameraType.Custom
-				camera.CameraSubject = hum
-			end
+	task.spawn(function()
+		waitUntilSettled(character, SETTLE_TIMEOUT)
+
+		if not character.Parent then
+			return
 		end
-	end
-	attach()
 
-	viewConnection = targetPlayer.CharacterAdded:Connect(attach)
+		cloneToDeadFolder(character, player)
+		character:Destroy()
+
+		if player and player.Parent then
+			player:LoadCharacter()
+		end
+	end)
 end
 
-StateRemote.OnClientEvent:Connect(function(kind, data)
-	if kind == "GrantAccess" then
-		screenGui.Enabled = true
-		pushLog("Yetki doğrulandı. Panel aktif.")
+local function setupHumanoidTracking(player, character)
+	local humanoid = character:WaitForChild("Humanoid", 5)
+	if not humanoid then
+		return
+	end
 
-	elseif kind == "Notify" then
-		pushLog(tostring(data))
+	character:SetAttribute("DeathHandled", false)
 
-	elseif kind == "SetView" then
-		if data then
-			startViewing(data)
-			pushLog("Görünüm hedefe kilitlendi: " .. data)
-		else
-			stopViewing()
-			pushLog("Görünüm sıfırlandı.")
-		end
+	humanoid.Died:Connect(function()
+		onCharacterDied(player, character, humanoid)
+	end)
+end
+
+--// TÜM OYUNCULARA UYGULAMA (herkes için geçerli, rig tipi ve admin ayrımı yok) //--
+
+Players.PlayerAdded:Connect(function(player)
+	player.CharacterAdded:Connect(function(character)
+		setupHumanoidTracking(player, character)
+	end)
+
+	if player.Character then
+		setupHumanoidTracking(player, player.Character)
 	end
 end)
 
--- Panel açıkken ekran boyutu değişirse (pencere yeniden boyutlanır, döndürme, split-screen vb.)
--- ölçeği anında yeniden hesapla; farklı cihazlarda ve dönüşlerde taşmayı önler.
-screenGui:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
-	if panelOpen then
-		panelScale.Scale = computeTargetScale()
+for _, player in ipairs(Players:GetPlayers()) do
+	if player.Character then
+		setupHumanoidTracking(player, player.Character)
 	end
-end)
+	player.CharacterAdded:Connect(function(character)
+		setupHumanoidTracking(player, character)
+	end)
+end

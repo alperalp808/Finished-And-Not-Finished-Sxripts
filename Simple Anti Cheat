@@ -1,200 +1,170 @@
 --[[
-	Sword - LocalScript (CLIENT)
-	R6 için. Sadece görsel/işitsel taraf: animasyon, ses, grip.
-	Hasar hesaplamaz — sadece "saldırdım" sinyalini sunucuya gönderir.
-	Gerçek hasar doğrulaması Script (server) tarafında yapılır.
+	Sword - Script (SERVER)
+	3 sıralı slash (Slash1 → Slash2 → Slash3 → tekrar Slash1).
+	Hasar: 15 / 20 / 40. Saldırılar arası minimum 0.5 saniye — bu limit
+	SADECE sunucuda uygulanır, istemci ne gönderirse göndersin bu değişmez.
 ]]
 
 local Tool = script.Parent
 local Handle = Tool:WaitForChild("Handle")
-local AttackRemote = Tool:WaitForChild("AttackRemote")
 
 local Players = game:GetService("Players")
+local Debris = game:GetService("Debris")
 
-local LocalPlayer = Players.LocalPlayer
-
---// Ses efektleri
-local Sounds = {
-	Slash = Handle:WaitForChild("SwordSlash"),
-	Lunge = Handle:WaitForChild("SwordLunge"),
-	Unsheath = Handle:WaitForChild("Unsheath"),
-}
-
---// Grip pozisyonları (görsel: sunucu da kendi tarafında aynısını uygular)
-local Grips = {
-	Up = CFrame.new(0, 0, -1.70000005, 0, 0, 1, 1, 0, 0, 0, 1, 0),
-	Out = CFrame.new(0, 0, -1.70000005, 0, 1, 0, 1, -0, 0, 0, 0, -1),
-}
-
---// R6 animasyon ID'leri (verdiğin ID'ler)
-local AnimationIds = {
-	Idle = "rbxassetid://127108219798248",
-	Slash1 = "rbxassetid://117818478506546",
-	Slash2 = "rbxassetid://109267907771703",
-	Slash3 = "rbxassetid://79130740691867",
-}
-
-local Character, Humanoid, Animator
-local ToolEquipped = false
-local LastAttackTick = 0
-local SlashIndex = 0
-
-local IdleTrack = nil
-local ActiveTracks = {}
-
-local function GetOrCreateAnimation(name, id)
-	local anim = Tool:FindFirstChild(name)
-	if not anim then
-		anim = Instance.new("Animation")
-		anim.Name = name
-		anim.AnimationId = id
-		anim.Parent = Tool
-	else
-		anim.AnimationId = id
-	end
-	return anim
+local AttackRemote = Tool:FindFirstChild("AttackRemote")
+if not AttackRemote then
+	AttackRemote = Instance.new("RemoteEvent")
+	AttackRemote.Name = "AttackRemote"
+	AttackRemote.Parent = Tool
 end
 
-local IdleAnim = GetOrCreateAnimation("IdleAnim", AnimationIds.Idle)
-local Slash1Anim = GetOrCreateAnimation("Slash1Anim", AnimationIds.Slash1)
-local Slash2Anim = GetOrCreateAnimation("Slash2Anim", AnimationIds.Slash2)
-local Slash3Anim = GetOrCreateAnimation("Slash3Anim", AnimationIds.Slash3)
+-- Sıralı slash hasarları: 1. vuruş 15, 2. vuruş 20, 3. vuruş 40, sonra 1'e döner
+local SlashDamage = { 15, 20, 40 }
 
-local SlashAnims = { Slash1Anim, Slash2Anim, Slash3Anim }
+-- Sunucu tarafı ZORUNLU cooldown. İstemci bunu istediği kadar delmeye çalışsın,
+-- burada geçen süre kontrol edilmeden hiçbir saldırı kabul edilmez.
+local ATTACK_COOLDOWN = 0.5
+
+-- Bir saldırı animasyonunun "etkili vuruş" penceresi: bu süre içindeki
+-- Touched olayları hasar verir, dışındakiler verilmez.
+local ATTACK_WINDOW = 0.4
+
+local Grips = {
+	Up = CFrame.new(0, 0, -1.70000005, 0, 0, 1, 1, 0, 0, 0, 1, 0),
+}
+
+local ToolEquipped = false
+local Character, Player, Humanoid, Torso
+
+local LastAttackTime = 0
+local SlashIndex = 0 -- sunucu kendi sırasını kendi tutar, istemciye güvenmez
+
+local CurrentDamage = 0
+local AttackWindowEndsAt = 0
+
+local function IsTeamMate(Player1, Player2)
+	return Player1
+		and Player2
+		and not Player1.Neutral
+		and not Player2.Neutral
+		and Player1.TeamColor == Player2.TeamColor
+end
+
+local function TagHumanoid(humanoid, player)
+	local CreatorTag = Instance.new("ObjectValue")
+	CreatorTag.Name = "creator"
+	CreatorTag.Value = player
+	Debris:AddItem(CreatorTag, 2)
+	CreatorTag.Parent = humanoid
+end
+
+local function UntagHumanoid(humanoid)
+	for _, v in ipairs(humanoid:GetChildren()) do
+		if v:IsA("ObjectValue") and v.Name == "creator" then
+			v:Destroy()
+		end
+	end
+end
 
 local function CheckIfAlive()
-	return Character
+	return Player
+		and Player.Parent
+		and Character
 		and Character.Parent
 		and Humanoid
 		and Humanoid.Parent
 		and Humanoid.Health > 0
+		and Torso
+		and Torso.Parent
 end
 
-local function StopAllActionTracks()
-	for _, track in ipairs(ActiveTracks) do
-		if track.IsPlaying then
-			track:Stop(0.1)
-		end
-	end
-	table.clear(ActiveTracks)
-end
-
-local function PlayIdle()
-	if not Animator or not IdleAnim then
-		return
-	end
-	if IdleTrack then
-		IdleTrack:Stop()
-		IdleTrack:Destroy()
-	end
-	IdleTrack = Animator:LoadAnimation(IdleAnim)
-	IdleTrack.Looped = true
-	IdleTrack.Priority = Enum.AnimationPriority.Idle
-	IdleTrack:Play(0.2)
-end
-
-local function StopIdle()
-	if IdleTrack then
-		IdleTrack:Stop(0.2)
-	end
-end
-
-local function GetNextSlashAnim()
-	SlashIndex = (SlashIndex % #SlashAnims) + 1
-	return SlashAnims[SlashIndex]
-end
-
-local function PlayActionTrack(anim)
-	if not Humanoid or not Animator then
-		return
-	end
-	local track = Animator:LoadAnimation(anim)
-	track.Priority = Enum.AnimationPriority.Action
-	track:Play(0)
-	table.insert(ActiveTracks, track)
-
-	track.Stopped:Connect(function()
-		for i, t in ipairs(ActiveTracks) do
-			if t == track then
-				table.remove(ActiveTracks, i)
-				break
-			end
-		end
-	end)
-end
-
---// Görsel slash: animasyon + ses. Hasar isteği ayrıca sunucuya gönderilir.
-local function Attack()
-	Sounds.Slash:Play()
-	PlayActionTrack(GetNextSlashAnim())
-	AttackRemote:FireServer("Slash")
-end
-
---// Görsel lunge: animasyon + ses + grip. Hasar isteği sunucuya gönderilir.
-local function Lunge()
-	Sounds.Lunge:Play()
-	-- Ayrı bir Lunge animasyon ID'n yoksa Slash1 kullanılıyor.
-	-- Ayrı ID varsa AnimationIds tablosuna ekleyip burada onu çağır.
-	PlayActionTrack(Slash1Anim)
-	AttackRemote:FireServer("Lunge")
-
-	task.wait(0.2)
-	Tool.Grip = Grips.Out
-	task.wait(0.6)
-	Tool.Grip = Grips.Up
-end
-
-local function Activated()
-	if not Tool.Enabled or not ToolEquipped or not CheckIfAlive() then
+local function OnTouched(Hit)
+	if not Hit or not Hit.Parent or not CheckIfAlive() or not ToolEquipped then
 		return
 	end
 
-	Tool.Enabled = false
+	if os.clock() > AttackWindowEndsAt or CurrentDamage <= 0 then
+		return
+	end
+
+	local RightArm = Character:FindFirstChild("Right Arm")
+	if not RightArm then
+		return
+	end
+	local RightGrip = RightArm:FindFirstChild("RightGrip")
+	if not RightGrip or (RightGrip.Part0 ~= Handle and RightGrip.Part1 ~= Handle) then
+		return
+	end
+
+	local hitCharacter = Hit.Parent
+	if hitCharacter == Character then
+		return
+	end
+
+	local hitHumanoid = hitCharacter:FindFirstChildOfClass("Humanoid")
+	if not hitHumanoid or hitHumanoid.Health == 0 then
+		return
+	end
+
+	local hitPlayer = Players:GetPlayerFromCharacter(hitCharacter)
+	if hitPlayer and (hitPlayer == Player or IsTeamMate(Player, hitPlayer)) then
+		return
+	end
+
+	UntagHumanoid(hitHumanoid)
+	TagHumanoid(hitHumanoid, Player)
+	hitHumanoid:TakeDamage(CurrentDamage)
+
+	-- Bir vuruş yeter, aynı saldırı ile ikinci kez dokunup çift hasar verilmesin
+	CurrentDamage = 0
+end
+
+--// İstemci "saldırdım" dediğinde çalışır.
+-- Burada TEK yetki sunucudadır: cooldown geçmediyse istek tamamen yok sayılır,
+-- istemcinin gönderdiği hiçbir zamanlama/tip bilgisine güvenilmez.
+local function OnAttackRequested(player)
+	if player ~= Player then
+		return
+	end
+	if not CheckIfAlive() or not ToolEquipped then
+		return
+	end
 
 	local now = os.clock()
-	if (now - LastAttackTick) < 0.2 then
-		Lunge()
-	else
-		Attack()
+	if (now - LastAttackTime) < ATTACK_COOLDOWN then
+		-- Cooldown dolmadı: istemci ne kadar spam gönderirse göndersin reddedilir
+		return
 	end
-	LastAttackTick = now
+	LastAttackTime = now
 
-	Tool.Enabled = true
+	SlashIndex = (SlashIndex % 3) + 1
+	CurrentDamage = SlashDamage[SlashIndex]
+	AttackWindowEndsAt = now + ATTACK_WINDOW
 end
 
 local function Equipped()
 	Character = Tool.Parent
-	Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
-
-	if not Humanoid then
-		return
-	end
-
-	Animator = Humanoid:FindFirstChildOfClass("Animator")
-	if not Animator then
-		Animator = Instance.new("Animator")
-		Animator.Parent = Humanoid
-	end
+	Player = Players:GetPlayerFromCharacter(Character)
+	Humanoid = Character:FindFirstChildOfClass("Humanoid")
+	Torso = Character:FindFirstChild("Torso")
 
 	if not CheckIfAlive() then
 		return
 	end
 
 	ToolEquipped = true
-	Sounds.Unsheath:Play()
-	PlayIdle()
+	SlashIndex = 0
 end
 
 local function Unequipped()
-	ToolEquipped = false
 	Tool.Grip = Grips.Up
-	StopIdle()
-	StopAllActionTracks()
+	ToolEquipped = false
+	CurrentDamage = 0
 end
 
-Tool.Activated:Connect(Activated)
 Tool.Equipped:Connect(Equipped)
 Tool.Unequipped:Connect(Unequipped)
+Handle.Touched:Connect(OnTouched)
+AttackRemote.OnServerEvent:Connect(OnAttackRequested)
 
 Tool.Grip = Grips.Up
-Tool.Enabled = true

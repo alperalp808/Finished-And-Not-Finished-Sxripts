@@ -1,224 +1,168 @@
 --[[
-	Sword - LocalScript (CLIENT)
-	R6. Sadece görsel/işitsel taraf: animasyon, ses, grip, sunucuya saldırı sinyali.
-	Gerçek hasar ve gerçek cooldown sunucuda (Script) uygulanır — burası sadece
-	spam'i ve animasyon çakışmasını önlemek için "gösterge" amaçlı bir kilit tutar.
+	Sword - Script (SERVER)
+	3 sıralı slash (Slash1 → Slash2 → Slash3 → tekrar Slash1).
+	Hasar: 15 / 20 / 40. Saldırılar arası minimum 0.6 saniye — bu limit
+	SADECE sunucuda uygulanır, istemci ne gönderirse göndersin bu değişmez.
+	Oyuncu 2 saniye saldırmazsa combo sıfırlanır, bir sonraki vuruş Slash1/15 olur.
 ]]
 
 local Tool = script.Parent
 local Handle = Tool:WaitForChild("Handle")
-local AttackRemote = Tool:WaitForChild("AttackRemote")
 
 local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
+local Debris = game:GetService("Debris")
 
-local Sounds = {
-	Slash = Handle:WaitForChild("SwordSlash"),
-	Unsheath = Handle:WaitForChild("Unsheath"),
-}
+local AttackRemote = Tool:FindFirstChild("AttackRemote")
+if not AttackRemote then
+	AttackRemote = Instance.new("RemoteEvent")
+	AttackRemote.Name = "AttackRemote"
+	AttackRemote.Parent = Tool
+end
+
+-- Sıralı slash hasarları: 1. vuruş 15, 2. vuruş 20, 3. vuruş 40, sonra 1'e döner
+local SlashDamage = { 15, 20, 40 }
+
+-- Sunucu tarafı ZORUNLU cooldown. İstemci bunu istediği kadar delmeye çalışsın,
+-- burada geçen süre kontrol edilmeden hiçbir saldırı kabul edilmez.
+local ATTACK_COOLDOWN = 0.6
+
+-- Bir saldırı animasyonunun "etkili vuruş" penceresi: bu süre içindeki
+-- Touched olayları hasar verir, dışındakiler verilmez.
+local ATTACK_WINDOW = 0.4
+
+-- Oyuncu bu süre boyunca hiç saldırmazsa, bir sonraki saldırı 1. animasyondan
+-- (ve 1. hasardan) tekrar başlar. Süre, son saldırının ÜZERİNDEN geçen zamana
+-- göre ölçülür, sıradaki saldırının başlangıcına göre değil.
+local COMBO_RESET_TIME = 2
 
 local Grips = {
 	Up = CFrame.new(0, 0, -1.70000005, 0, 0, 1, 1, 0, 0, 0, 1, 0),
 }
 
-local AnimationIds = {
-	Idle = "rbxassetid://127108219798248",
-	Slash1 = "rbxassetid://117818478506546",
-	Slash2 = "rbxassetid://109267907771703",
-	Slash3 = "rbxassetid://79130740691867",
-}
-
--- İstemci tarafı kilit süresi SUNUCUDAKİ ile birebir aynı olmalı.
--- Bu sadece "erken tıklamayı UI/animasyon seviyesinde engellemek" için;
--- gerçek güvenlik sunucudaki ATTACK_COOLDOWN'dan gelir.
-local ATTACK_COOLDOWN = 0.5
-
-local Character, Humanoid, Animator
 local ToolEquipped = false
+local Character, Player, Humanoid, Torso
 
-local IdleTrack = nil
-local CurrentActionTrack = nil -- aynı anda tek bir action track olabilir
+local LastAttackTime = 0
+local SlashIndex = 0 -- sunucu kendi sırasını kendi tutar, istemciye güvenmez
 
--- Her PlaySlashAnim çağrısında bir artan sayı. Track'in "hâlâ güncel" olup
--- olmadığını Stopped event'ine güvenmeden, bu sayıyı karşılaştırarak anlıyoruz.
--- Stopped hiç ateşlenmese, birden fazla ateşlense ya da geç gelse bile
--- bu yöntem etkilenmez.
-local ActionGeneration = 0
+local CurrentDamage = 0
+local AttackWindowEndsAt = 0
 
-local SlashIndex = 0
-local IsAttacking = false -- kilit: cooldown bitmeden Activated hiçbir şey yapmaz
-local LastAttackTick = 0
-
-local function GetOrCreateAnimation(name, id)
-	local anim = Tool:FindFirstChild(name)
-	if not anim then
-		anim = Instance.new("Animation")
-		anim.Name = name
-		anim.AnimationId = id
-		anim.Parent = Tool
-	else
-		anim.AnimationId = id
-	end
-	return anim
+local function IsTeamMate(Player1, Player2)
+	return Player1
+		and Player2
+		and not Player1.Neutral
+		and not Player2.Neutral
+		and Player1.TeamColor == Player2.TeamColor
 end
 
-local IdleAnim = GetOrCreateAnimation("IdleAnim", AnimationIds.Idle)
-local Slash1Anim = GetOrCreateAnimation("Slash1Anim", AnimationIds.Slash1)
-local Slash2Anim = GetOrCreateAnimation("Slash2Anim", AnimationIds.Slash2)
-local Slash3Anim = GetOrCreateAnimation("Slash3Anim", AnimationIds.Slash3)
+local function TagHumanoid(humanoid, player)
+	local CreatorTag = Instance.new("ObjectValue")
+	CreatorTag.Name = "creator"
+	CreatorTag.Value = player
+	Debris:AddItem(CreatorTag, 2)
+	CreatorTag.Parent = humanoid
+end
 
-local SlashAnims = { Slash1Anim, Slash2Anim, Slash3Anim }
+local function UntagHumanoid(humanoid)
+	for _, v in ipairs(humanoid:GetChildren()) do
+		if v:IsA("ObjectValue") and v.Name == "creator" then
+			v:Destroy()
+		end
+	end
+end
 
 local function CheckIfAlive()
-	return Character
+	return Player
+		and Player.Parent
+		and Character
 		and Character.Parent
 		and Humanoid
 		and Humanoid.Parent
 		and Humanoid.Health > 0
+		and Torso
+		and Torso.Parent
 end
 
-local function PlayIdle()
-	if not Animator or not IdleAnim then
-		return
-	end
-	if IdleTrack then
-		IdleTrack:Stop()
-		IdleTrack:Destroy()
-	end
-	IdleTrack = Animator:LoadAnimation(IdleAnim)
-	IdleTrack.Looped = true
-	IdleTrack.Priority = Enum.AnimationPriority.Idle
-	IdleTrack:Play(0.2)
-end
-
-local function StopIdle()
-	if IdleTrack then
-		IdleTrack:Stop(0.2)
-	end
-end
-
---// Bir slash animasyonunu oynatır. Önceki action track varsa (bitmemiş olsa bile)
--- SIFIR fade ile anında durdurulur — takılma/çakışma buradan geliyordu.
---
--- ÖNEMLİ: Stopped event'ine artık güvenmiyoruz. Bazı durumlarda (animasyon
--- yüklenemedi, R6'da priority çakışması, vs.) Stopped hiç ateşlenmeyebilir ya
--- da beklenmedik anda ateşlenebilir; eski kod bu event'e göre CurrentActionTrack'i
--- temizlediği için, event gelmeyince eski bağlantılar birikip yeniden
--- tetikleniyor, "aynı animasyon tekrar tekrar oynuyor" görüntüsü veriyordu.
--- Bunun yerine her çağrıda bir "nesil" sayısı artırılır; track'i durdurma/temizleme
--- işlemi SADECE bu sayı üzerinden, event beklemeden yapılır.
-local function PlaySlashAnim(anim)
-	if not Animator then
+local function OnTouched(Hit)
+	if not Hit or not Hit.Parent or not CheckIfAlive() or not ToolEquipped then
 		return
 	end
 
-	-- Bu çağrı yeni bir nesil başlatır. Önceki nesile ait her şey artık geçersiz.
-	ActionGeneration += 1
-	local myGeneration = ActionGeneration
-
-	if CurrentActionTrack then
-		CurrentActionTrack:Stop(0) -- fade yok: eski animasyon anında biter
-		CurrentActionTrack:Destroy()
-		CurrentActionTrack = nil
-	end
-
-	local track = Animator:LoadAnimation(anim)
-	track.Priority = Enum.AnimationPriority.Action
-	track:Play(0) -- fade yok: yeni animasyon anında başlar, gecikme/çakışma olmaz
-	CurrentActionTrack = track
-
-	-- Bağlantıyı elde tutup Stopped geldiğinde KENDİMİZ disconnect ediyoruz.
-	-- Böylece art arda 3 slash oynatılsa bile en fazla 1 aktif bağlantı kalır,
-	-- eskiler hiç birikmez.
-	local connection
-	connection = track.Stopped:Connect(function()
-		connection:Disconnect()
-		-- Bu event hâlâ en güncel nesle mi ait, yoksa daha yeni bir slash
-		-- zaten başladı mı, sayı ile kontrol ediyoruz — event'in kendisine
-		-- güvenmiyoruz, sadece "temizlik zamanı geldi mi" sinyali olarak kullanıyoruz.
-		if myGeneration == ActionGeneration and CurrentActionTrack == track then
-			CurrentActionTrack = nil
-			-- Slash bitti ve üzerine daha yeni bir saldırı binmedi: idle'a dön.
-			-- ToolEquipped kontrolü, Unequip sırasında Stopped geç gelirse
-			-- idle'ın gereksiz yere yeniden başlamasını engeller.
-			if ToolEquipped and CheckIfAlive() then
-				PlayIdle()
-			end
-		end
-	end)
-end
-
-local function GetNextSlashAnim()
-	SlashIndex = (SlashIndex % #SlashAnims) + 1
-	return SlashAnims[SlashIndex]
-end
-
---// Görsel saldırı: animasyon + ses + sunucuya sinyal.
-local function Attack()
-	Sounds.Slash:Play()
-	PlaySlashAnim(GetNextSlashAnim())
-	AttackRemote:FireServer()
-end
-
---// Tool.Activated her tetiklendiğinde çağrılır.
--- IsAttacking kilidi + zaman kontrolü ile 0.5 saniyeden sık tetiklenemez.
--- Bu, üst üste tıklamada animasyonun spamlanmasını burada, kaynağında keser.
-local function Activated()
-	if not ToolEquipped or not CheckIfAlive() then
+	if os.clock() > AttackWindowEndsAt or CurrentDamage <= 0 then
 		return
 	end
 
-	if IsAttacking then
-		return -- önceki saldırı hâlâ "cooldown"da, bu tıklama tamamen yok sayılır
+	local RightArm = Character:FindFirstChild("Right Arm")
+	if not RightArm then
+		return
+	end
+	local RightGrip = RightArm:FindFirstChild("RightGrip")
+	if not RightGrip or (RightGrip.Part0 ~= Handle and RightGrip.Part1 ~= Handle) then
+		return
+	end
+
+	local hitCharacter = Hit.Parent
+	if hitCharacter == Character then
+		return
+	end
+
+	local hitHumanoid = hitCharacter:FindFirstChildOfClass("Humanoid")
+	if not hitHumanoid or hitHumanoid.Health == 0 then
+		return
+	end
+
+	local hitPlayer = Players:GetPlayerFromCharacter(hitCharacter)
+	if hitPlayer and (hitPlayer == Player or IsTeamMate(Player, hitPlayer)) then
+		return
+	end
+
+	UntagHumanoid(hitHumanoid)
+	TagHumanoid(hitHumanoid, Player)
+	hitHumanoid:TakeDamage(CurrentDamage)
+
+	-- Bir vuruş yeter, aynı saldırı ile ikinci kez dokunup çift hasar verilmesin
+	CurrentDamage = 0
+end
+
+--// İstemci "saldırdım" dediğinde çalışır.
+-- Burada TEK yetki sunucudadır: cooldown geçmediyse istek tamamen yok sayılır,
+-- istemcinin gönderdiği hiçbir zamanlama/tip bilgisine güvenilmez.
+local function OnAttackRequested(player)
+	if player ~= Player then
+		return
+	end
+	if not CheckIfAlive() or not ToolEquipped then
+		return
 	end
 
 	local now = os.clock()
-	if (now - LastAttackTick) < ATTACK_COOLDOWN then
+	local elapsed = now - LastAttackTime
+
+	if elapsed < ATTACK_COOLDOWN then
+		-- Cooldown dolmadı: istemci ne kadar spam gönderirse göndersin reddedilir
 		return
 	end
 
-	IsAttacking = true
-	LastAttackTick = now
+	-- Son saldırının üzerinden 2 saniyeden fazla geçtiyse, combo sıfırlanır:
+	-- bir sonraki vuruş her zaman 1. animasyon/1. hasar olur. Bu kontrol
+	-- SlashIndex'i artırmadan ÖNCE yapılıyor, aksi halde bir tur geç kalırdı.
+	if elapsed >= COMBO_RESET_TIME then
+		SlashIndex = 0
+	end
 
-	Attack()
+	LastAttackTime = now
 
-	task.delay(ATTACK_COOLDOWN, function()
-		IsAttacking = false
-
-		-- Güvenlik ağı: cooldown süresi dolduğunda, Stopped event'i gelmiş
-		-- olsun olmasın, o saldırıya ait track hâlâ CurrentActionTrack'te
-		-- duruyorsa zorla durdurup temizliyoruz. Böylece "track takılı kaldı,
-		-- bir sonraki tıklamada eskisiyle yenisi üst üste bindi" ihtimali
-		-- tamamen ortadan kalkıyor — event'in gelip gelmediğinden bağımsız.
-		--
-		-- Aynı güvenlik ağı idle dönüşü için de geçerli: Stopped hiç gelmediyse
-		-- PlaySlashAnim içindeki PlayIdle() çağrısı da hiç tetiklenmemiş olur.
-		-- Burada, cooldown bittiğinde track gerçekten durmuşsa (IsPlaying false)
-		-- idle'ın kesinlikle çalışır durumda olduğunu garantiliyoruz.
-		if CurrentActionTrack and not CurrentActionTrack.IsPlaying then
-			CurrentActionTrack:Destroy()
-			CurrentActionTrack = nil
-
-			if ToolEquipped and CheckIfAlive() and (not IdleTrack or not IdleTrack.IsPlaying) then
-				PlayIdle()
-			end
-		end
-	end)
+	SlashIndex = (SlashIndex % 3) + 1
+	CurrentDamage = SlashDamage[SlashIndex]
+	AttackWindowEndsAt = now + ATTACK_WINDOW
 end
 
 local function Equipped()
 	Character = Tool.Parent
-	Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
-
-	if not Humanoid then
-		return
-	end
-
-	Animator = Humanoid:FindFirstChildOfClass("Animator")
-	if not Animator then
-		Animator = Instance.new("Animator")
-		Animator.Parent = Humanoid
-	end
+	Player = Players:GetPlayerFromCharacter(Character)
+	Humanoid = Character:FindFirstChildOfClass("Humanoid")
+	Torso = Character:FindFirstChild("Torso")
 
 	if not CheckIfAlive() then
 		return
@@ -226,25 +170,17 @@ local function Equipped()
 
 	ToolEquipped = true
 	SlashIndex = 0
-	IsAttacking = false
-	Sounds.Unsheath:Play()
-	PlayIdle()
 end
 
 local function Unequipped()
-	ToolEquipped = false
-	IsAttacking = false
 	Tool.Grip = Grips.Up
-	StopIdle()
-
-	if CurrentActionTrack then
-		CurrentActionTrack:Stop(0.1)
-		CurrentActionTrack = nil
-	end
+	ToolEquipped = false
+	CurrentDamage = 0
 end
 
-Tool.Activated:Connect(Activated)
 Tool.Equipped:Connect(Equipped)
 Tool.Unequipped:Connect(Unequipped)
+Handle.Touched:Connect(OnTouched)
+AttackRemote.OnServerEvent:Connect(OnAttackRequested)
 
 Tool.Grip = Grips.Up

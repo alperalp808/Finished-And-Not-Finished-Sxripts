@@ -398,3 +398,5 @@ for _, player in ipairs(Players:GetPlayers()) do
 		setupHumanoidTracking(player, character)
 	end)
 end
+
+-- Rizzler

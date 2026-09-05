@@ -138,6 +138,12 @@ local function PlaySlashAnim(anim)
 		-- güvenmiyoruz, sadece "temizlik zamanı geldi mi" sinyali olarak kullanıyoruz.
 		if myGeneration == ActionGeneration and CurrentActionTrack == track then
 			CurrentActionTrack = nil
+			-- Slash bitti ve üzerine daha yeni bir saldırı binmedi: idle'a dön.
+			-- ToolEquipped kontrolü, Unequip sırasında Stopped geç gelirse
+			-- idle'ın gereksiz yere yeniden başlamasını engeller.
+			if ToolEquipped and CheckIfAlive() then
+				PlayIdle()
+			end
 		end
 	end)
 end
@@ -184,9 +190,18 @@ local function Activated()
 		-- duruyorsa zorla durdurup temizliyoruz. Böylece "track takılı kaldı,
 		-- bir sonraki tıklamada eskisiyle yenisi üst üste bindi" ihtimali
 		-- tamamen ortadan kalkıyor — event'in gelip gelmediğinden bağımsız.
+		--
+		-- Aynı güvenlik ağı idle dönüşü için de geçerli: Stopped hiç gelmediyse
+		-- PlaySlashAnim içindeki PlayIdle() çağrısı da hiç tetiklenmemiş olur.
+		-- Burada, cooldown bittiğinde track gerçekten durmuşsa (IsPlaying false)
+		-- idle'ın kesinlikle çalışır durumda olduğunu garantiliyoruz.
 		if CurrentActionTrack and not CurrentActionTrack.IsPlaying then
 			CurrentActionTrack:Destroy()
 			CurrentActionTrack = nil
+
+			if ToolEquipped and CheckIfAlive() and (not IdleTrack or not IdleTrack.IsPlaying) then
+				PlayIdle()
+			end
 		end
 	end)
 end

@@ -33,6 +33,11 @@ local COLOR_TEXT = Color3.fromRGB(235, 235, 245)
 local COLOR_SUBTEXT = Color3.fromRGB(160, 160, 175)
 local COLOR_PANEL2 = Color3.fromRGB(28, 28, 36)
 
+-- Panelin TASARIM (base) boyutu. Gerçek boyut buna UIScale çarpanıyla uygulanır.
+-- Orijinal 760x300'ün %35 küçültülmüş hali:
+local BASE_WIDTH = 494
+local BASE_HEIGHT = 195
+
 local function corner(instance, radius)
 	local c = Instance.new("UICorner")
 	c.CornerRadius = UDim.new(0, radius or 10)
@@ -57,13 +62,13 @@ local function gradient(instance, rotation, colorSeq)
 	return g
 end
 
---// ANA PENCERE (yatay dikdörtgen, yarı saydam) //--
+--// ANA PENCERE (yatay dikdörtgen, yarı saydam, tam ortada) //--
 
 local mainFrame = Instance.new("Frame")
 mainFrame.Name = "MainPanel"
-mainFrame.Size = UDim2.fromOffset(760, 300)
-mainFrame.Position = UDim2.new(0.5, -380, 0.5, -150)
+mainFrame.Size = UDim2.fromOffset(BASE_WIDTH, BASE_HEIGHT)
 mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+mainFrame.Position = UDim2.new(0.5, 0, 0.5, 0) -- ekranın tam ortası, her cihazda
 mainFrame.BackgroundColor3 = COLOR_BG
 mainFrame.BackgroundTransparency = 0.12 -- yarı saydam
 mainFrame.BorderSizePixel = 0
@@ -74,6 +79,12 @@ mainFrame.Active = true -- input'u yutar, arkadaki dünyaya geçmesin
 mainFrame.Parent = screenGui
 corner(mainFrame, 18)
 stroke(mainFrame, COLOR_ACCENT, 1.5)
+
+-- Tüm cihazlarda (mobil/tablet/PC/konsol) orantılı görünmesi için ölçekleme.
+-- Boyutu Size ile değil, bu UIScale ile büyütüp küçültüyoruz; Size sabit "tasarım" boyutu kalıyor.
+local panelScale = Instance.new("UIScale")
+panelScale.Scale = 1
+panelScale.Parent = mainFrame
 
 do
 	local blurGradient = Instance.new("Frame")
@@ -90,7 +101,7 @@ end
 -- Başlık çubuğu
 local titleBar = Instance.new("Frame")
 titleBar.Name = "TitleBar"
-titleBar.Size = UDim2.new(1, 0, 0, 46)
+titleBar.Size = UDim2.new(1, 0, 0, 30)
 titleBar.BackgroundColor3 = COLOR_PANEL2
 titleBar.BackgroundTransparency = 0.15
 titleBar.BorderSizePixel = 0
@@ -100,8 +111,8 @@ corner(titleBar, 18)
 do
 	-- Alt köşeleri kare yapmak için maskeleme
 	local mask = Instance.new("Frame")
-	mask.Size = UDim2.new(1, 0, 0, 18)
-	mask.Position = UDim2.new(0, 0, 1, -18)
+	mask.Size = UDim2.new(1, 0, 0, 12)
+	mask.Position = UDim2.new(0, 0, 1, -12)
 	mask.BackgroundColor3 = COLOR_PANEL2
 	mask.BackgroundTransparency = 0.15
 	mask.BorderSizePixel = 0
@@ -111,29 +122,30 @@ end
 
 local titleText = Instance.new("TextLabel")
 titleText.BackgroundTransparency = 1
-titleText.Position = UDim2.new(0, 20, 0, 0)
+titleText.Position = UDim2.new(0, 14, 0, 0)
 titleText.Size = UDim2.new(0.6, 0, 1, 0)
 titleText.Font = Enum.Font.GothamBold
-titleText.TextSize = 18
+titleText.TextSize = 13
 titleText.TextColor3 = COLOR_TEXT
 titleText.TextXAlignment = Enum.TextXAlignment.Left
+titleText.TextScaled = false
 titleText.Text = "ADMIN PANEL  •  " .. localPlayer.Name
 titleText.Parent = titleBar
 
 local statusDot = Instance.new("Frame")
-statusDot.Size = UDim2.fromOffset(8, 8)
-statusDot.Position = UDim2.new(1, -140, 0.5, -4)
+statusDot.Size = UDim2.fromOffset(6, 6)
+statusDot.Position = UDim2.new(1, -95, 0.5, -3)
 statusDot.BackgroundColor3 = Color3.fromRGB(90, 255, 140)
 statusDot.BorderSizePixel = 0
 statusDot.Parent = titleBar
-corner(statusDot, 4)
+corner(statusDot, 3)
 
 local statusText = Instance.new("TextLabel")
 statusText.BackgroundTransparency = 1
-statusText.Position = UDim2.new(1, -125, 0, 0)
-statusText.Size = UDim2.new(0, 105, 1, 0)
+statusText.Position = UDim2.new(1, -84, 0, 0)
+statusText.Size = UDim2.new(0, 72, 1, 0)
 statusText.Font = Enum.Font.Gotham
-statusText.TextSize = 13
+statusText.TextSize = 10
 statusText.TextColor3 = COLOR_SUBTEXT
 statusText.TextXAlignment = Enum.TextXAlignment.Left
 statusText.Text = "Yetkili Bağlı"
@@ -143,38 +155,38 @@ statusText.Parent = titleBar
 
 local body = Instance.new("Frame")
 body.Name = "Body"
-body.Size = UDim2.new(1, -24, 1, -58)
-body.Position = UDim2.new(0, 12, 0, 52)
+body.Size = UDim2.new(1, -16, 1, -38)
+body.Position = UDim2.new(0, 8, 0, 34)
 body.BackgroundTransparency = 1
 body.Parent = mainFrame
 
 local layout = Instance.new("UIListLayout")
 layout.FillDirection = Enum.FillDirection.Horizontal
-layout.Padding = UDim.new(0, 12)
+layout.Padding = UDim.new(0, 8)
 layout.SortOrder = Enum.SortOrder.LayoutOrder
 layout.Parent = body
 
 local function makeColumn(name, widthScale, order)
 	local col = Instance.new("Frame")
 	col.Name = name
-	col.Size = UDim2.new(widthScale, -8, 1, 0)
+	col.Size = UDim2.new(widthScale, -6, 1, 0)
 	col.BackgroundColor3 = COLOR_PANEL2
 	col.BackgroundTransparency = 0.25
 	col.BorderSizePixel = 0
 	col.LayoutOrder = order
 	col.Parent = body
-	corner(col, 14)
+	corner(col, 12)
 	stroke(col, Color3.fromRGB(60, 60, 75), 1)
 
 	local pad = Instance.new("UIPadding")
-	pad.PaddingTop = UDim.new(0, 12)
-	pad.PaddingBottom = UDim.new(0, 12)
-	pad.PaddingLeft = UDim.new(0, 12)
-	pad.PaddingRight = UDim.new(0, 12)
+	pad.PaddingTop = UDim.new(0, 8)
+	pad.PaddingBottom = UDim.new(0, 8)
+	pad.PaddingLeft = UDim.new(0, 8)
+	pad.PaddingRight = UDim.new(0, 8)
 	pad.Parent = col
 
 	local colLayout = Instance.new("UIListLayout")
-	colLayout.Padding = UDim.new(0, 10)
+	colLayout.Padding = UDim.new(0, 6)
 	colLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	colLayout.Parent = col
 
@@ -184,9 +196,9 @@ end
 local function sectionLabel(parent, text, order)
 	local lbl = Instance.new("TextLabel")
 	lbl.BackgroundTransparency = 1
-	lbl.Size = UDim2.new(1, 0, 0, 16)
+	lbl.Size = UDim2.new(1, 0, 0, 12)
 	lbl.Font = Enum.Font.GothamBold
-	lbl.TextSize = 12
+	lbl.TextSize = 10
 	lbl.TextColor3 = COLOR_ACCENT
 	lbl.TextXAlignment = Enum.TextXAlignment.Left
 	lbl.Text = string.upper(text)
@@ -201,7 +213,7 @@ sectionLabel(col1, "Kendi Ayarların", 1)
 
 -- Godmode toggle satırı
 local godRow = Instance.new("Frame")
-godRow.Size = UDim2.new(1, 0, 0, 34)
+godRow.Size = UDim2.new(1, 0, 0, 24)
 godRow.BackgroundTransparency = 1
 godRow.LayoutOrder = 2
 godRow.Parent = col1
@@ -210,27 +222,27 @@ local godLabel = Instance.new("TextLabel")
 godLabel.BackgroundTransparency = 1
 godLabel.Size = UDim2.new(0.6, 0, 1, 0)
 godLabel.Font = Enum.Font.Gotham
-godLabel.TextSize = 14
+godLabel.TextSize = 12
 godLabel.TextColor3 = COLOR_TEXT
 godLabel.TextXAlignment = Enum.TextXAlignment.Left
 godLabel.Text = "God Mode"
 godLabel.Parent = godRow
 
 local godToggle = Instance.new("Frame")
-godToggle.Size = UDim2.fromOffset(46, 24)
-godToggle.Position = UDim2.new(1, -46, 0.5, -12)
+godToggle.Size = UDim2.fromOffset(34, 18)
+godToggle.Position = UDim2.new(1, -34, 0.5, -9)
 godToggle.BackgroundColor3 = Color3.fromRGB(70, 70, 85)
 godToggle.BorderSizePixel = 0
 godToggle.Parent = godRow
-corner(godToggle, 12)
+corner(godToggle, 9)
 
 local godKnob = Instance.new("Frame")
-godKnob.Size = UDim2.fromOffset(18, 18)
-godKnob.Position = UDim2.new(0, 3, 0.5, -9)
+godKnob.Size = UDim2.fromOffset(14, 14)
+godKnob.Position = UDim2.new(0, 2, 0.5, -7)
 godKnob.BackgroundColor3 = Color3.fromRGB(230, 230, 235)
 godKnob.BorderSizePixel = 0
 godKnob.Parent = godToggle
-corner(godKnob, 9)
+corner(godKnob, 7)
 
 local godButton = Instance.new("TextButton")
 godButton.Size = UDim2.fromScale(1, 1)
@@ -240,7 +252,7 @@ godButton.Parent = godToggle
 
 local godmodeEnabled = false
 local function setGodToggleVisual(enabled, animate)
-	local knobGoal = enabled and UDim2.new(1, -21, 0.5, -9) or UDim2.new(0, 3, 0.5, -9)
+	local knobGoal = enabled and UDim2.new(1, -16, 0.5, -7) or UDim2.new(0, 2, 0.5, -7)
 	local bgGoal = enabled and Color3.fromRGB(90, 255, 140) or Color3.fromRGB(70, 70, 85)
 	if animate then
 		TweenService:Create(godKnob, TweenInfo.new(0.18, Enum.EasingStyle.Quad), {Position = knobGoal}):Play()
@@ -257,58 +269,58 @@ godButton.MouseButton1Click:Connect(function()
 	CommandRemote:FireServer("SetGodmode", {enabled = godmodeEnabled})
 end)
 
--- Hız slider benzeri (+/- butonlu, textbox'lı)
+-- Hız/jump satırı (+/- butonlu, textbox'lı)
 local function makeStatRow(parent, label, order, defaultValue, min, max, onChange)
 	local row = Instance.new("Frame")
-	row.Size = UDim2.new(1, 0, 0, 34)
+	row.Size = UDim2.new(1, 0, 0, 24)
 	row.BackgroundTransparency = 1
 	row.LayoutOrder = order
 	row.Parent = parent
 
 	local lbl = Instance.new("TextLabel")
 	lbl.BackgroundTransparency = 1
-	lbl.Size = UDim2.new(0.42, 0, 1, 0)
+	lbl.Size = UDim2.new(0.4, 0, 1, 0)
 	lbl.Font = Enum.Font.Gotham
-	lbl.TextSize = 14
+	lbl.TextSize = 11
 	lbl.TextColor3 = COLOR_TEXT
 	lbl.TextXAlignment = Enum.TextXAlignment.Left
 	lbl.Text = label
 	lbl.Parent = row
 
 	local minusBtn = Instance.new("TextButton")
-	minusBtn.Size = UDim2.fromOffset(24, 24)
-	minusBtn.Position = UDim2.new(0.42, 0, 0.5, -12)
+	minusBtn.Size = UDim2.fromOffset(18, 18)
+	minusBtn.Position = UDim2.new(0.4, 0, 0.5, -9)
 	minusBtn.BackgroundColor3 = COLOR_BG
 	minusBtn.Font = Enum.Font.GothamBold
-	minusBtn.TextSize = 16
+	minusBtn.TextSize = 13
 	minusBtn.TextColor3 = COLOR_TEXT
 	minusBtn.Text = "-"
 	minusBtn.AutoButtonColor = true
 	minusBtn.Parent = row
-	corner(minusBtn, 6)
+	corner(minusBtn, 5)
 
 	local box = Instance.new("TextBox")
-	box.Size = UDim2.fromOffset(52, 24)
-	box.Position = UDim2.new(0.42, 30, 0.5, -12)
+	box.Size = UDim2.fromOffset(40, 18)
+	box.Position = UDim2.new(0.4, 22, 0.5, -9)
 	box.BackgroundColor3 = COLOR_BG
 	box.Font = Enum.Font.GothamBold
-	box.TextSize = 14
+	box.TextSize = 11
 	box.TextColor3 = COLOR_ACCENT
 	box.Text = tostring(defaultValue)
 	box.ClearTextOnFocus = false
 	box.Parent = row
-	corner(box, 6)
+	corner(box, 5)
 
 	local plusBtn = Instance.new("TextButton")
-	plusBtn.Size = UDim2.fromOffset(24, 24)
-	plusBtn.Position = UDim2.new(0.42, 88, 0.5, -12)
+	plusBtn.Size = UDim2.fromOffset(18, 18)
+	plusBtn.Position = UDim2.new(0.4, 66, 0.5, -9)
 	plusBtn.BackgroundColor3 = COLOR_BG
 	plusBtn.Font = Enum.Font.GothamBold
-	plusBtn.TextSize = 16
+	plusBtn.TextSize = 13
 	plusBtn.TextColor3 = COLOR_TEXT
 	plusBtn.Text = "+"
 	plusBtn.Parent = row
-	corner(plusBtn, 6)
+	corner(plusBtn, 5)
 
 	local currentValue = defaultValue
 
@@ -342,15 +354,15 @@ end)
 
 local hintLabel = Instance.new("TextLabel")
 hintLabel.BackgroundTransparency = 1
-hintLabel.Size = UDim2.new(1, 0, 0, 30)
+hintLabel.Size = UDim2.new(1, 0, 0, 24)
 hintLabel.Font = Enum.Font.Gotham
-hintLabel.TextSize = 11
+hintLabel.TextSize = 9
 hintLabel.TextColor3 = COLOR_SUBTEXT
 hintLabel.TextWrapped = true
 hintLabel.TextXAlignment = Enum.TextXAlignment.Left
 hintLabel.TextYAlignment = Enum.TextYAlignment.Top
 hintLabel.LayoutOrder = 5
-hintLabel.Text = "Değerler anında sunucuya iletilir ve karakterin her respawnunda otomatik tekrar uygulanır."
+hintLabel.Text = "Değerler anında sunucuya iletilir ve respawnda otomatik tekrar uygulanır."
 hintLabel.Parent = col1
 
 --// SÜTUN 2: HEDEF SEÇİMİ VE AKSİYONLAR //--
@@ -358,7 +370,7 @@ local col2 = makeColumn("TargetControls", 0.34, 2)
 sectionLabel(col2, "Hedef Yönetimi", 1)
 
 local targetBoxRow = Instance.new("Frame")
-targetBoxRow.Size = UDim2.new(1, 0, 0, 34)
+targetBoxRow.Size = UDim2.new(1, 0, 0, 24)
 targetBoxRow.BackgroundTransparency = 1
 targetBoxRow.LayoutOrder = 2
 targetBoxRow.Parent = col2
@@ -367,25 +379,25 @@ local targetBox = Instance.new("TextBox")
 targetBox.Size = UDim2.fromScale(1, 1)
 targetBox.BackgroundColor3 = COLOR_BG
 targetBox.Font = Enum.Font.Gotham
-targetBox.TextSize = 14
+targetBox.TextSize = 11
 targetBox.TextColor3 = COLOR_TEXT
 targetBox.PlaceholderText = "Hedef oyuncu adı yaz..."
 targetBox.PlaceholderColor3 = COLOR_SUBTEXT
 targetBox.ClearTextOnFocus = false
 targetBox.Text = ""
 targetBox.Parent = targetBoxRow
-corner(targetBox, 8)
+corner(targetBox, 6)
 stroke(targetBox, COLOR_ACCENT, 1)
 
 local actionGrid = Instance.new("Frame")
-actionGrid.Size = UDim2.new(1, 0, 0, 150)
+actionGrid.Size = UDim2.new(1, 0, 0, 100)
 actionGrid.BackgroundTransparency = 1
 actionGrid.LayoutOrder = 3
 actionGrid.Parent = col2
 
 local gridLayout = Instance.new("UIGridLayout")
-gridLayout.CellSize = UDim2.new(0, 96, 0, 32)
-gridLayout.CellPadding = UDim2.fromOffset(6, 6)
+gridLayout.CellSize = UDim2.new(0, 62, 0, 22)
+gridLayout.CellPadding = UDim2.fromOffset(4, 4)
 gridLayout.SortOrder = Enum.SortOrder.LayoutOrder
 gridLayout.Parent = actionGrid
 
@@ -402,23 +414,23 @@ end
 
 local function actionButton(text, order, colorA, colorB, onClick)
 	local btn = Instance.new("TextButton")
-	btn.Size = UDim2.fromOffset(96, 32)
+	btn.Size = UDim2.fromOffset(62, 22)
 	btn.LayoutOrder = order
 	btn.AutoButtonColor = false
 	btn.Font = Enum.Font.GothamBold
-	btn.TextSize = 13
+	btn.TextSize = 10
 	btn.TextColor3 = Color3.new(1, 1, 1)
 	btn.Text = text
 	btn.BackgroundColor3 = colorA
 	btn.Parent = actionGrid
-	corner(btn, 8)
+	corner(btn, 6)
 	gradient(btn, 90, ColorSequence.new(colorA, colorB))
 
 	btn.MouseEnter:Connect(function()
-		TweenService:Create(btn, TweenInfo.new(0.12), {Size = UDim2.fromOffset(99, 34)}):Play()
+		TweenService:Create(btn, TweenInfo.new(0.12), {Size = UDim2.fromOffset(65, 24)}):Play()
 	end)
 	btn.MouseLeave:Connect(function()
-		TweenService:Create(btn, TweenInfo.new(0.12), {Size = UDim2.fromOffset(96, 32)}):Play()
+		TweenService:Create(btn, TweenInfo.new(0.12), {Size = UDim2.fromOffset(62, 22)}):Play()
 	end)
 	btn.MouseButton1Click:Connect(function()
 		TweenService:Create(btn, TweenInfo.new(0.08), {BackgroundTransparency = 0.4}):Play()
@@ -482,18 +494,18 @@ local col3 = makeColumn("LogPanel", 0.32, 3)
 sectionLabel(col3, "Bildirimler", 1)
 
 local logScroll = Instance.new("ScrollingFrame")
-logScroll.Size = UDim2.new(1, 0, 1, -24)
+logScroll.Size = UDim2.new(1, 0, 1, -16)
 logScroll.LayoutOrder = 2
 logScroll.BackgroundTransparency = 1
 logScroll.BorderSizePixel = 0
-logScroll.ScrollBarThickness = 4
+logScroll.ScrollBarThickness = 3
 logScroll.ScrollBarImageColor3 = COLOR_ACCENT
 logScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
 logScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 logScroll.Parent = col3
 
 local logLayout = Instance.new("UIListLayout")
-logLayout.Padding = UDim.new(0, 6)
+logLayout.Padding = UDim.new(0, 4)
 logLayout.SortOrder = Enum.SortOrder.LayoutOrder
 logLayout.Parent = logScroll
 
@@ -506,20 +518,20 @@ local function pushLog(text)
 	entry.Size = UDim2.new(1, 0, 0, 0)
 	entry.AutomaticSize = Enum.AutomaticSize.Y
 	entry.Font = Enum.Font.Gotham
-	entry.TextSize = 12
+	entry.TextSize = 9
 	entry.TextColor3 = COLOR_SUBTEXT
 	entry.TextWrapped = true
 	entry.TextXAlignment = Enum.TextXAlignment.Left
 	entry.LayoutOrder = logCount
 	entry.Text = "• " .. text
 	entry.Parent = logScroll
-	corner(entry, 6)
+	corner(entry, 5)
 
 	local pad = Instance.new("UIPadding")
-	pad.PaddingTop = UDim.new(0, 4)
-	pad.PaddingBottom = UDim.new(0, 4)
-	pad.PaddingLeft = UDim.new(0, 6)
-	pad.PaddingRight = UDim.new(0, 6)
+	pad.PaddingTop = UDim.new(0, 3)
+	pad.PaddingBottom = UDim.new(0, 3)
+	pad.PaddingLeft = UDim.new(0, 5)
+	pad.PaddingRight = UDim.new(0, 5)
 	pad.Parent = entry
 
 	task.wait()
@@ -532,28 +544,51 @@ pushLog("Panel yüklendi. Komut bekleniyor...")
 
 local toggleButton = Instance.new("TextButton")
 toggleButton.Name = "AdminToggle"
-toggleButton.Size = UDim2.fromOffset(58, 58)
+toggleButton.Size = UDim2.fromOffset(50, 50)
 toggleButton.AnchorPoint = Vector2.new(1, 1)
-toggleButton.Position = UDim2.new(1, -24, 1, -24)
+toggleButton.Position = UDim2.new(1, -20, 1, -20)
 toggleButton.BackgroundColor3 = COLOR_BG
 toggleButton.BackgroundTransparency = 0.1
 toggleButton.Text = ""
 toggleButton.AutoButtonColor = false
 -- Sürüklenemesin diye Draggable/Drag mantığı burada da yok.
 toggleButton.Parent = screenGui
-corner(toggleButton, 29)
+corner(toggleButton, 25)
 stroke(toggleButton, COLOR_ACCENT, 2)
 
 local toggleIcon = Instance.new("TextLabel")
 toggleIcon.BackgroundTransparency = 1
 toggleIcon.Size = UDim2.fromScale(1, 1)
 toggleIcon.Font = Enum.Font.GothamBold
-toggleIcon.TextSize = 22
+toggleIcon.TextSize = 19
 toggleIcon.TextColor3 = COLOR_ACCENT
 toggleIcon.Text = "A"
 toggleIcon.Parent = toggleButton
 
 local panelOpen = false
+
+-- Ekran boyutuna göre ölçek katsayısı hesapla: tüm cihazlarda (mobil/tablet/PC/konsol)
+-- panel taşmasın ve orantılı kalsın diye. Tasarım genişliği baz alınıp, ekran dar/kısa ise küçültülüyor.
+local MIN_SCALE = 0.55
+local MAX_SCALE = 1.0
+local SCREEN_MARGIN = 40 -- panelin ekran kenarına yapışmaması için pay
+
+local function computeTargetScale()
+	local viewportSize = screenGui.AbsoluteSize
+	if viewportSize.X <= 0 or viewportSize.Y <= 0 then
+		return 1
+	end
+
+	local availableWidth = viewportSize.X - SCREEN_MARGIN
+	local availableHeight = viewportSize.Y - SCREEN_MARGIN
+
+	local scaleByWidth = availableWidth / BASE_WIDTH
+	local scaleByHeight = availableHeight / BASE_HEIGHT
+
+	local scale = math.min(scaleByWidth, scaleByHeight, MAX_SCALE)
+	scale = math.clamp(scale, MIN_SCALE, MAX_SCALE)
+	return scale
+end
 
 local function setPanelOpen(open, instant)
 	panelOpen = open
@@ -561,20 +596,26 @@ local function setPanelOpen(open, instant)
 		mainFrame.Visible = true
 	end
 
-	local goalSize = open and UDim2.fromOffset(760, 300) or UDim2.fromOffset(0, 0)
+	local targetScale = open and computeTargetScale() or 0
 	local goalTransparency = open and 0.12 or 1
 
 	if instant then
-		mainFrame.Size = goalSize
+		panelScale.Scale = targetScale
 		mainFrame.BackgroundTransparency = goalTransparency
 		mainFrame.Visible = open
 	else
 		local tween = TweenService:Create(
-			mainFrame,
+			panelScale,
 			TweenInfo.new(0.32, Enum.EasingStyle.Back, open and Enum.EasingDirection.Out or Enum.EasingDirection.In),
-			{Size = goalSize, BackgroundTransparency = goalTransparency}
+			{Scale = targetScale}
+		)
+		local fadeTween = TweenService:Create(
+			mainFrame,
+			TweenInfo.new(0.28),
+			{BackgroundTransparency = goalTransparency}
 		)
 		tween:Play()
+		fadeTween:Play()
 		if not open then
 			tween.Completed:Connect(function()
 				if not panelOpen then
@@ -590,17 +631,17 @@ local function setPanelOpen(open, instant)
 end
 
 mainFrame.Visible = false
-mainFrame.Size = UDim2.fromOffset(0, 0)
+panelScale.Scale = 0
 
 toggleButton.MouseButton1Click:Connect(function()
 	setPanelOpen(not panelOpen)
 end)
 
 toggleButton.MouseEnter:Connect(function()
-	TweenService:Create(toggleButton, TweenInfo.new(0.15), {Size = UDim2.fromOffset(62, 62)}):Play()
+	TweenService:Create(toggleButton, TweenInfo.new(0.15), {Size = UDim2.fromOffset(54, 54)}):Play()
 end)
 toggleButton.MouseLeave:Connect(function()
-	TweenService:Create(toggleButton, TweenInfo.new(0.15), {Size = UDim2.fromOffset(58, 58)}):Play()
+	TweenService:Create(toggleButton, TweenInfo.new(0.15), {Size = UDim2.fromOffset(50, 50)}):Play()
 end)
 
 --// SUNUCUDAN GELEN MESAJLARI DİNLE //--
@@ -659,12 +700,10 @@ StateRemote.OnClientEvent:Connect(function(kind, data)
 	end
 end)
 
--- Panelin görünürlüğü ekran boyutuna göre biraz uyumlu olsun (mobil/dar ekranlarda taşmasın)
-local function adjustForScreen()
-	local viewportSize = screenGui.AbsoluteSize
-	if viewportSize.X < 820 then
-		mainFrame.Size = panelOpen and UDim2.fromOffset(math.min(760, viewportSize.X - 40), 300) or UDim2.fromOffset(0, 0)
+-- Panel açıkken ekran boyutu değişirse (pencere yeniden boyutlanır, döndürme, split-screen vb.)
+-- ölçeği anında yeniden hesapla; farklı cihazlarda ve dönüşlerde taşmayı önler.
+screenGui:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+	if panelOpen then
+		panelScale.Scale = computeTargetScale()
 	end
-end
-
-screenGui:GetPropertyChangedSignal("AbsoluteSize"):Connect(adjustForScreen)
+end)

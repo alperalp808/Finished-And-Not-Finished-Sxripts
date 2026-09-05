@@ -1,224 +1,254 @@
 --[[
-	Sword - Script (SERVER)
-	3 sıralı slash (Slash1 → Slash2 → Slash3 → tekrar Slash1).
-	Hasar: 15 / 20 / 40. Saldırılar arası minimum 0.6 saniye — bu limit
-	SADECE sunucuda uygulanır, istemci ne gönderirse göndersin bu değişmez.
-	Oyuncu 2 saniye saldırmazsa combo sıfırlanır, bir sonraki vuruş Slash1/15 olur.
+	Sword - LocalScript (CLIENT)
+	R6. Sadece görsel/işitsel taraf: animasyon, ses, grip, sunucuya saldırı sinyali.
+	Gerçek hasar ve gerçek cooldown sunucuda (Script) uygulanır — burası sadece
+	spam'i ve animasyon çakışmasını önlemek için "gösterge" amaçlı bir kilit tutar.
 ]]
 
 local Tool = script.Parent
 local Handle = Tool:WaitForChild("Handle")
+local AttackRemote = Tool:WaitForChild("AttackRemote")
 
 local Players = game:GetService("Players")
-local Debris = game:GetService("Debris")
+local LocalPlayer = Players.LocalPlayer
 
-local AttackRemote = Tool:FindFirstChild("AttackRemote")
-if not AttackRemote then
-	AttackRemote = Instance.new("RemoteEvent")
-	AttackRemote.Name = "AttackRemote"
-	AttackRemote.Parent = Tool
-end
-
---// Sunucudan çalınan sesler: Sound sunucu tarafında :Play() edilirse
--- Roblox onu otomatik olarak o alanı gören TÜM istemcilere yayınlar.
--- Bu yüzden equip/hit/kill sesleri LocalScript'te değil burada duruyor —
--- LocalScript'te çalınsalar sadece o oyuncunun ekranında duyulurdu.
-local UnsheathSound = Handle:WaitForChild("Unsheath") -- mevcut Sound objesi, olduğu gibi kullanılıyor
-
-local function CreateServerSound(name, id, parent)
-	local sound = Instance.new("Sound")
-	sound.Name = name
-	sound.SoundId = id
-	sound.Parent = parent
-	return sound
-end
-
--- Bu üçü Handle altında kalıcı olarak durur; Sound objeleri :Play() edilene
--- kadar sessizdir, bu yüzden burada durmaları sorun yaratmaz.
-local MissSound = Handle:FindFirstChild("AttackMissSound") or CreateServerSound("AttackMissSound", "rbxassetid://85747054814531", Handle)
-local HitSound = Handle:FindFirstChild("AttackHitSound") or CreateServerSound("AttackHitSound", "rbxassetid://94066777013169", Handle)
-local KillSound = Handle:FindFirstChild("AttackKillSound") or CreateServerSound("AttackKillSound", "rbxassetid://102321459646153", Handle)
-
--- Sıralı slash hasarları: 1. vuruş 15, 2. vuruş 20, 3. vuruş 40, sonra 1'e döner
-local SlashDamage = { 15, 20, 40 }
-
--- Sunucu tarafı ZORUNLU cooldown. İstemci bunu istediği kadar delmeye çalışsın,
--- burada geçen süre kontrol edilmeden hiçbir saldırı kabul edilmez.
-local ATTACK_COOLDOWN = 0.6
-
--- Bir saldırı animasyonunun "etkili vuruş" penceresi: bu süre içindeki
--- Touched olayları hasar verir, dışındakiler verilmez.
-local ATTACK_WINDOW = 0.4
-
--- Oyuncu bu süre boyunca hiç saldırmazsa, bir sonraki saldırı 1. animasyondan
--- (ve 1. hasardan) tekrar başlar. Süre, son saldırının ÜZERİNDEN geçen zamana
--- göre ölçülür, sıradaki saldırının başlangıcına göre değil.
-local COMBO_RESET_TIME = 2
+local Sounds = {
+	Slash = Handle:WaitForChild("SwordSlash"),
+	-- Unsheath artık burada YOK: sunucudan (Script) çalınıyor ki diğer
+	-- oyuncular da duysun. Burada kalsaydı sadece bu oyuncunun ekranında
+	-- duyulur, iki kez de çalınmış olurdu.
+}
 
 local Grips = {
 	Up = CFrame.new(0, 0, -1.70000005, 0, 0, 1, 1, 0, 0, 0, 1, 0),
 }
 
+local AnimationIds = {
+	Idle = "rbxassetid://127108219798248",
+	Slash1 = "rbxassetid://117818478506546",
+	Slash2 = "rbxassetid://109267907771703",
+	Slash3 = "rbxassetid://79130740691867",
+}
+
+-- İstemci tarafı kilit süresi SUNUCUDAKİ ile birebir aynı olmalı.
+-- Bu sadece "erken tıklamayı UI/animasyon seviyesinde engellemek" için;
+-- gerçek güvenlik sunucudaki ATTACK_COOLDOWN'dan gelir.
+local ATTACK_COOLDOWN = 0.6
+
+-- SUNUCUDAKİ COMBO_RESET_TIME ile birebir aynı olmalı. Sadece görsel sırayı
+-- (hangi animasyonun oynayacağını) sunucudaki gerçek hasar sırasıyla eşleşik
+-- tutmak için; gerçek yetki yine sunucudadır.
+local COMBO_RESET_TIME = 2
+
+local Character, Humanoid, Animator
 local ToolEquipped = false
-local Character, Player, Humanoid, Torso
 
-local LastAttackTime = 0
-local SlashIndex = 0 -- sunucu kendi sırasını kendi tutar, istemciye güvenmez
+local IdleTrack = nil
+local CurrentActionTrack = nil -- aynı anda tek bir action track olabilir
 
-local CurrentDamage = 0
-local AttackWindowEndsAt = 0
-local AttackLanded = false -- bu saldırı sırasında herhangi bir hedefe değindi mi
-local AttackGeneration = 0 -- her saldırının kimliği; Miss kontrolünün doğru saldırıya ait olduğunu garantiler
+-- Her PlaySlashAnim çağrısında bir artan sayı. Track'in "hâlâ güncel" olup
+-- olmadığını Stopped event'ine güvenmeden, bu sayıyı karşılaştırarak anlıyoruz.
+-- Stopped hiç ateşlenmese, birden fazla ateşlense ya da geç gelse bile
+-- bu yöntem etkilenmez.
+local ActionGeneration = 0
 
-local function IsTeamMate(Player1, Player2)
-	return Player1
-		and Player2
-		and not Player1.Neutral
-		and not Player2.Neutral
-		and Player1.TeamColor == Player2.TeamColor
-end
+local SlashIndex = 0
+local IsAttacking = false -- kilit: cooldown bitmeden Activated hiçbir şey yapmaz
+local LastAttackTick = 0
 
-local function TagHumanoid(humanoid, player)
-	local CreatorTag = Instance.new("ObjectValue")
-	CreatorTag.Name = "creator"
-	CreatorTag.Value = player
-	Debris:AddItem(CreatorTag, 2)
-	CreatorTag.Parent = humanoid
-end
-
-local function UntagHumanoid(humanoid)
-	for _, v in ipairs(humanoid:GetChildren()) do
-		if v:IsA("ObjectValue") and v.Name == "creator" then
-			v:Destroy()
-		end
+local function GetOrCreateAnimation(name, id)
+	local anim = Tool:FindFirstChild(name)
+	if not anim then
+		anim = Instance.new("Animation")
+		anim.Name = name
+		anim.AnimationId = id
+		anim.Parent = Tool
+	else
+		anim.AnimationId = id
 	end
+	return anim
 end
+
+local IdleAnim = GetOrCreateAnimation("IdleAnim", AnimationIds.Idle)
+local Slash1Anim = GetOrCreateAnimation("Slash1Anim", AnimationIds.Slash1)
+local Slash2Anim = GetOrCreateAnimation("Slash2Anim", AnimationIds.Slash2)
+local Slash3Anim = GetOrCreateAnimation("Slash3Anim", AnimationIds.Slash3)
+
+local SlashAnims = { Slash1Anim, Slash2Anim, Slash3Anim }
 
 local function CheckIfAlive()
-	return Player
-		and Player.Parent
-		and Character
+	return Character
 		and Character.Parent
 		and Humanoid
 		and Humanoid.Parent
 		and Humanoid.Health > 0
-		and Torso
-		and Torso.Parent
 end
 
-local function OnTouched(Hit)
-	if not Hit or not Hit.Parent or not CheckIfAlive() or not ToolEquipped then
+local function PlayIdle()
+	if not Animator or not IdleAnim then
 		return
 	end
-
-	if os.clock() > AttackWindowEndsAt or CurrentDamage <= 0 then
-		return
+	if IdleTrack then
+		IdleTrack:Stop()
+		IdleTrack:Destroy()
 	end
-
-	local RightArm = Character:FindFirstChild("Right Arm")
-	if not RightArm then
-		return
-	end
-	local RightGrip = RightArm:FindFirstChild("RightGrip")
-	if not RightGrip or (RightGrip.Part0 ~= Handle and RightGrip.Part1 ~= Handle) then
-		return
-	end
-
-	local hitCharacter = Hit.Parent
-	if hitCharacter == Character then
-		return
-	end
-
-	local hitHumanoid = hitCharacter:FindFirstChildOfClass("Humanoid")
-	if not hitHumanoid or hitHumanoid.Health == 0 then
-		return
-	end
-
-	local hitPlayer = Players:GetPlayerFromCharacter(hitCharacter)
-	if hitPlayer and (hitPlayer == Player or IsTeamMate(Player, hitPlayer)) then
-		return
-	end
-
-	UntagHumanoid(hitHumanoid)
-	TagHumanoid(hitHumanoid, Player)
-
-	local healthBeforeDamage = hitHumanoid.Health
-	hitHumanoid:TakeDamage(CurrentDamage)
-
-	-- Hasar sonrası can 0 veya altındaysa (ya da zaten TakeDamage tarafından
-	-- öldürüldüyse) Kill sesi, aksi halde Hit sesi çalınır. healthBeforeDamage > 0
-	-- kontrolü, zaten ölü birine tekrar dokunup yanlışlıkla Kill sesi çalmasını önler
-	-- (bu durum zaten yukarıda "hitHumanoid.Health == 0" kontrolüyle elenmiş olsa da
-	-- ekstra güvenlik için burada da duruyor).
-	if healthBeforeDamage > 0 and hitHumanoid.Health <= 0 then
-		KillSound:Play()
-	else
-		HitSound:Play()
-	end
-
-	-- Bu saldırı hedefine ulaştı: "boşa vurma" sesi çalınmaması için işaretliyoruz.
-	AttackLanded = true
-
-	-- Bir vuruş yeter, aynı saldırı ile ikinci kez dokunup çift hasar verilmesin
-	CurrentDamage = 0
+	IdleTrack = Animator:LoadAnimation(IdleAnim)
+	IdleTrack.Looped = true
+	IdleTrack.Priority = Enum.AnimationPriority.Idle
+	IdleTrack:Play(0.2)
 end
 
---// İstemci "saldırdım" dediğinde çalışır.
--- Burada TEK yetki sunucudadır: cooldown geçmediyse istek tamamen yok sayılır,
--- istemcinin gönderdiği hiçbir zamanlama/tip bilgisine güvenilmez.
-local function OnAttackRequested(player)
-	if player ~= Player then
+local function StopIdle()
+	if IdleTrack then
+		IdleTrack:Stop(0.2)
+	end
+end
+
+--// Bir slash animasyonunu oynatır. Önceki action track varsa (bitmemiş olsa bile)
+-- SIFIR fade ile anında durdurulur — takılma/çakışma buradan geliyordu.
+--
+-- ÖNEMLİ: Stopped event'ine artık güvenmiyoruz. Bazı durumlarda (animasyon
+-- yüklenemedi, R6'da priority çakışması, vs.) Stopped hiç ateşlenmeyebilir ya
+-- da beklenmedik anda ateşlenebilir; eski kod bu event'e göre CurrentActionTrack'i
+-- temizlediği için, event gelmeyince eski bağlantılar birikip yeniden
+-- tetikleniyor, "aynı animasyon tekrar tekrar oynuyor" görüntüsü veriyordu.
+-- Bunun yerine her çağrıda bir "nesil" sayısı artırılır; track'i durdurma/temizleme
+-- işlemi SADECE bu sayı üzerinden, event beklemeden yapılır.
+local function PlaySlashAnim(anim)
+	if not Animator then
 		return
 	end
-	if not CheckIfAlive() or not ToolEquipped then
+
+	-- Bu çağrı yeni bir nesil başlatır. Önceki nesile ait her şey artık geçersiz.
+	ActionGeneration += 1
+	local myGeneration = ActionGeneration
+
+	if CurrentActionTrack then
+		CurrentActionTrack:Stop(0) -- fade yok: eski animasyon anında biter
+		CurrentActionTrack:Destroy()
+		CurrentActionTrack = nil
+	end
+
+	local track = Animator:LoadAnimation(anim)
+	track.Priority = Enum.AnimationPriority.Action
+
+	-- KRİTİK: Looped'u açıkça false yapıyoruz. Bir animasyon Studio'da
+	-- "Loop" işaretli kaydedilmişse, bu bilgi asset'in içine gömülür ve
+	-- AnimationTrack.Looped varsayılan olarak o gömülü değeri kullanır —
+	-- kod hiçbir şey söylemezse track sonsuza dek kendini tekrar oynatabilir.
+	-- Slash2/Slash3'ün "sürekli tekrar oynaması" tam olarak buydu: o iki
+	-- asset loop kaydedilmiş, Slash1 kaydedilmemiş. Bunu burada, Play'den
+	-- ÖNCE açıkça kapatarak asset'in kendi ayarından tamamen bağımsız hale
+	-- getiriyoruz; Studio tarafında ayrıca düzeltilse de düzeltilmese de
+	-- davranış artık garanti.
+	track.Looped = false
+
+	track:Play(0) -- fade yok: yeni animasyon anında başlar, gecikme/çakışma olmaz
+	CurrentActionTrack = track
+
+	-- Bağlantıyı elde tutup Stopped geldiğinde KENDİMİZ disconnect ediyoruz.
+	-- Böylece art arda 3 slash oynatılsa bile en fazla 1 aktif bağlantı kalır,
+	-- eskiler hiç birikmez.
+	local connection
+	connection = track.Stopped:Connect(function()
+		connection:Disconnect()
+		-- Bu event hâlâ en güncel nesle mi ait, yoksa daha yeni bir slash
+		-- zaten başladı mı, sayı ile kontrol ediyoruz — event'in kendisine
+		-- güvenmiyoruz, sadece "temizlik zamanı geldi mi" sinyali olarak kullanıyoruz.
+		if myGeneration == ActionGeneration and CurrentActionTrack == track then
+			CurrentActionTrack = nil
+			-- Slash bitti ve üzerine daha yeni bir saldırı binmedi: idle'a dön.
+			-- ToolEquipped kontrolü, Unequip sırasında Stopped geç gelirse
+			-- idle'ın gereksiz yere yeniden başlamasını engeller.
+			if ToolEquipped and CheckIfAlive() then
+				PlayIdle()
+			end
+		end
+	end)
+end
+
+local function GetNextSlashAnim()
+	SlashIndex = (SlashIndex % #SlashAnims) + 1
+	return SlashAnims[SlashIndex]
+end
+
+--// Görsel saldırı: animasyon + ses + sunucuya sinyal.
+local function Attack()
+	Sounds.Slash:Play()
+	PlaySlashAnim(GetNextSlashAnim())
+	AttackRemote:FireServer()
+end
+
+--// Tool.Activated her tetiklendiğinde çağrılır.
+-- IsAttacking kilidi + zaman kontrolü ile 0.6 saniyeden sık tetiklenemez.
+-- Bu, üst üste tıklamada animasyonun spamlanmasını burada, kaynağında keser.
+local function Activated()
+	if not ToolEquipped or not CheckIfAlive() then
 		return
+	end
+
+	if IsAttacking then
+		return -- önceki saldırı hâlâ "cooldown"da, bu tıklama tamamen yok sayılır
 	end
 
 	local now = os.clock()
-	local elapsed = now - LastAttackTime
+	local elapsed = now - LastAttackTick
 
 	if elapsed < ATTACK_COOLDOWN then
-		-- Cooldown dolmadı: istemci ne kadar spam gönderirse göndersin reddedilir
 		return
 	end
 
-	-- Son saldırının üzerinden 2 saniyeden fazla geçtiyse, combo sıfırlanır:
-	-- bir sonraki vuruş her zaman 1. animasyon/1. hasar olur. Bu kontrol
-	-- SlashIndex'i artırmadan ÖNCE yapılıyor, aksi halde bir tur geç kalırdı.
+	-- Son saldırının üzerinden 2 saniyeden fazla geçtiyse combo sıfırlanır:
+	-- bir sonraki GetNextSlashAnim() çağrısı Slash1'i döndürür. LastAttackTick
+	-- güncellenmeden ÖNCE kontrol ediliyor, aksi halde elapsed hep ~0 olurdu.
 	if elapsed >= COMBO_RESET_TIME then
 		SlashIndex = 0
 	end
 
-	LastAttackTime = now
+	IsAttacking = true
+	LastAttackTick = now
 
-	SlashIndex = (SlashIndex % 3) + 1
-	CurrentDamage = SlashDamage[SlashIndex]
-	AttackWindowEndsAt = now + ATTACK_WINDOW
-	AttackLanded = false
+	Attack()
 
-	-- Bu saldırının kimliği. Pencere kapandığında, o an AttackGeneration hâlâ
-	-- BU saldırıya mı ait diye kontrol ediyoruz — art arda hızlı saldırılarda
-	-- bir önceki saldırının "boşa vurdu mu" kontrolünün, araya girmiş yeni bir
-	-- saldırıyı yanlışlıkla Miss sesi çaldırmasını önlemek için.
-	AttackGeneration += 1
-	local myAttackGeneration = AttackGeneration
+	-- Bu saldırıya ait "kimlik". Cooldown bittiğinde, o an CurrentActionTrack'in
+	-- hâlâ BU saldırıya ait olup olmadığını (attackGeneration ile) kontrol ediyoruz.
+	local attackGeneration = ActionGeneration
 
-	task.delay(ATTACK_WINDOW, function()
-		-- Bu hâlâ en güncel saldırıysa, pencere boyunca hiçbir hedefe
-		-- değmediyse VE oyuncu hâlâ kılıcı kuşanmışsa boşa vurma sesi çalınır.
-		-- ToolEquipped kontrolü, oyuncu saldırdıktan hemen sonra kılıcı
-		-- bıraksa bile sesin "boşta" çalmasını önler.
-		if myAttackGeneration == AttackGeneration and not AttackLanded and ToolEquipped then
-			MissSound:Play()
+	task.delay(ATTACK_COOLDOWN, function()
+		IsAttacking = false
+
+		-- Güvenlik ağı: cooldown süresi dolduğunda bu saldırıya ait track'i
+		-- KAYITSIZ ŞARTSIZ kapatıyoruz — IsPlaying'e bakmadan. Sebep: "animasyon
+		-- 1 kere oynayacak ve bu kadar" kuralı, animasyonun kendi süresi
+		-- cooldown'dan uzun olsa bile geçerli olmalı. Sadece bu track hâlâ
+		-- BİZİM başlattığımız saldırıya aitse (attackGeneration eşleşiyorsa)
+		-- dokunuyoruz — aksi halde araya yeni bir saldırı girmiş demektir,
+		-- o zaten kendi cooldown'unda kendi işini yapacak.
+		if attackGeneration == ActionGeneration and CurrentActionTrack then
+			CurrentActionTrack:Stop(0)
+			CurrentActionTrack:Destroy()
+			CurrentActionTrack = nil
+
+			if ToolEquipped and CheckIfAlive() and (not IdleTrack or not IdleTrack.IsPlaying) then
+				PlayIdle()
+			end
 		end
 	end)
 end
 
 local function Equipped()
 	Character = Tool.Parent
-	Player = Players:GetPlayerFromCharacter(Character)
-	Humanoid = Character:FindFirstChildOfClass("Humanoid")
-	Torso = Character:FindFirstChild("Torso")
+	Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+
+	if not Humanoid then
+		return
+	end
+
+	Animator = Humanoid:FindFirstChildOfClass("Animator")
+	if not Animator then
+		Animator = Instance.new("Animator")
+		Animator.Parent = Humanoid
+	end
 
 	if not CheckIfAlive() then
 		return
@@ -226,21 +256,26 @@ local function Equipped()
 
 	ToolEquipped = true
 	SlashIndex = 0
-
-	-- Sunucudan çalınıyor ki diğer oyuncular da duysun (LocalScript'te
-	-- çalınsaydı sadece bu oyuncunun ekranında duyulurdu).
-	UnsheathSound:Play()
+	IsAttacking = false
+	-- Unsheath sesi artık burada çalınmıyor: sunucudaki Equipped() fonksiyonu
+	-- çalıyor, böylece diğer oyuncular da duyuyor.
+	PlayIdle()
 end
 
 local function Unequipped()
-	Tool.Grip = Grips.Up
 	ToolEquipped = false
-	CurrentDamage = 0
+	IsAttacking = false
+	Tool.Grip = Grips.Up
+	StopIdle()
+
+	if CurrentActionTrack then
+		CurrentActionTrack:Stop(0.1)
+		CurrentActionTrack = nil
+	end
 end
 
+Tool.Activated:Connect(Activated)
 Tool.Equipped:Connect(Equipped)
 Tool.Unequipped:Connect(Unequipped)
-Handle.Touched:Connect(OnTouched)
-AttackRemote.OnServerEvent:Connect(OnAttackRequested)
 
 Tool.Grip = Grips.Up

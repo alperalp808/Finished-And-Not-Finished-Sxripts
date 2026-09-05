@@ -39,6 +39,12 @@ local ToolEquipped = false
 local IdleTrack = nil
 local CurrentActionTrack = nil -- aynı anda tek bir action track olabilir
 
+-- Her PlaySlashAnim çağrısında bir artan sayı. Track'in "hâlâ güncel" olup
+-- olmadığını Stopped event'ine güvenmeden, bu sayıyı karşılaştırarak anlıyoruz.
+-- Stopped hiç ateşlenmese, birden fazla ateşlense ya da geç gelse bile
+-- bu yöntem etkilenmez.
+local ActionGeneration = 0
+
 local SlashIndex = 0
 local IsAttacking = false -- kilit: cooldown bitmeden Activated hiçbir şey yapmaz
 local LastAttackTick = 0
@@ -93,10 +99,22 @@ end
 
 --// Bir slash animasyonunu oynatır. Önceki action track varsa (bitmemiş olsa bile)
 -- SIFIR fade ile anında durdurulur — takılma/çakışma buradan geliyordu.
+--
+-- ÖNEMLİ: Stopped event'ine artık güvenmiyoruz. Bazı durumlarda (animasyon
+-- yüklenemedi, R6'da priority çakışması, vs.) Stopped hiç ateşlenmeyebilir ya
+-- da beklenmedik anda ateşlenebilir; eski kod bu event'e göre CurrentActionTrack'i
+-- temizlediği için, event gelmeyince eski bağlantılar birikip yeniden
+-- tetikleniyor, "aynı animasyon tekrar tekrar oynuyor" görüntüsü veriyordu.
+-- Bunun yerine her çağrıda bir "nesil" sayısı artırılır; track'i durdurma/temizleme
+-- işlemi SADECE bu sayı üzerinden, event beklemeden yapılır.
 local function PlaySlashAnim(anim)
 	if not Animator then
 		return
 	end
+
+	-- Bu çağrı yeni bir nesil başlatır. Önceki nesile ait her şey artık geçersiz.
+	ActionGeneration += 1
+	local myGeneration = ActionGeneration
 
 	if CurrentActionTrack then
 		CurrentActionTrack:Stop(0) -- fade yok: eski animasyon anında biter
@@ -109,8 +127,16 @@ local function PlaySlashAnim(anim)
 	track:Play(0) -- fade yok: yeni animasyon anında başlar, gecikme/çakışma olmaz
 	CurrentActionTrack = track
 
-	track.Stopped:Connect(function()
-		if CurrentActionTrack == track then
+	-- Bağlantıyı elde tutup Stopped geldiğinde KENDİMİZ disconnect ediyoruz.
+	-- Böylece art arda 3 slash oynatılsa bile en fazla 1 aktif bağlantı kalır,
+	-- eskiler hiç birikmez.
+	local connection
+	connection = track.Stopped:Connect(function()
+		connection:Disconnect()
+		-- Bu event hâlâ en güncel nesle mi ait, yoksa daha yeni bir slash
+		-- zaten başladı mı, sayı ile kontrol ediyoruz — event'in kendisine
+		-- güvenmiyoruz, sadece "temizlik zamanı geldi mi" sinyali olarak kullanıyoruz.
+		if myGeneration == ActionGeneration and CurrentActionTrack == track then
 			CurrentActionTrack = nil
 		end
 	end)
@@ -152,6 +178,16 @@ local function Activated()
 
 	task.delay(ATTACK_COOLDOWN, function()
 		IsAttacking = false
+
+		-- Güvenlik ağı: cooldown süresi dolduğunda, Stopped event'i gelmiş
+		-- olsun olmasın, o saldırıya ait track hâlâ CurrentActionTrack'te
+		-- duruyorsa zorla durdurup temizliyoruz. Böylece "track takılı kaldı,
+		-- bir sonraki tıklamada eskisiyle yenisi üst üste bindi" ihtimali
+		-- tamamen ortadan kalkıyor — event'in gelip gelmediğinden bağımsız.
+		if CurrentActionTrack and not CurrentActionTrack.IsPlaying then
+			CurrentActionTrack:Destroy()
+			CurrentActionTrack = nil
+		end
 	end)
 end
 

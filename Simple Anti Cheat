@@ -1,498 +1,312 @@
+-- ServerScriptService > Script (isim: AdminServer)
+
 local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local Stats = game:GetService("Stats")
-local TweenService = game:GetService("TweenService")
 
-local LocalPlayer = Players.LocalPlayer
-local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+--// AYARLAR //--
+local ADMIN_USERNAMES = {
+	["Syn_x8"] = true,
+}
 
-local MIN_SPEED = 0
-local MAX_SPEED = 200
+-- UserId ile de kontrol edebilmek için (username değişse bile çalışır).
+-- Syn_x8'in UserId'sini biliyorsan buraya ekle, bilmiyorsan boş bırakabilirsin.
+local ADMIN_USERIDS = {
+	-- [123456789] = true,
+}
 
-local MIN_JUMP = 0
-local MAX_JUMP = 200
+local DEFAULT_WALKSPEED = 16
+local DEFAULT_JUMPPOWER = 50
+local MAX_WALKSPEED = 500
+local MAX_JUMPPOWER = 500
 
-local BUTTON_POSITION = UDim2.new(0, 165, 0, 11)
-
-local BACKGROUND_DARK = Color3.fromRGB(18, 19, 22)
-local CARD_DARK = Color3.fromRGB(28, 30, 36)
-local CARD_HOVER = Color3.fromRGB(36, 38, 46)
-
-local TEXT_PRIMARY = Color3.fromRGB(240, 242, 245)
-local TEXT_SECONDARY = Color3.fromRGB(140, 145, 155)
-
-local BORDER_DARK = Color3.fromRGB(42, 45, 54)
-local ACCENT_PRIMARY = Color3.fromRGB(255, 255, 255)
-
-local TRACK_DARK = Color3.fromRGB(45, 48, 58)
-
-local Character
-local Humanoid
-
-local function RefreshCharacter()
-	Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-	Humanoid = Character:WaitForChild("Humanoid")
+--// REMOTE KURULUMU //--
+local remotesFolder = ReplicatedStorage:FindFirstChild("AdminRemotes")
+if not remotesFolder then
+	remotesFolder = Instance.new("Folder")
+	remotesFolder.Name = "AdminRemotes"
+	remotesFolder.Parent = ReplicatedStorage
 end
 
-RefreshCharacter()
-
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "ProfessionalPlayerSettings"
-ScreenGui.ResetOnSpawn = false
-ScreenGui.IgnoreGuiInset = true
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ScreenGui.Parent = PlayerGui
-
-local Performance = Instance.new("TextLabel")
-Performance.Name = "Performance"
-Performance.AnchorPoint = Vector2.new(1, 0)
-Performance.Position = UDim2.new(1, -12, 0, 8)
-Performance.Size = UDim2.fromOffset(170, 18)
-Performance.BackgroundTransparency = 1
-Performance.Text = "FPS --   •   0 ms"
-Performance.TextColor3 = TEXT_PRIMARY
-Performance.TextTransparency = 0.2
-Performance.TextSize = 11
-Performance.Font = Enum.Font.GothamMedium
-Performance.TextXAlignment = Enum.TextXAlignment.Right
-Performance.TextYAlignment = Enum.TextYAlignment.Center
-Performance.ZIndex = 200
-Performance.Parent = ScreenGui
-
-local SettingsButton = Instance.new("TextButton")
-SettingsButton.Name = "SettingsButton"
-SettingsButton.Size = UDim2.fromOffset(45, 45)
-SettingsButton.Position = BUTTON_POSITION
-SettingsButton.BackgroundColor3 = BACKGROUND_DARK
-SettingsButton.BorderSizePixel = 0
-SettingsButton.Text = "≡"
-SettingsButton.TextColor3 = TEXT_PRIMARY
-SettingsButton.TextSize = 24
-SettingsButton.Font = Enum.Font.GothamBold
-SettingsButton.AutoButtonColor = false
-SettingsButton.ZIndex = 100
-SettingsButton.Parent = ScreenGui
-
-local ButtonCorner = Instance.new("UICorner")
-ButtonCorner.CornerRadius = UDim.new(0, 8)
-ButtonCorner.Parent = SettingsButton
-
-local ButtonStroke = Instance.new("UIStroke")
-ButtonStroke.Color = BORDER_DARK
-ButtonStroke.Thickness = 1
-ButtonStroke.Parent = SettingsButton
-
-local Window = Instance.new("Frame")
-Window.Name = "SettingsWindow"
-Window.AnchorPoint = Vector2.new(0.5, 0.5)
-Window.Size = UDim2.fromOffset(355, 470)
-Window.Position = UDim2.new(0.5, 0, 0.5, 0)
-Window.BackgroundColor3 = BACKGROUND_DARK
-Window.BorderSizePixel = 0
-Window.Visible = false
-Window.ClipsDescendants = true
-Window.ZIndex = 80
-Window.Parent = ScreenGui
-
-local WindowCorner = Instance.new("UICorner")
-WindowCorner.CornerRadius = UDim.new(0, 16)
-WindowCorner.Parent = Window
-
-local WindowStroke = Instance.new("UIStroke")
-WindowStroke.Color = BORDER_DARK
-WindowStroke.Thickness = 1
-WindowStroke.Parent = Window
-
-local Header = Instance.new("Frame")
-Header.Size = UDim2.new(1, 0, 0, 76)
-Header.BackgroundTransparency = 1
-Header.Parent = Window
-
-local HeaderTitle = Instance.new("TextLabel")
-HeaderTitle.Position = UDim2.fromOffset(20, 16)
-HeaderTitle.Size = UDim2.new(1, -40, 0, 24)
-HeaderTitle.BackgroundTransparency = 1
-HeaderTitle.Text = "Ayarlar"
-HeaderTitle.TextColor3 = TEXT_PRIMARY
-HeaderTitle.TextSize = 20
-HeaderTitle.Font = Enum.Font.GothamBold
-HeaderTitle.TextXAlignment = Enum.TextXAlignment.Left
-HeaderTitle.Parent = Header
-
-local HeaderSubtitle = Instance.new("TextLabel")
-HeaderSubtitle.Position = UDim2.fromOffset(20, 42)
-HeaderSubtitle.Size = UDim2.new(1, -40, 0, 18)
-HeaderSubtitle.BackgroundTransparency = 1
-HeaderSubtitle.Text = "Karakter ve performans yapılandırması"
-HeaderSubtitle.TextColor3 = TEXT_SECONDARY
-HeaderSubtitle.TextSize = 11
-HeaderSubtitle.Font = Enum.Font.Gotham
-HeaderSubtitle.TextXAlignment = Enum.TextXAlignment.Left
-HeaderSubtitle.Parent = Header
-
-local Content = Instance.new("ScrollingFrame")
-Content.Name = "Content"
-Content.Position = UDim2.fromOffset(8, 76)
-Content.Size = UDim2.new(1, -16, 1, -84)
-Content.BackgroundTransparency = 1
-Content.BorderSizePixel = 0
-Content.ScrollBarThickness = 3
-Content.ScrollBarImageColor3 = CARD_HOVER
-Content.AutomaticCanvasSize = Enum.AutomaticSize.Y
-Content.CanvasSize = UDim2.new(0, 0, 0, 0)
-Content.Parent = Window
-
-local ContentPadding = Instance.new("UIPadding")
-ContentPadding.PaddingLeft = UDim.new(0, 6)
-ContentPadding.PaddingRight = UDim.new(0, 6)
-ContentPadding.PaddingBottom = UDim.new(0, 15)
-ContentPadding.Parent = Content
-
-local Layout = Instance.new("UIListLayout")
-Layout.Padding = UDim.new(0, 9)
-Layout.SortOrder = Enum.SortOrder.LayoutOrder
-Layout.Parent = Content
-
-local function CreateSection(text)
-	local Label = Instance.new("TextLabel")
-	Label.Size = UDim2.new(1, 0, 0, 20)
-	Label.BackgroundTransparency = 1
-	Label.Text = string.upper(text)
-	Label.TextColor3 = TEXT_SECONDARY
-	Label.TextSize = 10
-	Label.Font = Enum.Font.GothamBold
-	Label.TextXAlignment = Enum.TextXAlignment.Left
-	Label.Parent = Content
-	return Label
+local function getOrCreateRemote(name)
+	local r = remotesFolder:FindFirstChild(name)
+	if not r then
+		r = Instance.new("RemoteEvent")
+		r.Name = name
+		r.Parent = remotesFolder
+	end
+	return r
 end
 
-local function CreateInfo(title, value)
-	local CardFrame = Instance.new("Frame")
-	CardFrame.Size = UDim2.new(1, 0, 0, 44)
-	CardFrame.BackgroundColor3 = CARD_DARK
-	CardFrame.BorderSizePixel = 0
-	CardFrame.Parent = Content
+local CommandRemote = getOrCreateRemote("AdminCommand") -- Client -> Server (komut)
+local StateRemote = getOrCreateRemote("AdminState")     -- Server -> Client (yetki/durum bilgisi)
 
-	local Corner = Instance.new("UICorner")
-	Corner.CornerRadius = UDim.new(0, 10)
-	Corner.Parent = CardFrame
+--// DURUM TAKİBİ //--
+-- Her admin oyuncu için ayrı state (godmode açık mı, hız/jump ne, freeze edilenler vs.)
+local adminStates = {} -- [player] = { godmode = bool, speed = num, jump = num }
+local frozenPlayers = {} -- [player] = true  (freeze edilen KURBAN, admin değil)
+local frozenWalkspeedCache = {} -- freeze öncesi hızını geri yüklemek için
 
-	local Stroke = Instance.new("UIStroke")
-	Stroke.Color = BORDER_DARK
-	Stroke.Thickness = 1
-	Stroke.Parent = CardFrame
+--// YARDIMCI FONKSİYONLAR //--
 
-	local Title = Instance.new("TextLabel")
-	Title.Position = UDim2.fromOffset(13, 0)
-	Title.Size = UDim2.new(0.5, 0, 1, 0)
-	Title.BackgroundTransparency = 1
-	Title.Text = title
-	Title.TextColor3 = TEXT_PRIMARY
-	Title.TextSize = 12
-	Title.Font = Enum.Font.GothamMedium
-	Title.TextXAlignment = Enum.TextXAlignment.Left
-	Title.Parent = CardFrame
-
-	local Value = Instance.new("TextLabel")
-	Value.Position = UDim2.new(0.5, 0, 0, 0)
-	Value.Size = UDim2.new(0.5, -13, 1, 0)
-	Value.BackgroundTransparency = 1
-	Value.Text = value
-	Value.TextColor3 = TEXT_SECONDARY
-	Value.TextSize = 12
-	Value.Font = Enum.Font.GothamMedium
-	Value.TextXAlignment = Enum.TextXAlignment.Right
-	Value.Parent = CardFrame
-
-	return Value
+local function isAdmin(player)
+	if not player then return false end
+	if ADMIN_USERNAMES[player.Name] then return true end
+	if ADMIN_USERIDS[player.UserId] then return true end
+	return false
 end
 
-local function CreateSlider(title, minimum, maximum, default, callback)
-	local Holder = Instance.new("Frame")
-	Holder.Size = UDim2.new(1, 0, 0, 78)
-	Holder.BackgroundColor3 = CARD_DARK
-	Holder.BorderSizePixel = 0
-	Holder.Parent = Content
-
-	local Corner = Instance.new("UICorner")
-	Corner.CornerRadius = UDim.new(0, 10)
-	Corner.Parent = Holder
-
-	local Stroke = Instance.new("UIStroke")
-	Stroke.Color = BORDER_DARK
-	Stroke.Thickness = 1
-	Stroke.Parent = Holder
-
-	local Title = Instance.new("TextLabel")
-	Title.Position = UDim2.fromOffset(13, 10)
-	Title.Size = UDim2.new(0.6, 0, 0, 20)
-	Title.BackgroundTransparency = 1
-	Title.Text = title
-	Title.TextColor3 = TEXT_PRIMARY
-	Title.TextSize = 12
-	Title.Font = Enum.Font.GothamMedium
-	Title.TextXAlignment = Enum.TextXAlignment.Left
-	Title.Parent = Holder
-
-	local Value = Instance.new("TextLabel")
-	Value.Position = UDim2.new(1, -73, 0, 10)
-	Value.Size = UDim2.fromOffset(60, 20)
-	Value.BackgroundTransparency = 1
-	Value.TextColor3 = TEXT_PRIMARY
-	Value.TextSize = 12
-	Value.Font = Enum.Font.GothamBold
-	Value.TextXAlignment = Enum.TextXAlignment.Right
-	Value.Parent = Holder
-
-	local TouchArea = Instance.new("TextButton")
-	TouchArea.Position = UDim2.fromOffset(13, 42)
-	TouchArea.Size = UDim2.new(1, -26, 0, 24)
-	TouchArea.BackgroundTransparency = 1
-	TouchArea.Text = ""
-	TouchArea.AutoButtonColor = false
-	TouchArea.ZIndex = 10
-	TouchArea.Parent = Holder
-
-	local Track = Instance.new("Frame")
-	Track.Position = UDim2.new(0, 0, 0.5, -3)
-	Track.Size = UDim2.new(1, 0, 0, 6)
-	Track.BackgroundColor3 = TRACK_DARK
-	Track.BorderSizePixel = 0
-	Track.Parent = TouchArea
-
-	local TrackCorner = Instance.new("UICorner")
-	TrackCorner.CornerRadius = UDim.new(1, 0)
-	TrackCorner.Parent = Track
-
-	local Fill = Instance.new("Frame")
-	Fill.Size = UDim2.new(0, 0, 1, 0)
-	Fill.BackgroundColor3 = ACCENT_PRIMARY
-	Fill.BorderSizePixel = 0
-	Fill.Parent = Track
-
-	local FillCorner = Instance.new("UICorner")
-	FillCorner.CornerRadius = UDim.new(1, 0)
-	FillCorner.Parent = Fill
-
-	local Knob = Instance.new("Frame")
-	Knob.Size = UDim2.fromOffset(16, 16)
-	Knob.AnchorPoint = Vector2.new(0.5, 0.5)
-	Knob.Position = UDim2.new(0, 0, 0.5, 0)
-	Knob.BackgroundColor3 = ACCENT_PRIMARY
-	Knob.BorderSizePixel = 0
-	Knob.ZIndex = 12
-	Knob.Parent = Track
-
-	local KnobCorner = Instance.new("UICorner")
-	KnobCorner.CornerRadius = UDim.new(1, 0)
-	KnobCorner.Parent = Knob
-
-	local Dragging = false
-
-	local function SetValue(number)
-		number = math.clamp(number, minimum, maximum)
-		number = math.floor(number + 0.5)
-
-		local percentage = (number - minimum) / (maximum - minimum)
-		percentage = math.clamp(percentage, 0, 1)
-
-		Fill.Size = UDim2.new(percentage, 0, 1, 0)
-		Knob.Position = UDim2.new(percentage, 0, 0.5, 0)
-		Value.Text = tostring(number)
-
-		callback(number)
-	end
-
-	local function UpdateFromX(x)
-		local start = TouchArea.AbsolutePosition.X
-		local width = TouchArea.AbsoluteSize.X
-		if width <= 0 then return end
-
-		local percentage = (x - start) / width
-		percentage = math.clamp(percentage, 0, 1)
-
-		local number = minimum + (maximum - minimum) * percentage
-		SetValue(number)
-	end
-
-	TouchArea.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-			Dragging = true
-			UpdateFromX(input.Position.X)
-		end
-	end)
-
-	UserInputService.InputChanged:Connect(function(input)
-		if not Dragging then return end
-		if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement then
-			UpdateFromX(input.Position.X)
-		end
-	end)
-
-	UserInputService.InputEnded:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-			Dragging = false
-		end
-	end)
-
-	SetValue(default)
-	return Holder
+local function safeGetHumanoid(player)
+	local char = player.Character
+	if not char then return nil end
+	local hum = char:FindFirstChildOfClass("Humanoid")
+	return hum
 end
 
-CreateSection("Karakter")
+local function safeGetRoot(player)
+	local char = player.Character
+	if not char then return nil end
+	return char:FindFirstChild("HumanoidRootPart")
+end
 
-CreateSlider(
-	"Yürüme Hızı",
-	MIN_SPEED,
-	MAX_SPEED,
-	Humanoid and Humanoid.WalkSpeed or 16,
-	function(value)
-		if Humanoid then Humanoid.WalkSpeed = value end
+local function ensureAdminState(player)
+	if not adminStates[player] then
+		adminStates[player] = {
+			godmode = false,
+			speed = DEFAULT_WALKSPEED,
+			jump = DEFAULT_JUMPPOWER,
+		}
 	end
-)
+	return adminStates[player]
+end
 
-CreateSlider(
-	"Zıplama Gücü",
-	MIN_JUMP,
-	MAX_JUMP,
-	Humanoid and Humanoid.JumpPower or 50,
-	function(value)
-		if Humanoid then
-			Humanoid.UseJumpPower = true
-			Humanoid.JumpPower = value
-		end
-	end
-)
+local function applyGodmode(player, enabled)
+	local hum = safeGetHumanoid(player)
+	if not hum then return end
 
-CreateSection("Avatar & Bilgi")
+	local state = ensureAdminState(player)
+	state.godmode = enabled
 
-CreateInfo("Görünen Ad", LocalPlayer.DisplayName)
-CreateInfo("Kullanıcı Adı", "@" .. LocalPlayer.Name)
-
-local FrameCount = 0
-local LastFPSUpdate = os.clock()
-
-RunService.RenderStepped:Connect(function()
-	FrameCount += 1
-	local now = os.clock()
-
-	if now - LastFPSUpdate >= 0.5 then
-		local FPS = FrameCount / (now - LastFPSUpdate)
-		FrameCount = 0
-		LastFPSUpdate = now
-
-		local ping = 0
-
-		local success, result = pcall(function()
-			return math.floor(LocalPlayer:GetNetworkPing() * 2000)
+	if enabled then
+		hum.MaxHealth = math.huge
+		hum.Health = math.huge
+		-- Zaten yaşıyorsa can barını da senkron tut
+		hum.HealthChanged:Connect(function()
+			if state.godmode and hum.Health < hum.MaxHealth then
+				hum.Health = hum.MaxHealth
+			end
 		end)
-
-		if success and result then
-			ping = result
-		else
-			pcall(function()
-				local Network = Stats:FindFirstChild("Network")
-				if Network then
-					local ServerStats = Network:FindFirstChild("ServerStatsItem")
-					if ServerStats then
-						local DataPing = ServerStats:FindFirstChild("Data Ping")
-						if DataPing then
-							ping = math.floor(DataPing:GetValue())
-						end
-					end
-				end
-			end)
-		end
-
-		Performance.Text = string.format("FPS %d   •   %d ms", math.floor(FPS + 0.5), ping)
+	else
+		hum.MaxHealth = 100
+		hum.Health = 100
 	end
-end)
-
-local Open = false
-local Animating = false
-
-local function OpenMenu()
-	if Open or Animating then return end
-	Animating = true
-	Open = true
-
-	Window.Visible = true
-	Window.Size = UDim2.new(Window.Size.X.Scale, Window.Size.X.Offset, 0, 0)
-
-	TweenService:Create(
-		Window,
-		TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
-		{ Size = UDim2.fromOffset(355, 470) }
-	):Play()
-
-	TweenService:Create(
-		SettingsButton,
-		TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-		{ BackgroundColor3 = CARD_HOVER }
-	):Play()
-
-	task.delay(0.26, function() Animating = false end)
 end
 
-local function CloseMenu()
-	if not Open or Animating then return end
-	Animating = true
-	Open = false
+local function applySpeed(player, speed)
+	speed = math.clamp(tonumber(speed) or DEFAULT_WALKSPEED, 0, MAX_WALKSPEED)
+	local hum = safeGetHumanoid(player)
+	local state = ensureAdminState(player)
+	state.speed = speed
+	if hum then
+		hum.WalkSpeed = speed
+	end
+end
 
-	TweenService:Create(
-		Window,
-		TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.In),
-		{ Size = UDim2.new(Window.Size.X.Scale, Window.Size.X.Offset, 0, 0) }
-	):Play()
+local function applyJump(player, jump)
+	jump = math.clamp(tonumber(jump) or DEFAULT_JUMPPOWER, 0, MAX_JUMPPOWER)
+	local hum = safeGetHumanoid(player)
+	local state = ensureAdminState(player)
+	state.jump = jump
+	if hum then
+		hum.UseJumpPower = true
+		hum.JumpPower = jump
+	end
+end
 
-	TweenService:Create(
-		SettingsButton,
-		TweenInfo.new(0.15),
-		{ BackgroundColor3 = BACKGROUND_DARK }
-	):Play()
+-- Karakter her yeniden spawn olduğunda admin ayarlarını tekrar uygula
+local function onCharacterAdded(player, char)
+	if not isAdmin(player) then return end
+	local state = ensureAdminState(player)
 
-	task.delay(0.19, function()
-		if not Open then Window.Visible = false end
-		Animating = false
+	local hum = char:WaitForChild("Humanoid", 5)
+	if not hum then return end
+
+	task.defer(function()
+		if state.godmode then
+			applyGodmode(player, true)
+		end
+		applySpeed(player, state.speed)
+		applyJump(player, state.jump)
 	end)
 end
 
-SettingsButton.Activated:Connect(function()
-	if Open then CloseMenu() else OpenMenu() end
-end)
+local function findTargetPlayer(nameQuery)
+	if not nameQuery or nameQuery == "" then return nil end
+	nameQuery = string.lower(nameQuery)
 
-local function UpdateResponsive()
-	local Camera = workspace.CurrentCamera
-	if not Camera then return end
+	-- Önce tam eşleşme
+	for _, p in ipairs(Players:GetPlayers()) do
+		if string.lower(p.Name) == nameQuery then
+			return p
+		end
+	end
+	-- Sonra kısmi eşleşme (ör: "syn" yazınca Syn_x8'i bulsun)
+	for _, p in ipairs(Players:GetPlayers()) do
+		if string.find(string.lower(p.Name), nameQuery, 1, true) then
+			return p
+		end
+	end
+	return nil
+end
 
-	local Viewport = Camera.ViewportSize
+--// HEDEF ÜZERİNDE KOMUTLAR //--
 
-	if Viewport.X <= 500 then
-		local Width = math.min(Viewport.X - 20, 390)
-		local Height = math.min(Viewport.Y - 80, 520)
-		Window.Size = UDim2.fromOffset(Width, Height)
-	else
-		Window.Size = UDim2.fromOffset(355, 470)
+local function doKick(admin, target)
+	if not target then return end
+	target:Kick("Sunucu yöneticisi tarafından atıldın.")
+end
+
+local function doKill(admin, target)
+	local hum = safeGetHumanoid(target)
+	if hum then
+		hum.Health = 0
 	end
 end
 
-local function ConnectCamera(Camera)
-	if not Camera then return end
-	Camera:GetPropertyChangedSignal("ViewportSize"):Connect(UpdateResponsive)
+local function doBring(admin, target)
+	local adminRoot = safeGetRoot(admin)
+	local targetRoot = safeGetRoot(target)
+	if not adminRoot or not targetRoot then return end
+	targetRoot.CFrame = adminRoot.CFrame * CFrame.new(0, 0, -4)
 end
 
-if workspace.CurrentCamera then ConnectCamera(workspace.CurrentCamera) end
-workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
-	if workspace.CurrentCamera then ConnectCamera(workspace.CurrentCamera) end
+local function doGoto(admin, target)
+	local adminRoot = safeGetRoot(admin)
+	local targetRoot = safeGetRoot(target)
+	if not adminRoot or not targetRoot then return end
+	adminRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 0, 4)
+end
+
+local function doFreeze(admin, target, shouldFreeze)
+	local hum = safeGetHumanoid(target)
+	local root = safeGetRoot(target)
+	if not hum or not root then return end
+
+	if shouldFreeze then
+		frozenPlayers[target] = true
+		frozenWalkspeedCache[target] = hum.WalkSpeed
+		hum.WalkSpeed = 0
+		hum.JumpPower = 0
+		hum.UseJumpPower = true
+		-- Root'u da sabitleyelim ki uçan/knockback exploitlerle kayamasın
+		root.Anchored = true
+	else
+		frozenPlayers[target] = nil
+		root.Anchored = false
+		hum.WalkSpeed = frozenWalkspeedCache[target] or DEFAULT_WALKSPEED
+		hum.UseJumpPower = true
+		hum.JumpPower = DEFAULT_JUMPPOWER
+		frozenWalkspeedCache[target] = nil
+	end
+end
+
+local function doView(admin, target)
+	-- Admin'in kamerasını hedefin karakterine kilitler (sadece o admin için).
+	StateRemote:FireClient(admin, "SetView", target and target.Name or nil)
+end
+
+--// GELEN KOMUTLARI İŞLEME (TEK GÜVENLİ KAPI) //--
+
+CommandRemote.OnServerEvent:Connect(function(player, action, payload)
+	-- 1) Her komutta admin kontrolü sunucuda tekrar yapılır. İstemciye asla güvenilmez.
+	if not isAdmin(player) then
+		warn(("[AdminServer] Yetkisiz komut denemesi: %s -> %s"):format(player.Name, tostring(action)))
+		return
+	end
+
+	if type(action) ~= "string" then return end
+	payload = type(payload) == "table" and payload or {}
+
+	if action == "SetGodmode" then
+		applyGodmode(player, payload.enabled == true)
+
+	elseif action == "SetSpeed" then
+		applySpeed(player, payload.value)
+
+	elseif action == "SetJump" then
+		applyJump(player, payload.value)
+
+	elseif action == "TargetAction" then
+		local target = findTargetPlayer(payload.targetName)
+		local cmd = payload.command
+
+		if not target then
+			StateRemote:FireClient(player, "Notify", "Hedef bulunamadı: " .. tostring(payload.targetName))
+			return
+		end
+
+		-- Adminler birbirine zarar veremesin (istersen bu bloğu kaldırabilirsin)
+		if isAdmin(target) and target ~= player and cmd ~= "view" and cmd ~= "goto" then
+			StateRemote:FireClient(player, "Notify", target.Name .. " bir admin, bu komut uygulanamaz.")
+			return
+		end
+
+		if cmd == "kick" then
+			doKick(player, target)
+		elseif cmd == "kill" then
+			doKill(player, target)
+		elseif cmd == "bring" then
+			doBring(player, target)
+		elseif cmd == "goto" then
+			doGoto(player, target)
+		elseif cmd == "freeze" then
+			doFreeze(player, target, true)
+		elseif cmd == "unfreeze" then
+			doFreeze(player, target, false)
+		elseif cmd == "view" then
+			doView(player, target)
+		elseif cmd == "unview" then
+			StateRemote:FireClient(player, "SetView", nil)
+		end
+
+		StateRemote:FireClient(player, "Notify", ("%s -> %s uygulandı."):format(cmd, target.Name))
+	end
 end)
 
-task.defer(function()
-	task.wait(0.3)
-	UpdateResponsive()
+--// OYUNCU BAĞLANTILARI //--
+
+Players.PlayerAdded:Connect(function(player)
+	player.CharacterAdded:Connect(function(char)
+		onCharacterAdded(player, char)
+	end)
+
+	-- Admin ise, istemci tarafına "sen adminsin, panel açılsın" bilgisini yolla
+	if isAdmin(player) then
+		ensureAdminState(player)
+		task.wait(1) -- LocalScript'in remote'ları dinlemeye başlaması için kısa bekleme
+		StateRemote:FireClient(player, "GrantAccess", true)
+	end
 end)
 
-LocalPlayer.CharacterAdded:Connect(function(character)
-	Character = character
-	Humanoid = character:WaitForChild("Humanoid")
+Players.PlayerRemoving:Connect(function(player)
+	adminStates[player] = nil
+	frozenPlayers[player] = nil
+	frozenWalkspeedCache[player] = nil
 end)
+
+-- Zaten sunucuda olan oyuncular için de çalışsın (script sonradan eklenirse)
+for _, player in ipairs(Players:GetPlayers()) do
+	if isAdmin(player) then
+		ensureAdminState(player)
+		task.spawn(function()
+			task.wait(1)
+			StateRemote:FireClient(player, "GrantAccess", true)
+		end)
+	end
+	if player.Character then
+		onCharacterAdded(player, player.Character)
+	end
+	player.CharacterAdded:Connect(function(char)
+		onCharacterAdded(player, char)
+	end)
+end

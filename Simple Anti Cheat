@@ -76,66 +76,83 @@ local function usesAvatarJointUpgrade(character)
 	return false
 end
 
--- Aksesuarların (saç, şapka, vb.) ragdoll sırasında düşmemesi için Handle'larını
--- sağlam bir WeldConstraint ile ilgili vücut parçasına yeniden bağlar.
--- Roblox aksesuarları normalde bir "AccessoryWeld" adlı Weld ile bağlar; bu weld
--- Motor6D'ler devre dışı kalınca veya karakterin parçaları ragdoll'da ayrı ayrı
--- fizik cismi gibi davranmaya başlayınca kopabiliyor veya gevşeyebiliyor.
--- Burada onun yerine kalıcı bir WeldConstraint kuruyoruz ki hiçbir durumda ayrılmasın.
+-- Aksesuarların (saç, şapka, sırt çantası, vb.) ragdoll sırasında vücuttan ayrılıp
+-- düşmemesi için Handle'larını sağlam bir WeldConstraint ile en yakın vücut parçasına bağlar.
+-- ÖNEMLİ: Mevcut weld'in sınıfına veya konumuna güvenmiyoruz (Weld, Motor6D, WeldConstraint,
+-- AccessoryWeld gibi farklı isim/sınıflarda gelebiliyor) — bunun yerine Handle'ın o anki
+-- dünya konumuna bakıp fiziksel olarak en yakın ana vücut parçasını buluyoruz.
 local function securizeAccessories(character)
-	for _, accessory in ipairs(character:GetChildren()) do
+	local candidateParts = {}
+	local candidateNames = {"Head", "UpperTorso", "LowerTorso", "Torso"}
+	for _, name in ipairs(candidateNames) do
+		local part = character:FindFirstChild(name)
+		if part and part:IsA("BasePart") then
+			table.insert(candidateParts, part)
+		end
+	end
+
+	if #candidateParts == 0 then
+		return -- karakterin gövde parçaları bulunamadıysa yapacak bir şey yok
+	end
+
+	-- GetDescendants kullanıyoruz ki bir alt klasörde saklı aksesuarları da yakalayalım.
+	for _, accessory in ipairs(character:GetDescendants()) do
 		if accessory:IsA("Accessory") then
 			local handle = accessory:FindFirstChild("Handle")
-			if not handle then
+			if not handle or not handle:IsA("BasePart") then
 				continue
 			end
 
-			-- Bu Handle'ın nereye takılı olması gerektiğini bul: mevcut AccessoryWeld'in
-			-- Part1'i genelde doğru hedeftir (Head, veya bazı aksesuarlarda başka bir parça).
-			local existingWeld = handle:FindFirstChildOfClass("Weld")
-				or handle:FindFirstChildOfClass("Motor6D")
-
-			local attachTarget = nil
-			if existingWeld then
-				if existingWeld.Part0 == handle then
-					attachTarget = existingWeld.Part1
-				elseif existingWeld.Part1 == handle then
-					attachTarget = existingWeld.Part0
+			-- Handle'ın altındaki TÜM eski bağlantı türlerini temizle (sınıf ne olursa olsun).
+			for _, oldJoint in ipairs(handle:GetChildren()) do
+				if oldJoint:IsA("Weld")
+					or oldJoint:IsA("Motor6D")
+					or oldJoint:IsA("WeldConstraint")
+					or oldJoint:IsA("RigidConstraint") then
+					oldJoint:Destroy()
 				end
 			end
 
-			-- Hedef bulunamazsa (nadiren olur), Head'e düşelim; o da yoksa vazgeç.
-			if not attachTarget then
-				attachTarget = character:FindFirstChild("Head")
-			end
-			if not attachTarget then
-				continue
-			end
-
-			-- Zaten sağlam bir WeldConstraint kurulmuşsa tekrar oluşturma.
-			local alreadySecured = false
-			for _, existing in ipairs(handle:GetChildren()) do
-				if existing:IsA("WeldConstraint") and existing.Name == "RagdollAccessoryWeld" then
-					if (existing.Part0 == handle and existing.Part1 == attachTarget)
-						or (existing.Part1 == handle and existing.Part0 == attachTarget) then
-						alreadySecured = true
-						break
+			-- Gövde parçalarının içinde bu Handle'a referans veren weld'ler de olabilir
+			-- (örneğin Head'in içinde duran bir "HeadWeld"). Onları da bulup temizle.
+			for _, otherPart in ipairs(candidateParts) do
+				for _, maybeJoint in ipairs(otherPart:GetChildren()) do
+					if maybeJoint:IsA("Weld") or maybeJoint:IsA("WeldConstraint") or maybeJoint:IsA("Motor6D") then
+						local part0 = maybeJoint.Part0
+						local part1 = maybeJoint.Part1
+						if part0 == handle or part1 == handle then
+							maybeJoint:Destroy()
+						end
 					end
 				end
 			end
-			if alreadySecured then
+
+			-- Handle'ın o anki dünya konumuna en yakın gövde parçasını bul (mesafe hesabıyla).
+			local closestPart = nil
+			local closestDistance = math.huge
+			for _, part in ipairs(candidateParts) do
+				local distance = (part.Position - handle.Position).Magnitude
+				if distance < closestDistance then
+					closestDistance = distance
+					closestPart = part
+				end
+			end
+
+			if not closestPart then
 				continue
 			end
 
+			-- Yeni, sağlam bir WeldConstraint kur. C0/C1 gerektirmez, iki parçanın
+			-- o anki göreceli konumunu otomatik kilitler.
 			local secureWeld = Instance.new("WeldConstraint")
 			secureWeld.Name = "RagdollAccessoryWeld"
 			secureWeld.Part0 = handle
-			secureWeld.Part1 = attachTarget
+			secureWeld.Part1 = closestPart
 			secureWeld.Parent = handle
 
-			-- Handle'ın kendisi de karakterin geri kalanıyla birlikte çarpışabilir olsun,
-			-- ama ayrı bir cisim gibi zıplayıp uçmasın diye Anchored kalmasına gerek yok,
-			-- WeldConstraint zaten pozisyonunu sabitliyor.
+			-- Handle karakterin geri kalanıyla birlikte çarpışabilir kalsın, ama artık
+			-- WeldConstraint pozisyonunu tamamen sabitlediği için ayrı bir cisim gibi
+			-- fırlayıp uçamaz.
 			handle.CanCollide = false
 		end
 	end
@@ -254,7 +271,7 @@ local function ragdollCharacter(character, humanoid)
 	end
 end
 
--- Karakterin fiziksel olarak "durduğunu" tespit eder.
+-- Karakterin fiziksel olarak "durduğunu" (yere yığılıp sakinleştiğini) tespit eder.
 local function waitUntilSettled(character, timeoutSeconds)
 	local startTime = os.clock()
 

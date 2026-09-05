@@ -1,312 +1,670 @@
--- ServerScriptService > Script (isim: AdminServer)
+-- StarterPlayer > StarterPlayerScripts > LocalScript (isim: AdminClient)
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
 
---// AYARLAR //--
-local ADMIN_USERNAMES = {
-	["Syn_x8"] = true,
-}
+local localPlayer = Players.LocalPlayer
 
--- UserId ile de kontrol edebilmek için (username değişse bile çalışır).
--- Syn_x8'in UserId'sini biliyorsan buraya ekle, bilmiyorsan boş bırakabilirsin.
-local ADMIN_USERIDS = {
-	-- [123456789] = true,
-}
+-- Sunucunun oluşturduğu remote'ları bekle
+local remotesFolder = ReplicatedStorage:WaitForChild("AdminRemotes", 15)
+if not remotesFolder then return end
 
-local DEFAULT_WALKSPEED = 16
-local DEFAULT_JUMPPOWER = 50
-local MAX_WALKSPEED = 500
-local MAX_JUMPPOWER = 500
+local CommandRemote = remotesFolder:WaitForChild("AdminCommand")
+local StateRemote = remotesFolder:WaitForChild("AdminState")
 
---// REMOTE KURULUMU //--
-local remotesFolder = ReplicatedStorage:FindFirstChild("AdminRemotes")
-if not remotesFolder then
-	remotesFolder = Instance.new("Folder")
-	remotesFolder.Name = "AdminRemotes"
-	remotesFolder.Parent = ReplicatedStorage
+--// ARAYÜZ OLUŞTURMA //--
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "AdminPanelGui"
+screenGui.ResetOnSpawn = false
+screenGui.IgnoreGuiInset = true
+screenGui.DisplayOrder = 999
+screenGui.Enabled = false -- yetki gelene kadar hiçbir şey render edilmez
+screenGui.Parent = localPlayer:WaitForChild("PlayerGui")
+
+-- Basit renk paleti
+local COLOR_BG = Color3.fromRGB(18, 18, 24)
+local COLOR_ACCENT = Color3.fromRGB(120, 90, 255)
+local COLOR_ACCENT2 = Color3.fromRGB(255, 80, 130)
+local COLOR_TEXT = Color3.fromRGB(235, 235, 245)
+local COLOR_SUBTEXT = Color3.fromRGB(160, 160, 175)
+local COLOR_PANEL2 = Color3.fromRGB(28, 28, 36)
+
+local function corner(instance, radius)
+	local c = Instance.new("UICorner")
+	c.CornerRadius = UDim.new(0, radius or 10)
+	c.Parent = instance
+	return c
 end
 
-local function getOrCreateRemote(name)
-	local r = remotesFolder:FindFirstChild(name)
-	if not r then
-		r = Instance.new("RemoteEvent")
-		r.Name = name
-		r.Parent = remotesFolder
-	end
-	return r
+local function stroke(instance, color, thickness)
+	local s = Instance.new("UIStroke")
+	s.Color = color or COLOR_ACCENT
+	s.Thickness = thickness or 1
+	s.Transparency = 0.4
+	s.Parent = instance
+	return s
 end
 
-local CommandRemote = getOrCreateRemote("AdminCommand") -- Client -> Server (komut)
-local StateRemote = getOrCreateRemote("AdminState")     -- Server -> Client (yetki/durum bilgisi)
-
---// DURUM TAKİBİ //--
--- Her admin oyuncu için ayrı state (godmode açık mı, hız/jump ne, freeze edilenler vs.)
-local adminStates = {} -- [player] = { godmode = bool, speed = num, jump = num }
-local frozenPlayers = {} -- [player] = true  (freeze edilen KURBAN, admin değil)
-local frozenWalkspeedCache = {} -- freeze öncesi hızını geri yüklemek için
-
---// YARDIMCI FONKSİYONLAR //--
-
-local function isAdmin(player)
-	if not player then return false end
-	if ADMIN_USERNAMES[player.Name] then return true end
-	if ADMIN_USERIDS[player.UserId] then return true end
-	return false
+local function gradient(instance, rotation, colorSeq)
+	local g = Instance.new("UIGradient")
+	g.Rotation = rotation or 0
+	g.Color = colorSeq or ColorSequence.new(COLOR_ACCENT, COLOR_ACCENT2)
+	g.Parent = instance
+	return g
 end
 
-local function safeGetHumanoid(player)
-	local char = player.Character
-	if not char then return nil end
-	local hum = char:FindFirstChildOfClass("Humanoid")
-	return hum
+--// ANA PENCERE (yatay dikdörtgen, yarı saydam) //--
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainPanel"
+mainFrame.Size = UDim2.fromOffset(760, 300)
+mainFrame.Position = UDim2.new(0.5, -380, 0.5, -150)
+mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+mainFrame.BackgroundColor3 = COLOR_BG
+mainFrame.BackgroundTransparency = 0.12 -- yarı saydam
+mainFrame.BorderSizePixel = 0
+mainFrame.ClipsDescendants = true
+mainFrame.Active = true -- input'u yutar, arkadaki dünyaya geçmesin
+-- Sürüklenemesin diye: Draggable özelliği hiç eklenmiyor, herhangi bir sürükleme
+-- bağlantısı (Drag/InputBegan+CFrame güncelleme) kasıtlı olarak YOK.
+mainFrame.Parent = screenGui
+corner(mainFrame, 18)
+stroke(mainFrame, COLOR_ACCENT, 1.5)
+
+do
+	local blurGradient = Instance.new("Frame")
+	blurGradient.Name = "GlowBorder"
+	blurGradient.Size = UDim2.new(1, 0, 0, 4)
+	blurGradient.Position = UDim2.new(0, 0, 0, 0)
+	blurGradient.BackgroundColor3 = Color3.new(1, 1, 1)
+	blurGradient.BorderSizePixel = 0
+	blurGradient.Parent = mainFrame
+	gradient(blurGradient, 0)
+	corner(blurGradient, 18)
 end
 
-local function safeGetRoot(player)
-	local char = player.Character
-	if not char then return nil end
-	return char:FindFirstChild("HumanoidRootPart")
+-- Başlık çubuğu
+local titleBar = Instance.new("Frame")
+titleBar.Name = "TitleBar"
+titleBar.Size = UDim2.new(1, 0, 0, 46)
+titleBar.BackgroundColor3 = COLOR_PANEL2
+titleBar.BackgroundTransparency = 0.15
+titleBar.BorderSizePixel = 0
+titleBar.Parent = mainFrame
+corner(titleBar, 18)
+
+do
+	-- Alt köşeleri kare yapmak için maskeleme
+	local mask = Instance.new("Frame")
+	mask.Size = UDim2.new(1, 0, 0, 18)
+	mask.Position = UDim2.new(0, 0, 1, -18)
+	mask.BackgroundColor3 = COLOR_PANEL2
+	mask.BackgroundTransparency = 0.15
+	mask.BorderSizePixel = 0
+	mask.ZIndex = 0
+	mask.Parent = titleBar
 end
 
-local function ensureAdminState(player)
-	if not adminStates[player] then
-		adminStates[player] = {
-			godmode = false,
-			speed = DEFAULT_WALKSPEED,
-			jump = DEFAULT_JUMPPOWER,
-		}
-	end
-	return adminStates[player]
+local titleText = Instance.new("TextLabel")
+titleText.BackgroundTransparency = 1
+titleText.Position = UDim2.new(0, 20, 0, 0)
+titleText.Size = UDim2.new(0.6, 0, 1, 0)
+titleText.Font = Enum.Font.GothamBold
+titleText.TextSize = 18
+titleText.TextColor3 = COLOR_TEXT
+titleText.TextXAlignment = Enum.TextXAlignment.Left
+titleText.Text = "ADMIN PANEL  •  " .. localPlayer.Name
+titleText.Parent = titleBar
+
+local statusDot = Instance.new("Frame")
+statusDot.Size = UDim2.fromOffset(8, 8)
+statusDot.Position = UDim2.new(1, -140, 0.5, -4)
+statusDot.BackgroundColor3 = Color3.fromRGB(90, 255, 140)
+statusDot.BorderSizePixel = 0
+statusDot.Parent = titleBar
+corner(statusDot, 4)
+
+local statusText = Instance.new("TextLabel")
+statusText.BackgroundTransparency = 1
+statusText.Position = UDim2.new(1, -125, 0, 0)
+statusText.Size = UDim2.new(0, 105, 1, 0)
+statusText.Font = Enum.Font.Gotham
+statusText.TextSize = 13
+statusText.TextColor3 = COLOR_SUBTEXT
+statusText.TextXAlignment = Enum.TextXAlignment.Left
+statusText.Text = "Yetkili Bağlı"
+statusText.Parent = titleBar
+
+--// GÖVDE — 3 SÜTUN //--
+
+local body = Instance.new("Frame")
+body.Name = "Body"
+body.Size = UDim2.new(1, -24, 1, -58)
+body.Position = UDim2.new(0, 12, 0, 52)
+body.BackgroundTransparency = 1
+body.Parent = mainFrame
+
+local layout = Instance.new("UIListLayout")
+layout.FillDirection = Enum.FillDirection.Horizontal
+layout.Padding = UDim.new(0, 12)
+layout.SortOrder = Enum.SortOrder.LayoutOrder
+layout.Parent = body
+
+local function makeColumn(name, widthScale, order)
+	local col = Instance.new("Frame")
+	col.Name = name
+	col.Size = UDim2.new(widthScale, -8, 1, 0)
+	col.BackgroundColor3 = COLOR_PANEL2
+	col.BackgroundTransparency = 0.25
+	col.BorderSizePixel = 0
+	col.LayoutOrder = order
+	col.Parent = body
+	corner(col, 14)
+	stroke(col, Color3.fromRGB(60, 60, 75), 1)
+
+	local pad = Instance.new("UIPadding")
+	pad.PaddingTop = UDim.new(0, 12)
+	pad.PaddingBottom = UDim.new(0, 12)
+	pad.PaddingLeft = UDim.new(0, 12)
+	pad.PaddingRight = UDim.new(0, 12)
+	pad.Parent = col
+
+	local colLayout = Instance.new("UIListLayout")
+	colLayout.Padding = UDim.new(0, 10)
+	colLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	colLayout.Parent = col
+
+	return col
 end
 
-local function applyGodmode(player, enabled)
-	local hum = safeGetHumanoid(player)
-	if not hum then return end
+local function sectionLabel(parent, text, order)
+	local lbl = Instance.new("TextLabel")
+	lbl.BackgroundTransparency = 1
+	lbl.Size = UDim2.new(1, 0, 0, 16)
+	lbl.Font = Enum.Font.GothamBold
+	lbl.TextSize = 12
+	lbl.TextColor3 = COLOR_ACCENT
+	lbl.TextXAlignment = Enum.TextXAlignment.Left
+	lbl.Text = string.upper(text)
+	lbl.LayoutOrder = order
+	lbl.Parent = parent
+	return lbl
+end
 
-	local state = ensureAdminState(player)
-	state.godmode = enabled
+--// SÜTUN 1: GODMODE + HIZ + ZIPLAMA //--
+local col1 = makeColumn("SelfControls", 0.34, 1)
+sectionLabel(col1, "Kendi Ayarların", 1)
 
-	if enabled then
-		hum.MaxHealth = math.huge
-		hum.Health = math.huge
-		-- Zaten yaşıyorsa can barını da senkron tut
-		hum.HealthChanged:Connect(function()
-			if state.godmode and hum.Health < hum.MaxHealth then
-				hum.Health = hum.MaxHealth
-			end
-		end)
+-- Godmode toggle satırı
+local godRow = Instance.new("Frame")
+godRow.Size = UDim2.new(1, 0, 0, 34)
+godRow.BackgroundTransparency = 1
+godRow.LayoutOrder = 2
+godRow.Parent = col1
+
+local godLabel = Instance.new("TextLabel")
+godLabel.BackgroundTransparency = 1
+godLabel.Size = UDim2.new(0.6, 0, 1, 0)
+godLabel.Font = Enum.Font.Gotham
+godLabel.TextSize = 14
+godLabel.TextColor3 = COLOR_TEXT
+godLabel.TextXAlignment = Enum.TextXAlignment.Left
+godLabel.Text = "God Mode"
+godLabel.Parent = godRow
+
+local godToggle = Instance.new("Frame")
+godToggle.Size = UDim2.fromOffset(46, 24)
+godToggle.Position = UDim2.new(1, -46, 0.5, -12)
+godToggle.BackgroundColor3 = Color3.fromRGB(70, 70, 85)
+godToggle.BorderSizePixel = 0
+godToggle.Parent = godRow
+corner(godToggle, 12)
+
+local godKnob = Instance.new("Frame")
+godKnob.Size = UDim2.fromOffset(18, 18)
+godKnob.Position = UDim2.new(0, 3, 0.5, -9)
+godKnob.BackgroundColor3 = Color3.fromRGB(230, 230, 235)
+godKnob.BorderSizePixel = 0
+godKnob.Parent = godToggle
+corner(godKnob, 9)
+
+local godButton = Instance.new("TextButton")
+godButton.Size = UDim2.fromScale(1, 1)
+godButton.BackgroundTransparency = 1
+godButton.Text = ""
+godButton.Parent = godToggle
+
+local godmodeEnabled = false
+local function setGodToggleVisual(enabled, animate)
+	local knobGoal = enabled and UDim2.new(1, -21, 0.5, -9) or UDim2.new(0, 3, 0.5, -9)
+	local bgGoal = enabled and Color3.fromRGB(90, 255, 140) or Color3.fromRGB(70, 70, 85)
+	if animate then
+		TweenService:Create(godKnob, TweenInfo.new(0.18, Enum.EasingStyle.Quad), {Position = knobGoal}):Play()
+		TweenService:Create(godToggle, TweenInfo.new(0.18, Enum.EasingStyle.Quad), {BackgroundColor3 = bgGoal}):Play()
 	else
-		hum.MaxHealth = 100
-		hum.Health = 100
+		godKnob.Position = knobGoal
+		godToggle.BackgroundColor3 = bgGoal
 	end
 end
 
-local function applySpeed(player, speed)
-	speed = math.clamp(tonumber(speed) or DEFAULT_WALKSPEED, 0, MAX_WALKSPEED)
-	local hum = safeGetHumanoid(player)
-	local state = ensureAdminState(player)
-	state.speed = speed
-	if hum then
-		hum.WalkSpeed = speed
+godButton.MouseButton1Click:Connect(function()
+	godmodeEnabled = not godmodeEnabled
+	setGodToggleVisual(godmodeEnabled, true)
+	CommandRemote:FireServer("SetGodmode", {enabled = godmodeEnabled})
+end)
+
+-- Hız slider benzeri (+/- butonlu, textbox'lı)
+local function makeStatRow(parent, label, order, defaultValue, min, max, onChange)
+	local row = Instance.new("Frame")
+	row.Size = UDim2.new(1, 0, 0, 34)
+	row.BackgroundTransparency = 1
+	row.LayoutOrder = order
+	row.Parent = parent
+
+	local lbl = Instance.new("TextLabel")
+	lbl.BackgroundTransparency = 1
+	lbl.Size = UDim2.new(0.42, 0, 1, 0)
+	lbl.Font = Enum.Font.Gotham
+	lbl.TextSize = 14
+	lbl.TextColor3 = COLOR_TEXT
+	lbl.TextXAlignment = Enum.TextXAlignment.Left
+	lbl.Text = label
+	lbl.Parent = row
+
+	local minusBtn = Instance.new("TextButton")
+	minusBtn.Size = UDim2.fromOffset(24, 24)
+	minusBtn.Position = UDim2.new(0.42, 0, 0.5, -12)
+	minusBtn.BackgroundColor3 = COLOR_BG
+	minusBtn.Font = Enum.Font.GothamBold
+	minusBtn.TextSize = 16
+	minusBtn.TextColor3 = COLOR_TEXT
+	minusBtn.Text = "-"
+	minusBtn.AutoButtonColor = true
+	minusBtn.Parent = row
+	corner(minusBtn, 6)
+
+	local box = Instance.new("TextBox")
+	box.Size = UDim2.fromOffset(52, 24)
+	box.Position = UDim2.new(0.42, 30, 0.5, -12)
+	box.BackgroundColor3 = COLOR_BG
+	box.Font = Enum.Font.GothamBold
+	box.TextSize = 14
+	box.TextColor3 = COLOR_ACCENT
+	box.Text = tostring(defaultValue)
+	box.ClearTextOnFocus = false
+	box.Parent = row
+	corner(box, 6)
+
+	local plusBtn = Instance.new("TextButton")
+	plusBtn.Size = UDim2.fromOffset(24, 24)
+	plusBtn.Position = UDim2.new(0.42, 88, 0.5, -12)
+	plusBtn.BackgroundColor3 = COLOR_BG
+	plusBtn.Font = Enum.Font.GothamBold
+	plusBtn.TextSize = 16
+	plusBtn.TextColor3 = COLOR_TEXT
+	plusBtn.Text = "+"
+	plusBtn.Parent = row
+	corner(plusBtn, 6)
+
+	local currentValue = defaultValue
+
+	local function commit(newVal)
+		newVal = math.clamp(tonumber(newVal) or currentValue, min, max)
+		currentValue = newVal
+		box.Text = tostring(newVal)
+		onChange(newVal)
 	end
-end
 
-local function applyJump(player, jump)
-	jump = math.clamp(tonumber(jump) or DEFAULT_JUMPPOWER, 0, MAX_JUMPPOWER)
-	local hum = safeGetHumanoid(player)
-	local state = ensureAdminState(player)
-	state.jump = jump
-	if hum then
-		hum.UseJumpPower = true
-		hum.JumpPower = jump
-	end
-end
-
--- Karakter her yeniden spawn olduğunda admin ayarlarını tekrar uygula
-local function onCharacterAdded(player, char)
-	if not isAdmin(player) then return end
-	local state = ensureAdminState(player)
-
-	local hum = char:WaitForChild("Humanoid", 5)
-	if not hum then return end
-
-	task.defer(function()
-		if state.godmode then
-			applyGodmode(player, true)
-		end
-		applySpeed(player, state.speed)
-		applyJump(player, state.jump)
+	minusBtn.MouseButton1Click:Connect(function()
+		commit(currentValue - (max > 100 and 10 or 4))
 	end)
+	plusBtn.MouseButton1Click:Connect(function()
+		commit(currentValue + (max > 100 and 10 or 4))
+	end)
+	box.FocusLost:Connect(function(enterPressed)
+		commit(box.Text)
+	end)
+
+	return row
 end
 
-local function findTargetPlayer(nameQuery)
-	if not nameQuery or nameQuery == "" then return nil end
-	nameQuery = string.lower(nameQuery)
+makeStatRow(col1, "Hareket Hızı", 3, 16, 0, 500, function(v)
+	CommandRemote:FireServer("SetSpeed", {value = v})
+end)
 
-	-- Önce tam eşleşme
-	for _, p in ipairs(Players:GetPlayers()) do
-		if string.lower(p.Name) == nameQuery then
-			return p
-		end
-	end
-	-- Sonra kısmi eşleşme (ör: "syn" yazınca Syn_x8'i bulsun)
-	for _, p in ipairs(Players:GetPlayers()) do
-		if string.find(string.lower(p.Name), nameQuery, 1, true) then
-			return p
-		end
-	end
-	return nil
-end
+makeStatRow(col1, "Zıplama Gücü", 4, 50, 0, 500, function(v)
+	CommandRemote:FireServer("SetJump", {value = v})
+end)
 
---// HEDEF ÜZERİNDE KOMUTLAR //--
+local hintLabel = Instance.new("TextLabel")
+hintLabel.BackgroundTransparency = 1
+hintLabel.Size = UDim2.new(1, 0, 0, 30)
+hintLabel.Font = Enum.Font.Gotham
+hintLabel.TextSize = 11
+hintLabel.TextColor3 = COLOR_SUBTEXT
+hintLabel.TextWrapped = true
+hintLabel.TextXAlignment = Enum.TextXAlignment.Left
+hintLabel.TextYAlignment = Enum.TextYAlignment.Top
+hintLabel.LayoutOrder = 5
+hintLabel.Text = "Değerler anında sunucuya iletilir ve karakterin her respawnunda otomatik tekrar uygulanır."
+hintLabel.Parent = col1
 
-local function doKick(admin, target)
-	if not target then return end
-	target:Kick("Sunucu yöneticisi tarafından atıldın.")
-end
+--// SÜTUN 2: HEDEF SEÇİMİ VE AKSİYONLAR //--
+local col2 = makeColumn("TargetControls", 0.34, 2)
+sectionLabel(col2, "Hedef Yönetimi", 1)
 
-local function doKill(admin, target)
-	local hum = safeGetHumanoid(target)
-	if hum then
-		hum.Health = 0
-	end
-end
+local targetBoxRow = Instance.new("Frame")
+targetBoxRow.Size = UDim2.new(1, 0, 0, 34)
+targetBoxRow.BackgroundTransparency = 1
+targetBoxRow.LayoutOrder = 2
+targetBoxRow.Parent = col2
 
-local function doBring(admin, target)
-	local adminRoot = safeGetRoot(admin)
-	local targetRoot = safeGetRoot(target)
-	if not adminRoot or not targetRoot then return end
-	targetRoot.CFrame = adminRoot.CFrame * CFrame.new(0, 0, -4)
-end
+local targetBox = Instance.new("TextBox")
+targetBox.Size = UDim2.fromScale(1, 1)
+targetBox.BackgroundColor3 = COLOR_BG
+targetBox.Font = Enum.Font.Gotham
+targetBox.TextSize = 14
+targetBox.TextColor3 = COLOR_TEXT
+targetBox.PlaceholderText = "Hedef oyuncu adı yaz..."
+targetBox.PlaceholderColor3 = COLOR_SUBTEXT
+targetBox.ClearTextOnFocus = false
+targetBox.Text = ""
+targetBox.Parent = targetBoxRow
+corner(targetBox, 8)
+stroke(targetBox, COLOR_ACCENT, 1)
 
-local function doGoto(admin, target)
-	local adminRoot = safeGetRoot(admin)
-	local targetRoot = safeGetRoot(target)
-	if not adminRoot or not targetRoot then return end
-	adminRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 0, 4)
-end
+local actionGrid = Instance.new("Frame")
+actionGrid.Size = UDim2.new(1, 0, 0, 150)
+actionGrid.BackgroundTransparency = 1
+actionGrid.LayoutOrder = 3
+actionGrid.Parent = col2
 
-local function doFreeze(admin, target, shouldFreeze)
-	local hum = safeGetHumanoid(target)
-	local root = safeGetRoot(target)
-	if not hum or not root then return end
+local gridLayout = Instance.new("UIGridLayout")
+gridLayout.CellSize = UDim2.new(0, 96, 0, 32)
+gridLayout.CellPadding = UDim2.fromOffset(6, 6)
+gridLayout.SortOrder = Enum.SortOrder.LayoutOrder
+gridLayout.Parent = actionGrid
 
-	if shouldFreeze then
-		frozenPlayers[target] = true
-		frozenWalkspeedCache[target] = hum.WalkSpeed
-		hum.WalkSpeed = 0
-		hum.JumpPower = 0
-		hum.UseJumpPower = true
-		-- Root'u da sabitleyelim ki uçan/knockback exploitlerle kayamasın
-		root.Anchored = true
-	else
-		frozenPlayers[target] = nil
-		root.Anchored = false
-		hum.WalkSpeed = frozenWalkspeedCache[target] or DEFAULT_WALKSPEED
-		hum.UseJumpPower = true
-		hum.JumpPower = DEFAULT_JUMPPOWER
-		frozenWalkspeedCache[target] = nil
-	end
-end
+local frozenState = {} -- targetName -> bool (client-side sadece buton metnini değiştirmek için)
 
-local function doView(admin, target)
-	-- Admin'in kamerasını hedefin karakterine kilitler (sadece o admin için).
-	StateRemote:FireClient(admin, "SetView", target and target.Name or nil)
-end
-
---// GELEN KOMUTLARI İŞLEME (TEK GÜVENLİ KAPI) //--
-
-CommandRemote.OnServerEvent:Connect(function(player, action, payload)
-	-- 1) Her komutta admin kontrolü sunucuda tekrar yapılır. İstemciye asla güvenilmez.
-	if not isAdmin(player) then
-		warn(("[AdminServer] Yetkisiz komut denemesi: %s -> %s"):format(player.Name, tostring(action)))
+local function sendTargetAction(command)
+	local name = targetBox.Text
+	if not name or name == "" then
+		targetBox.PlaceholderText = "Önce bir isim yaz!"
 		return
 	end
-
-	if type(action) ~= "string" then return end
-	payload = type(payload) == "table" and payload or {}
-
-	if action == "SetGodmode" then
-		applyGodmode(player, payload.enabled == true)
-
-	elseif action == "SetSpeed" then
-		applySpeed(player, payload.value)
-
-	elseif action == "SetJump" then
-		applyJump(player, payload.value)
-
-	elseif action == "TargetAction" then
-		local target = findTargetPlayer(payload.targetName)
-		local cmd = payload.command
-
-		if not target then
-			StateRemote:FireClient(player, "Notify", "Hedef bulunamadı: " .. tostring(payload.targetName))
-			return
-		end
-
-		-- Adminler birbirine zarar veremesin (istersen bu bloğu kaldırabilirsin)
-		if isAdmin(target) and target ~= player and cmd ~= "view" and cmd ~= "goto" then
-			StateRemote:FireClient(player, "Notify", target.Name .. " bir admin, bu komut uygulanamaz.")
-			return
-		end
-
-		if cmd == "kick" then
-			doKick(player, target)
-		elseif cmd == "kill" then
-			doKill(player, target)
-		elseif cmd == "bring" then
-			doBring(player, target)
-		elseif cmd == "goto" then
-			doGoto(player, target)
-		elseif cmd == "freeze" then
-			doFreeze(player, target, true)
-		elseif cmd == "unfreeze" then
-			doFreeze(player, target, false)
-		elseif cmd == "view" then
-			doView(player, target)
-		elseif cmd == "unview" then
-			StateRemote:FireClient(player, "SetView", nil)
-		end
-
-		StateRemote:FireClient(player, "Notify", ("%s -> %s uygulandı."):format(cmd, target.Name))
-	end
-end)
-
---// OYUNCU BAĞLANTILARI //--
-
-Players.PlayerAdded:Connect(function(player)
-	player.CharacterAdded:Connect(function(char)
-		onCharacterAdded(player, char)
-	end)
-
-	-- Admin ise, istemci tarafına "sen adminsin, panel açılsın" bilgisini yolla
-	if isAdmin(player) then
-		ensureAdminState(player)
-		task.wait(1) -- LocalScript'in remote'ları dinlemeye başlaması için kısa bekleme
-		StateRemote:FireClient(player, "GrantAccess", true)
-	end
-end)
-
-Players.PlayerRemoving:Connect(function(player)
-	adminStates[player] = nil
-	frozenPlayers[player] = nil
-	frozenWalkspeedCache[player] = nil
-end)
-
--- Zaten sunucuda olan oyuncular için de çalışsın (script sonradan eklenirse)
-for _, player in ipairs(Players:GetPlayers()) do
-	if isAdmin(player) then
-		ensureAdminState(player)
-		task.spawn(function()
-			task.wait(1)
-			StateRemote:FireClient(player, "GrantAccess", true)
-		end)
-	end
-	if player.Character then
-		onCharacterAdded(player, player.Character)
-	end
-	player.CharacterAdded:Connect(function(char)
-		onCharacterAdded(player, char)
-	end)
+	CommandRemote:FireServer("TargetAction", {targetName = name, command = command})
 end
+
+local function actionButton(text, order, colorA, colorB, onClick)
+	local btn = Instance.new("TextButton")
+	btn.Size = UDim2.fromOffset(96, 32)
+	btn.LayoutOrder = order
+	btn.AutoButtonColor = false
+	btn.Font = Enum.Font.GothamBold
+	btn.TextSize = 13
+	btn.TextColor3 = Color3.new(1, 1, 1)
+	btn.Text = text
+	btn.BackgroundColor3 = colorA
+	btn.Parent = actionGrid
+	corner(btn, 8)
+	gradient(btn, 90, ColorSequence.new(colorA, colorB))
+
+	btn.MouseEnter:Connect(function()
+		TweenService:Create(btn, TweenInfo.new(0.12), {Size = UDim2.fromOffset(99, 34)}):Play()
+	end)
+	btn.MouseLeave:Connect(function()
+		TweenService:Create(btn, TweenInfo.new(0.12), {Size = UDim2.fromOffset(96, 32)}):Play()
+	end)
+	btn.MouseButton1Click:Connect(function()
+		TweenService:Create(btn, TweenInfo.new(0.08), {BackgroundTransparency = 0.4}):Play()
+		task.delay(0.08, function()
+			if btn and btn.Parent then
+				TweenService:Create(btn, TweenInfo.new(0.08), {BackgroundTransparency = 0}):Play()
+			end
+		end)
+		onClick(btn)
+	end)
+
+	return btn
+end
+
+actionButton("Kick", 1, Color3.fromRGB(255, 100, 100), Color3.fromRGB(200, 40, 40), function()
+	sendTargetAction("kick")
+end)
+
+actionButton("Kill", 2, Color3.fromRGB(200, 60, 220), Color3.fromRGB(130, 30, 160), function()
+	sendTargetAction("kill")
+end)
+
+actionButton("Bring", 3, Color3.fromRGB(90, 170, 255), Color3.fromRGB(50, 110, 220), function()
+	sendTargetAction("bring")
+end)
+
+actionButton("Goto", 4, Color3.fromRGB(90, 200, 255), Color3.fromRGB(50, 140, 220), function()
+	sendTargetAction("goto")
+end)
+
+local freezeBtn
+freezeBtn = actionButton("Freeze", 5, Color3.fromRGB(120, 220, 255), Color3.fromRGB(70, 160, 220), function(btn)
+	local name = targetBox.Text
+	if frozenState[name] then
+		sendTargetAction("unfreeze")
+		frozenState[name] = false
+		btn.Text = "Freeze"
+	else
+		sendTargetAction("freeze")
+		frozenState[name] = true
+		btn.Text = "Unfreeze"
+	end
+end)
+
+local viewingNow = false
+local viewBtn
+viewBtn = actionButton("View", 6, Color3.fromRGB(255, 190, 90), Color3.fromRGB(220, 140, 40), function(btn)
+	if viewingNow then
+		CommandRemote:FireServer("TargetAction", {targetName = targetBox.Text, command = "unview"})
+		viewingNow = false
+		btn.Text = "View"
+	else
+		sendTargetAction("view")
+		viewingNow = true
+		btn.Text = "Unview"
+	end
+end)
+
+--// SÜTUN 3: LOG / BİLDİRİMLER //--
+local col3 = makeColumn("LogPanel", 0.32, 3)
+sectionLabel(col3, "Bildirimler", 1)
+
+local logScroll = Instance.new("ScrollingFrame")
+logScroll.Size = UDim2.new(1, 0, 1, -24)
+logScroll.LayoutOrder = 2
+logScroll.BackgroundTransparency = 1
+logScroll.BorderSizePixel = 0
+logScroll.ScrollBarThickness = 4
+logScroll.ScrollBarImageColor3 = COLOR_ACCENT
+logScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+logScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+logScroll.Parent = col3
+
+local logLayout = Instance.new("UIListLayout")
+logLayout.Padding = UDim.new(0, 6)
+logLayout.SortOrder = Enum.SortOrder.LayoutOrder
+logLayout.Parent = logScroll
+
+local logCount = 0
+local function pushLog(text)
+	logCount += 1
+	local entry = Instance.new("TextLabel")
+	entry.BackgroundColor3 = COLOR_BG
+	entry.BackgroundTransparency = 0.3
+	entry.Size = UDim2.new(1, 0, 0, 0)
+	entry.AutomaticSize = Enum.AutomaticSize.Y
+	entry.Font = Enum.Font.Gotham
+	entry.TextSize = 12
+	entry.TextColor3 = COLOR_SUBTEXT
+	entry.TextWrapped = true
+	entry.TextXAlignment = Enum.TextXAlignment.Left
+	entry.LayoutOrder = logCount
+	entry.Text = "• " .. text
+	entry.Parent = logScroll
+	corner(entry, 6)
+
+	local pad = Instance.new("UIPadding")
+	pad.PaddingTop = UDim.new(0, 4)
+	pad.PaddingBottom = UDim.new(0, 4)
+	pad.PaddingLeft = UDim.new(0, 6)
+	pad.PaddingRight = UDim.new(0, 6)
+	pad.Parent = entry
+
+	task.wait()
+	logScroll.CanvasPosition = Vector2.new(0, logScroll.AbsoluteCanvasSize.Y)
+end
+
+pushLog("Panel yüklendi. Komut bekleniyor...")
+
+--// SAĞ ALT AÇ/KAPA TOGGLE (SABİT, SÜRÜKLENEMEZ) //--
+
+local toggleButton = Instance.new("TextButton")
+toggleButton.Name = "AdminToggle"
+toggleButton.Size = UDim2.fromOffset(58, 58)
+toggleButton.AnchorPoint = Vector2.new(1, 1)
+toggleButton.Position = UDim2.new(1, -24, 1, -24)
+toggleButton.BackgroundColor3 = COLOR_BG
+toggleButton.BackgroundTransparency = 0.1
+toggleButton.Text = ""
+toggleButton.AutoButtonColor = false
+-- Sürüklenemesin diye Draggable/Drag mantığı burada da yok.
+toggleButton.Parent = screenGui
+corner(toggleButton, 29)
+stroke(toggleButton, COLOR_ACCENT, 2)
+
+local toggleIcon = Instance.new("TextLabel")
+toggleIcon.BackgroundTransparency = 1
+toggleIcon.Size = UDim2.fromScale(1, 1)
+toggleIcon.Font = Enum.Font.GothamBold
+toggleIcon.TextSize = 22
+toggleIcon.TextColor3 = COLOR_ACCENT
+toggleIcon.Text = "A"
+toggleIcon.Parent = toggleButton
+
+local panelOpen = false
+
+local function setPanelOpen(open, instant)
+	panelOpen = open
+	if open then
+		mainFrame.Visible = true
+	end
+
+	local goalSize = open and UDim2.fromOffset(760, 300) or UDim2.fromOffset(0, 0)
+	local goalTransparency = open and 0.12 or 1
+
+	if instant then
+		mainFrame.Size = goalSize
+		mainFrame.BackgroundTransparency = goalTransparency
+		mainFrame.Visible = open
+	else
+		local tween = TweenService:Create(
+			mainFrame,
+			TweenInfo.new(0.32, Enum.EasingStyle.Back, open and Enum.EasingDirection.Out or Enum.EasingDirection.In),
+			{Size = goalSize, BackgroundTransparency = goalTransparency}
+		)
+		tween:Play()
+		if not open then
+			tween.Completed:Connect(function()
+				if not panelOpen then
+					mainFrame.Visible = false
+				end
+			end)
+		end
+	end
+
+	TweenService:Create(toggleIcon, TweenInfo.new(0.25), {
+		Rotation = open and 45 or 0
+	}):Play()
+end
+
+mainFrame.Visible = false
+mainFrame.Size = UDim2.fromOffset(0, 0)
+
+toggleButton.MouseButton1Click:Connect(function()
+	setPanelOpen(not panelOpen)
+end)
+
+toggleButton.MouseEnter:Connect(function()
+	TweenService:Create(toggleButton, TweenInfo.new(0.15), {Size = UDim2.fromOffset(62, 62)}):Play()
+end)
+toggleButton.MouseLeave:Connect(function()
+	TweenService:Create(toggleButton, TweenInfo.new(0.15), {Size = UDim2.fromOffset(58, 58)}):Play()
+end)
+
+--// SUNUCUDAN GELEN MESAJLARI DİNLE //--
+
+local viewConnection = nil
+
+local function stopViewing()
+	if viewConnection then
+		viewConnection:Disconnect()
+		viewConnection = nil
+	end
+	local camera = Workspace.CurrentCamera
+	if camera then
+		camera.CameraType = Enum.CameraType.Custom
+		camera.CameraSubject = localPlayer.Character and localPlayer.Character:FindFirstChildOfClass("Humanoid")
+	end
+end
+
+local function startViewing(targetName)
+	stopViewing()
+	local targetPlayer = Players:FindFirstChild(targetName)
+	if not targetPlayer then return end
+
+	local camera = Workspace.CurrentCamera
+	local function attach()
+		local char = targetPlayer.Character
+		if char then
+			local hum = char:FindFirstChildOfClass("Humanoid")
+			if hum and camera then
+				camera.CameraType = Enum.CameraType.Custom
+				camera.CameraSubject = hum
+			end
+		end
+	end
+	attach()
+
+	viewConnection = targetPlayer.CharacterAdded:Connect(attach)
+end
+
+StateRemote.OnClientEvent:Connect(function(kind, data)
+	if kind == "GrantAccess" then
+		screenGui.Enabled = true
+		pushLog("Yetki doğrulandı. Panel aktif.")
+
+	elseif kind == "Notify" then
+		pushLog(tostring(data))
+
+	elseif kind == "SetView" then
+		if data then
+			startViewing(data)
+			pushLog("Görünüm hedefe kilitlendi: " .. data)
+		else
+			stopViewing()
+			pushLog("Görünüm sıfırlandı.")
+		end
+	end
+end)
+
+-- Panelin görünürlüğü ekran boyutuna göre biraz uyumlu olsun (mobil/dar ekranlarda taşmasın)
+local function adjustForScreen()
+	local viewportSize = screenGui.AbsoluteSize
+	if viewportSize.X < 820 then
+		mainFrame.Size = panelOpen and UDim2.fromOffset(math.min(760, viewportSize.X - 40), 300) or UDim2.fromOffset(0, 0)
+	end
+end
+
+screenGui:GetPropertyChangedSignal("AbsoluteSize"):Connect(adjustForScreen)

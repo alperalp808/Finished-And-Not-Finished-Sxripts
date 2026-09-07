@@ -1,281 +1,406 @@
---[[
-	Sword - LocalScript (CLIENT)
-	R6. Sadece görsel/işitsel taraf: animasyon, ses, grip, sunucuya saldırı sinyali.
-	Gerçek hasar ve gerçek cooldown sunucuda (Script) uygulanır — burası sadece
-	spam'i ve animasyon çakışmasını önlemek için "gösterge" amaçlı bir kilit tutar.
-]]
-
-local Tool = script.Parent
-local Handle = Tool:WaitForChild("Handle")
-local AttackRemote = Tool:WaitForChild("AttackRemote")
+-- ServerScriptService > Script (isim: RagdollDeathSystem)
 
 local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
+local Workspace = game:GetService("Workspace")
+local Debris = game:GetService("Debris")
 
-local Sounds = {
-	Slash = Handle:WaitForChild("SwordSlash"),
-	-- Unsheath artık burada YOK: sunucudan (Script) çalınıyor ki diğer
-	-- oyuncular da duysun. Burada kalsaydı sadece bu oyuncunun ekranında
-	-- duyulur, iki kez de çalınmış olurdu.
+--// AYARLAR //--
+local DEAD_BODY_LIFETIME = 20 -- saniye, klon Dead klasöründe ne kadar kalacak
+local SETTLE_TIMEOUT = 5 -- saniye, ragdoll'un yere düşüp sakinleşmesi için maksimum bekleme
+local SETTLE_CHECK_INTERVAL = 0.1
+local SETTLE_VELOCITY_THRESHOLD = 0.6 -- bu hızın altına inince "durdu" sayılır
+
+-- Kullanıcı "Dead" klasörünü Workspace'e kendisi ekleyecek; burada sadece bekliyoruz.
+local deadFolder = Workspace:WaitForChild("Dead", 30)
+if not deadFolder then
+	warn("[RagdollDeathSystem] Workspace içinde 'Dead' adında bir Folder bulunamadı. Script devam edecek ama klonlar konulamayacak; lütfen Workspace'e 'Dead' isimli bir Folder ekleyin.")
+end
+
+--// R15 EKLEM HARİTASI (parça ve ek isimleri zaten karakterde hazır geliyor) //--
+local R15_JOINTS = {
+	{"UpperTorso", "LowerTorso", "WaistRigAttachment", "WaistRigAttachment"},
+	{"Head", "UpperTorso", "NeckRigAttachment", "NeckRigAttachment"},
+	{"UpperTorso", "LeftUpperArm", "LeftShoulderRigAttachment", "LeftShoulderRigAttachment"},
+	{"LeftUpperArm", "LeftLowerArm", "LeftElbowRigAttachment", "LeftElbowRigAttachment"},
+	{"LeftLowerArm", "LeftHand", "LeftWristRigAttachment", "LeftWristRigAttachment"},
+	{"UpperTorso", "RightUpperArm", "RightShoulderRigAttachment", "RightShoulderRigAttachment"},
+	{"RightUpperArm", "RightLowerArm", "RightElbowRigAttachment", "RightElbowRigAttachment"},
+	{"RightLowerArm", "RightHand", "RightWristRigAttachment", "RightWristRigAttachment"},
+	{"LowerTorso", "LeftUpperLeg", "LeftHipRigAttachment", "LeftHipRigAttachment"},
+	{"LeftUpperLeg", "LeftLowerLeg", "LeftKneeRigAttachment", "LeftKneeRigAttachment"},
+	{"LeftLowerLeg", "LeftFoot", "LeftAnkleRigAttachment", "LeftAnkleRigAttachment"},
+	{"LowerTorso", "RightUpperLeg", "RightHipRigAttachment", "RightHipRigAttachment"},
+	{"RightUpperLeg", "RightLowerLeg", "RightKneeRigAttachment", "RightKneeRigAttachment"},
+	{"RightLowerLeg", "RightFoot", "RightAnkleRigAttachment", "RightAnkleRigAttachment"},
 }
 
-local Grips = {
-	Up = CFrame.new(0, 0, -1.70000005, 0, 0, 1, 1, 0, 0, 0, 1, 0),
+--// R6 EKLEM HARİTASI: R6'da hazır Attachment yok, bu yüzden Motor6D'nin C0/C1 CFrame'lerini
+--// kendimiz Attachment olarak kuruyoruz. Değerler R6 rigi için standart, doğrulanmış CFrame'lerdir.
+local R6_JOINTS = {
+	{
+		part0 = "Torso", part1 = "Head", motorName = "Neck",
+		c0 = CFrame.new(0, 1, 0, 0, -1, 0, 1, 0, 0, 0, 0, 1),
+		c1 = CFrame.new(0, -0.5, 0, 0, -1, 0, 1, 0, 0, 0, 0, 1),
+	},
+	{
+		part0 = "Torso", part1 = "Left Arm", motorName = "Left Shoulder",
+		c0 = CFrame.new(-1.3, 0.75, 0, -1, 0, 0, 0, -1, 0, 0, 0, 1),
+		c1 = CFrame.new(0.2, 0.75, 0, -1, 0, 0, 0, -1, 0, 0, 0, 1),
+	},
+	{
+		part0 = "Torso", part1 = "Right Arm", motorName = "Right Shoulder",
+		c0 = CFrame.new(1.3, 0.75, 0, 1, 0, 0, 0, -1, 0, 0, 0, -1),
+		c1 = CFrame.new(-0.2, 0.75, 0, 1, 0, 0, 0, -1, 0, 0, 0, -1),
+	},
+	{
+		part0 = "Torso", part1 = "Left Leg", motorName = "Left Hip",
+		c0 = CFrame.new(-0.5, -1, 0, -1, 0, 0, 0, 0, 1, 0, 1, 0),
+		c1 = CFrame.new(0, 1, 0, -1, 0, 0, 0, 0, 1, 0, 1, 0),
+	},
+	{
+		part0 = "Torso", part1 = "Right Leg", motorName = "Right Hip",
+		c0 = CFrame.new(0.5, -1, 0, 1, 0, 0, 0, 0, -1, 0, 1, 0),
+		c1 = CFrame.new(0, 1, 0, 1, 0, 0, 0, 0, -1, 0, 1, 0),
+	},
 }
 
-local AnimationIds = {
-	Idle = "rbxassetid://127108219798248",
-	Slash1 = "rbxassetid://117818478506546",
-	Slash2 = "rbxassetid://109267907771703",
-	Slash3 = "rbxassetid://79130740691867",
-}
+--// YARDIMCI FONKSİYONLAR //--
 
--- İstemci tarafı kilit süresi SUNUCUDAKİ ile birebir aynı olmalı.
--- Bu sadece "erken tıklamayı UI/animasyon seviyesinde engellemek" için;
--- gerçek güvenlik sunucudaki ATTACK_COOLDOWN'dan gelir.
-local ATTACK_COOLDOWN = 0.6
-
--- SUNUCUDAKİ COMBO_RESET_TIME ile birebir aynı olmalı. Sadece görsel sırayı
--- (hangi animasyonun oynayacağını) sunucudaki gerçek hasar sırasıyla eşleşik
--- tutmak için; gerçek yetki yine sunucudadır.
-local COMBO_RESET_TIME = 2
-
-local Character, Humanoid, Animator
-local ToolEquipped = false
-
-local IdleTrack = nil
-local CurrentActionTrack = nil -- aynı anda tek bir action track olabilir
-
--- Her PlaySlashAnim çağrısında bir artan sayı. Track'in "hâlâ güncel" olup
--- olmadığını Stopped event'ine güvenmeden, bu sayıyı karşılaştırarak anlıyoruz.
--- Stopped hiç ateşlenmese, birden fazla ateşlense ya da geç gelse bile
--- bu yöntem etkilenmez.
-local ActionGeneration = 0
-
-local SlashIndex = 0
-local IsAttacking = false -- kilit: cooldown bitmeden Activated hiçbir şey yapmaz
-local LastAttackTick = 0
-
-local function GetOrCreateAnimation(name, id)
-	local anim = Tool:FindFirstChild(name)
-	if not anim then
-		anim = Instance.new("Animation")
-		anim.Name = name
-		anim.AnimationId = id
-		anim.Parent = Tool
-	else
-		anim.AnimationId = id
+-- R15 karakterin Avatar Joint Upgrade (yeni sistem) mi yoksa klasik Motor6D mi kullandığını tespit eder.
+local function usesAvatarJointUpgrade(character)
+	for _, descendant in ipairs(character:GetDescendants()) do
+		if descendant:IsA("AnimationConstraint") then
+			return true
+		end
 	end
-	return anim
+	return false
 end
 
-local IdleAnim = GetOrCreateAnimation("IdleAnim", AnimationIds.Idle)
-local Slash1Anim = GetOrCreateAnimation("Slash1Anim", AnimationIds.Slash1)
-local Slash2Anim = GetOrCreateAnimation("Slash2Anim", AnimationIds.Slash2)
-local Slash3Anim = GetOrCreateAnimation("Slash3Anim", AnimationIds.Slash3)
-
-local SlashAnims = { Slash1Anim, Slash2Anim, Slash3Anim }
-
-local function CheckIfAlive()
-	return Character
-		and Character.Parent
-		and Humanoid
-		and Humanoid.Parent
-		and Humanoid.Health > 0
-end
-
-local function PlayIdle()
-	if not Animator or not IdleAnim then
-		return
-	end
-	if IdleTrack then
-		IdleTrack:Stop()
-		IdleTrack:Destroy()
-	end
-	IdleTrack = Animator:LoadAnimation(IdleAnim)
-	IdleTrack.Looped = true
-	IdleTrack.Priority = Enum.AnimationPriority.Idle
-	IdleTrack:Play(0.2)
-end
-
-local function StopIdle()
-	if IdleTrack then
-		IdleTrack:Stop(0.2)
-	end
-end
-
---// Bir slash animasyonunu oynatır. Önceki action track varsa (bitmemiş olsa bile)
--- SIFIR fade ile anında durdurulur — takılma/çakışma buradan geliyordu.
+-- Aksesuarların (saç, şapka, kulaklık, sırt çantası, vb.) ragdoll sırasında vücuttan
+-- ayrılıp düşmemesi için Handle'larını sağlam bir WeldConstraint ile en yakın vücut
+-- parçasına bağlar.
 --
--- ÖNEMLİ: Stopped event'ine artık güvenmiyoruz. Bazı durumlarda (animasyon
--- yüklenemedi, R6'da priority çakışması, vs.) Stopped hiç ateşlenmeyebilir ya
--- da beklenmedik anda ateşlenebilir; eski kod bu event'e göre CurrentActionTrack'i
--- temizlediği için, event gelmeyince eski bağlantılar birikip yeniden
--- tetikleniyor, "aynı animasyon tekrar tekrar oynuyor" görüntüsü veriyordu.
--- Bunun yerine her çağrıda bir "nesil" sayısı artırılır; track'i durdurma/temizleme
--- işlemi SADECE bu sayı üzerinden, event beklemeden yapılır.
-local function PlaySlashAnim(anim)
-	if not Animator then
+-- ÖNEMLİ DÜZELTME: Önceki versiyon, karakterin gövde parçalarının (Head, UpperTorso vb.)
+-- İÇİNİ de tarayıp "bu Handle'a referans veren var mı" diye arıyordu. Bu ikinci tarama
+-- YANLIŞTI: birden fazla aksesuar olduğunda (saç + kulaklık + şapka gibi), bu tarama
+-- karakterin kendi ana iskelet bağlantılarını (Head-Torso arası gibi) veya başka bir
+-- aksesuarın bağlantısını yanlışlıkla silebiliyordu — bu da vücudun tamamen dağılıp
+-- kaybolmasına yol açtı. Şimdi SADECE Handle'ın kendi içindeki eski joint'leri temizliyoruz,
+-- karakterin gövde parçalarına hiç dokunmuyoruz.
+local function securizeAccessories(character)
+	local candidateParts = {}
+	local candidateNames = {"Head", "UpperTorso", "LowerTorso", "Torso"}
+	for _, name in ipairs(candidateNames) do
+		local part = character:FindFirstChild(name)
+		if part and part:IsA("BasePart") then
+			table.insert(candidateParts, part)
+		end
+	end
+
+	if #candidateParts == 0 then
+		return -- karakterin gövde parçaları bulunamadıysa yapacak bir şey yok
+	end
+
+	-- GetDescendants kullanıyoruz ki bir alt klasörde saklı aksesuarları da yakalayalım.
+	for _, accessory in ipairs(character:GetDescendants()) do
+		if accessory:IsA("Accessory") then
+			local handle = accessory:FindFirstChild("Handle")
+			if not handle or not handle:IsA("BasePart") then
+				continue
+			end
+
+			-- Zaten bu ragdoll sistemi tarafından güvenceye alınmışsa tekrar işleme.
+			if handle:FindFirstChild("RagdollAccessoryWeld") then
+				continue
+			end
+
+			-- SADECE Handle'ın kendi içindeki eski bağlantı türlerini temizle.
+			-- Karakterin gövde parçalarının içine hiç dokunmuyoruz; bu, başka
+			-- aksesuarların veya karakterin kendi iskeletinin bağlantılarını
+			-- yanlışlıkla bozma riskini tamamen ortadan kaldırır.
+			for _, oldJoint in ipairs(handle:GetChildren()) do
+				if oldJoint:IsA("Weld")
+					or oldJoint:IsA("Motor6D")
+					or oldJoint:IsA("WeldConstraint")
+					or oldJoint:IsA("RigidConstraint") then
+					oldJoint:Destroy()
+				end
+			end
+
+			-- Handle'ın o anki dünya konumuna en yakın gövde parçasını bul (mesafe hesabıyla).
+			local closestPart = nil
+			local closestDistance = math.huge
+			for _, part in ipairs(candidateParts) do
+				local distance = (part.Position - handle.Position).Magnitude
+				if distance < closestDistance then
+					closestDistance = distance
+					closestPart = part
+				end
+			end
+
+			if not closestPart then
+				continue
+			end
+
+			-- Yeni, sağlam bir WeldConstraint kur. C0/C1 gerektirmez, iki parçanın
+			-- o anki göreceli konumunu otomatik kilitler.
+			local secureWeld = Instance.new("WeldConstraint")
+			secureWeld.Name = "RagdollAccessoryWeld"
+			secureWeld.Part0 = handle
+			secureWeld.Part1 = closestPart
+			secureWeld.Parent = handle
+
+			-- Handle karakterin geri kalanıyla birlikte çarpışabilir kalsın, ama artık
+			-- WeldConstraint pozisyonunu tamamen sabitlediği için ayrı bir cisim gibi
+			-- fırlayıp uçamaz.
+			handle.CanCollide = false
+		end
+	end
+end
+
+-- R15 - YENİ SİSTEM (AJU): Zaten var olan AnimationConstraint'leri devre dışı bırakıp
+-- BallSocketConstraint'lerin fizik kontrolünü almasını sağlar.
+local function ragdollR15ViaAJU(character)
+	for _, descendant in ipairs(character:GetDescendants()) do
+		if descendant:IsA("AnimationConstraint") then
+			descendant.Enabled = false
+		elseif descendant:IsA("BallSocketConstraint") then
+			descendant.Enabled = true
+		elseif descendant:IsA("Motor6D") then
+			descendant.Enabled = false
+		end
+	end
+end
+
+-- R15 - ESKİ SİSTEM (klasik): Motor6D'leri yok edip yerine BallSocketConstraint kurar.
+local function ragdollR15ViaMotor6D(character)
+	for _, jointInfo in ipairs(R15_JOINTS) do
+		local part0Name, part1Name, att0Name, att1Name = jointInfo[1], jointInfo[2], jointInfo[3], jointInfo[4]
+
+		local part0 = character:FindFirstChild(part0Name)
+		local part1 = character:FindFirstChild(part1Name)
+		if not (part0 and part1) then
+			continue
+		end
+
+		local motor = part1:FindFirstChildOfClass("Motor6D")
+		if motor and (motor.Part0 == part0 or motor.Part1 == part0) then
+			motor:Destroy()
+		end
+
+		local att0 = part0:FindFirstChild(att0Name)
+		local att1 = part1:FindFirstChild(att1Name)
+		if not (att0 and att1) then
+			continue
+		end
+
+		local socket = Instance.new("BallSocketConstraint")
+		socket.Name = "RagdollSocket_" .. part0Name .. "_" .. part1Name
+		socket.Attachment0 = att0
+		socket.Attachment1 = att1
+		socket.LimitsEnabled = true
+		socket.TwistLimitsEnabled = true
+		socket.Restitution = 0
+		socket.Parent = part0
+	end
+end
+
+-- R6: Attachment'lar karakterde hazır gelmediği için, her Motor6D'nin C0/C1 CFrame'lerinden
+-- kendimiz Attachment oluşturup BallSocketConstraint kuruyoruz.
+local function ragdollR6(character)
+	for _, jointInfo in ipairs(R6_JOINTS) do
+		local part0 = character:FindFirstChild(jointInfo.part0)
+		local part1 = character:FindFirstChild(jointInfo.part1)
+		if not (part0 and part1) then
+			continue
+		end
+
+		local motor = part1:FindFirstChild(jointInfo.motorName)
+			or part0:FindFirstChild(jointInfo.motorName)
+
+		if motor and motor:IsA("Motor6D") then
+			motor.Enabled = false
+		end
+
+		local att0 = Instance.new("Attachment")
+		att0.Name = "RagdollAttachment_" .. jointInfo.motorName .. "_0"
+		att0.CFrame = jointInfo.c0
+		att0.Parent = part0
+
+		local att1 = Instance.new("Attachment")
+		att1.Name = "RagdollAttachment_" .. jointInfo.motorName .. "_1"
+		att1.CFrame = jointInfo.c1
+		att1.Parent = part1
+
+		local socket = Instance.new("BallSocketConstraint")
+		socket.Name = "RagdollSocket_" .. jointInfo.motorName
+		socket.Attachment0 = att0
+		socket.Attachment1 = att1
+		socket.LimitsEnabled = true
+		socket.TwistLimitsEnabled = true
+		socket.Restitution = 0
+		socket.Parent = part0
+	end
+end
+
+-- Karakteri ragdoll durumuna geçirir: RigType'a bakıp doğru yolu seçer.
+local function ragdollCharacter(character, humanoid)
+	humanoid.BreakJointsOnDeath = false -- Roblox'un varsayılan "parçala" davranışını engelle
+	humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+	humanoid.PlatformStand = true
+	humanoid.RequiresNeck = false -- R6'da baş kopup gitmesin
+
+	-- Aksesuarları vücuda sağlam şekilde weld'le. Bu, eklemler kırılmadan/devre dışı kalmadan
+	-- ÖNCE yapılmalı ki saç/şapka gibi parçalar o an bir "boşluk" yaşamasın.
+	securizeAccessories(character)
+
+	if humanoid.RigType == Enum.HumanoidRigType.R6 then
+		ragdollR6(character)
+	else
+		if usesAvatarJointUpgrade(character) then
+			ragdollR15ViaAJU(character)
+		else
+			ragdollR15ViaMotor6D(character)
+		end
+	end
+
+	for _, part in ipairs(character:GetDescendants()) do
+		if part:IsA("BasePart") then
+			part.CanCollide = true
+		end
+	end
+end
+
+-- Karakterin fiziksel olarak "durduğunu" (yere yığılıp sakinleştiğini) tespit eder.
+local function waitUntilSettled(character, timeoutSeconds)
+	local startTime = os.clock()
+
+	while os.clock() - startTime < timeoutSeconds do
+		local maxSpeed = 0
+
+		for _, part in ipairs(character:GetDescendants()) do
+			if part:IsA("BasePart") then
+				local speed = part.AssemblyLinearVelocity.Magnitude
+				if speed > maxSpeed then
+					maxSpeed = speed
+				end
+			end
+		end
+
+		if maxSpeed < SETTLE_VELOCITY_THRESHOLD then
+			return true
+		end
+
+		task.wait(SETTLE_CHECK_INTERVAL)
+	end
+
+	return false
+end
+
+-- Ragdoll halindeki karakteri klonlar, Dead klasörüne koyar, sabitler ve zamanlayıcıya bağlar.
+local function cloneToDeadFolder(character, player)
+	if not deadFolder then
 		return
 	end
 
-	-- Bu çağrı yeni bir nesil başlatır. Önceki nesile ait her şey artık geçersiz.
-	ActionGeneration += 1
-	local myGeneration = ActionGeneration
+	local clone = character:Clone()
+	clone.Name = (player and player.Name or character.Name) .. "_Dead"
 
-	if CurrentActionTrack then
-		CurrentActionTrack:Stop(0) -- fade yok: eski animasyon anında biter
-		CurrentActionTrack:Destroy()
-		CurrentActionTrack = nil
+	-- Önce silinecekleri bir listede topluyoruz, döngü bittikten SONRA yok ediyoruz.
+	-- GetDescendants() çağrıldığı andaki sabit bir liste döner; döngü içinde :Destroy() çağırırsak
+	-- zincirleme yok etme yüzünden listede sırada bekleyen eleman "nil" haline gelip hataya yol açabilir.
+	-- Bu, WeldConstraint (aksesuar güvencesi dahil), Weld, Motor6D, Attachment ve tüm Constraint
+	-- türlerini kapsar.
+	local toDestroy = {}
+
+	for _, part in ipairs(clone:GetDescendants()) do
+		if part:IsA("BasePart") then
+			part.Anchored = true
+			part.CanCollide = false
+		elseif part:IsA("Constraint") or part:IsA("Motor6D") or part:IsA("Attachment") or part:IsA("Weld") then
+			table.insert(toDestroy, part)
+		end
 	end
 
-	local track = Animator:LoadAnimation(anim)
-	track.Priority = Enum.AnimationPriority.Action
+	for _, part in ipairs(toDestroy) do
+		-- Zincirleme yok etme yüzünden bu ana kadar zaten silinmiş olabilir; kontrol edip geçiyoruz.
+		local stillValid = pcall(function()
+			return part.Parent ~= nil
+		end)
+		if stillValid and part.Parent then
+			part:Destroy()
+		end
+	end
 
-	-- KRİTİK: Looped'u açıkça false yapıyoruz. Bir animasyon Studio'da
-	-- "Loop" işaretli kaydedilmişse, bu bilgi asset'in içine gömülür ve
-	-- AnimationTrack.Looped varsayılan olarak o gömülü değeri kullanır —
-	-- kod hiçbir şey söylemezse track sonsuza dek kendini tekrar oynatabilir.
-	-- Slash2/Slash3'ün "sürekli tekrar oynaması" tam olarak buydu: o iki
-	-- asset loop kaydedilmiş, Slash1 kaydedilmemiş. Bunu burada, Play'den
-	-- ÖNCE açıkça kapatarak asset'in kendi ayarından tamamen bağımsız hale
-	-- getiriyoruz; Studio tarafında ayrıca düzeltilse de düzeltilmese de
-	-- davranış artık garanti.
-	track.Looped = false
+	local cloneHumanoid = clone:FindFirstChildOfClass("Humanoid")
+	if cloneHumanoid then
+		cloneHumanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+		cloneHumanoid.Health = 0
+		cloneHumanoid.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
+	end
 
-	track:Play(0) -- fade yok: yeni animasyon anında başlar, gecikme/çakışma olmaz
-	CurrentActionTrack = track
+	clone.Parent = deadFolder
+	Debris:AddItem(clone, DEAD_BODY_LIFETIME)
 
-	-- Bağlantıyı elde tutup Stopped geldiğinde KENDİMİZ disconnect ediyoruz.
-	-- Böylece art arda 3 slash oynatılsa bile en fazla 1 aktif bağlantı kalır,
-	-- eskiler hiç birikmez.
-	local connection
-	connection = track.Stopped:Connect(function()
-		connection:Disconnect()
-		-- Bu event hâlâ en güncel nesle mi ait, yoksa daha yeni bir slash
-		-- zaten başladı mı, sayı ile kontrol ediyoruz — event'in kendisine
-		-- güvenmiyoruz, sadece "temizlik zamanı geldi mi" sinyali olarak kullanıyoruz.
-		if myGeneration == ActionGeneration and CurrentActionTrack == track then
-			CurrentActionTrack = nil
-			-- Slash bitti ve üzerine daha yeni bir saldırı binmedi: idle'a dön.
-			-- ToolEquipped kontrolü, Unequip sırasında Stopped geç gelirse
-			-- idle'ın gereksiz yere yeniden başlamasını engeller.
-			if ToolEquipped and CheckIfAlive() then
-				PlayIdle()
-			end
+	return clone
+end
+
+--// ÖLÜM İŞLEME AKIŞI //--
+
+local function onCharacterDied(player, character, humanoid)
+	if character:GetAttribute("DeathHandled") then
+		return
+	end
+	character:SetAttribute("DeathHandled", true)
+
+	ragdollCharacter(character, humanoid)
+
+	task.spawn(function()
+		waitUntilSettled(character, SETTLE_TIMEOUT)
+
+		if not character.Parent then
+			return
+		end
+
+		cloneToDeadFolder(character, player)
+		character:Destroy()
+
+		if player and player.Parent then
+			player:LoadCharacter()
 		end
 	end)
 end
 
-local function GetNextSlashAnim()
-	SlashIndex = (SlashIndex % #SlashAnims) + 1
-	return SlashAnims[SlashIndex]
-end
-
---// Görsel saldırı: animasyon + ses + sunucuya sinyal.
-local function Attack()
-	Sounds.Slash:Play()
-	PlaySlashAnim(GetNextSlashAnim())
-	AttackRemote:FireServer()
-end
-
---// Tool.Activated her tetiklendiğinde çağrılır.
--- IsAttacking kilidi + zaman kontrolü ile 0.6 saniyeden sık tetiklenemez.
--- Bu, üst üste tıklamada animasyonun spamlanmasını burada, kaynağında keser.
-local function Activated()
-	if not ToolEquipped or not CheckIfAlive() then
+local function setupHumanoidTracking(player, character)
+	local humanoid = character:WaitForChild("Humanoid", 5)
+	if not humanoid then
 		return
 	end
 
-	if IsAttacking then
-		return -- önceki saldırı hâlâ "cooldown"da, bu tıklama tamamen yok sayılır
-	end
+	character:SetAttribute("DeathHandled", false)
 
-	local now = os.clock()
-	local elapsed = now - LastAttackTick
-
-	if elapsed < ATTACK_COOLDOWN then
-		return
-	end
-
-	-- Son saldırının üzerinden 2 saniyeden fazla geçtiyse combo sıfırlanır:
-	-- bir sonraki GetNextSlashAnim() çağrısı Slash1'i döndürür. LastAttackTick
-	-- güncellenmeden ÖNCE kontrol ediliyor, aksi halde elapsed hep ~0 olurdu.
-	if elapsed >= COMBO_RESET_TIME then
-		SlashIndex = 0
-	end
-
-	IsAttacking = true
-	LastAttackTick = now
-
-	Attack()
-
-	-- Bu saldırıya ait "kimlik". Cooldown bittiğinde, o an CurrentActionTrack'in
-	-- hâlâ BU saldırıya ait olup olmadığını (attackGeneration ile) kontrol ediyoruz.
-	local attackGeneration = ActionGeneration
-
-	task.delay(ATTACK_COOLDOWN, function()
-		IsAttacking = false
-
-		-- Güvenlik ağı: cooldown süresi dolduğunda bu saldırıya ait track'i
-		-- KAYITSIZ ŞARTSIZ kapatıyoruz — IsPlaying'e bakmadan. Sebep: "animasyon
-		-- 1 kere oynayacak ve bu kadar" kuralı, animasyonun kendi süresi
-		-- cooldown'dan uzun olsa bile geçerli olmalı. Sadece bu track hâlâ
-		-- BİZİM başlattığımız saldırıya aitse (attackGeneration eşleşiyorsa)
-		-- dokunuyoruz — aksi halde araya yeni bir saldırı girmiş demektir,
-		-- o zaten kendi cooldown'unda kendi işini yapacak.
-		if attackGeneration == ActionGeneration and CurrentActionTrack then
-			CurrentActionTrack:Stop(0)
-			CurrentActionTrack:Destroy()
-			CurrentActionTrack = nil
-
-			if ToolEquipped and CheckIfAlive() and (not IdleTrack or not IdleTrack.IsPlaying) then
-				PlayIdle()
-			end
-		end
+	humanoid.Died:Connect(function()
+		onCharacterDied(player, character, humanoid)
 	end)
 end
 
-local function Equipped()
-	Character = Tool.Parent
-	Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+--// TÜM OYUNCULARA UYGULAMA (herkes için geçerli, rig tipi ve admin ayrımı yok) //--
 
-	if not Humanoid then
-		return
+Players.PlayerAdded:Connect(function(player)
+	player.CharacterAdded:Connect(function(character)
+		setupHumanoidTracking(player, character)
+	end)
+
+	if player.Character then
+		setupHumanoidTracking(player, player.Character)
 	end
+end)
 
-	Animator = Humanoid:FindFirstChildOfClass("Animator")
-	if not Animator then
-		Animator = Instance.new("Animator")
-		Animator.Parent = Humanoid
+for _, player in ipairs(Players:GetPlayers()) do
+	if player.Character then
+		setupHumanoidTracking(player, player.Character)
 	end
-
-	if not CheckIfAlive() then
-		return
-	end
-
-	ToolEquipped = true
-	SlashIndex = 0
-	IsAttacking = false
-	-- Unsheath sesi artık burada çalınmıyor: sunucudaki Equipped() fonksiyonu
-	-- çalıyor, böylece diğer oyuncular da duyuyor.
-	PlayIdle()
+	player.CharacterAdded:Connect(function(character)
+		setupHumanoidTracking(player, character)
+	end)
 end
-
-local function Unequipped()
-	ToolEquipped = false
-	IsAttacking = false
-	Tool.Grip = Grips.Up
-	StopIdle()
-
-	if CurrentActionTrack then
-		CurrentActionTrack:Stop(0.1)
-		CurrentActionTrack = nil
-	end
-end
-
-Tool.Activated:Connect(Activated)
-Tool.Equipped:Connect(Equipped)
-Tool.Unequipped:Connect(Unequipped)
-
-Tool.Grip = Grips.Up

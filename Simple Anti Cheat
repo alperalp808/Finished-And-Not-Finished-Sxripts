@@ -9,6 +9,7 @@ local DEAD_BODY_LIFETIME = 20 -- saniye, klon Dead klasöründe ne kadar kalacak
 local SETTLE_TIMEOUT = 5 -- saniye, ragdoll'un yere düşüp sakinleşmesi için maksimum bekleme
 local SETTLE_CHECK_INTERVAL = 0.1
 local SETTLE_VELOCITY_THRESHOLD = 0.6 -- bu hızın altına inince "durdu" sayılır
+local DEAD_BODY_BASE_NAME = "Raggy" -- her klonun temel adı, sonuna sayı eklenir
 
 -- Kullanıcı "Dead" klasörünü Workspace'e kendisi ekleyecek; burada sadece bekliyoruz.
 local deadFolder = Workspace:WaitForChild("Dead", 30)
@@ -16,23 +17,9 @@ if not deadFolder then
 	warn("[RagdollDeathSystem] Workspace içinde 'Dead' adında bir Folder bulunamadı. Script devam edecek ama klonlar konulamayacak; lütfen Workspace'e 'Dead' isimli bir Folder ekleyin.")
 end
 
---// R15 EKLEM HARİTASI (parça ve ek isimleri zaten karakterde hazır geliyor) //--
-local R15_JOINTS = {
-	{"UpperTorso", "LowerTorso", "WaistRigAttachment", "WaistRigAttachment"},
-	{"Head", "UpperTorso", "NeckRigAttachment", "NeckRigAttachment"},
-	{"UpperTorso", "LeftUpperArm", "LeftShoulderRigAttachment", "LeftShoulderRigAttachment"},
-	{"LeftUpperArm", "LeftLowerArm", "LeftElbowRigAttachment", "LeftElbowRigAttachment"},
-	{"LeftLowerArm", "LeftHand", "LeftWristRigAttachment", "LeftWristRigAttachment"},
-	{"UpperTorso", "RightUpperArm", "RightShoulderRigAttachment", "RightShoulderRigAttachment"},
-	{"RightUpperArm", "RightLowerArm", "RightElbowRigAttachment", "RightElbowRigAttachment"},
-	{"RightLowerArm", "RightHand", "RightWristRigAttachment", "RightWristRigAttachment"},
-	{"LowerTorso", "LeftUpperLeg", "LeftHipRigAttachment", "LeftHipRigAttachment"},
-	{"LeftUpperLeg", "LeftLowerLeg", "LeftKneeRigAttachment", "LeftKneeRigAttachment"},
-	{"LeftLowerLeg", "LeftFoot", "LeftAnkleRigAttachment", "LeftAnkleRigAttachment"},
-	{"LowerTorso", "RightUpperLeg", "RightHipRigAttachment", "RightHipRigAttachment"},
-	{"RightUpperLeg", "RightLowerLeg", "RightKneeRigAttachment", "RightKneeRigAttachment"},
-	{"RightLowerLeg", "RightFoot", "RightAnkleRigAttachment", "RightAnkleRigAttachment"},
-}
+-- Sunucu genelinde paylaşılan, her ölümde artan bir sayaç. Bu sayede iki oyuncu aynı anda
+-- ölse bile isimler asla çakışmaz: Raggy_1, Raggy_2, Raggy_3... şeklinde devam eder.
+local deadBodyCounter = 0
 
 --// R6 EKLEM HARİTASI: R6'da hazır Attachment yok, bu yüzden Motor6D'nin C0/C1 CFrame'lerini
 --// kendimiz Attachment olarak kuruyoruz. Değerler R6 rigi için standart, doğrulanmış CFrame'lerdir.
@@ -66,30 +53,13 @@ local R6_JOINTS = {
 
 --// YARDIMCI FONKSİYONLAR //--
 
--- R15 karakterin Avatar Joint Upgrade (yeni sistem) mi yoksa klasik Motor6D mi kullandığını tespit eder.
-local function usesAvatarJointUpgrade(character)
-	for _, descendant in ipairs(character:GetDescendants()) do
-		if descendant:IsA("AnimationConstraint") then
-			return true
-		end
-	end
-	return false
-end
-
 -- Aksesuarların (saç, şapka, kulaklık, sırt çantası, vb.) ragdoll sırasında vücuttan
 -- ayrılıp düşmemesi için Handle'larını sağlam bir WeldConstraint ile en yakın vücut
--- parçasına bağlar.
---
--- ÖNEMLİ DÜZELTME: Önceki versiyon, karakterin gövde parçalarının (Head, UpperTorso vb.)
--- İÇİNİ de tarayıp "bu Handle'a referans veren var mı" diye arıyordu. Bu ikinci tarama
--- YANLIŞTI: birden fazla aksesuar olduğunda (saç + kulaklık + şapka gibi), bu tarama
--- karakterin kendi ana iskelet bağlantılarını (Head-Torso arası gibi) veya başka bir
--- aksesuarın bağlantısını yanlışlıkla silebiliyordu — bu da vücudun tamamen dağılıp
--- kaybolmasına yol açtı. Şimdi SADECE Handle'ın kendi içindeki eski joint'leri temizliyoruz,
--- karakterin gövde parçalarına hiç dokunmuyoruz.
+-- parçasına bağlar. Karakterin gövde parçalarının İÇİNE dokunmuyoruz — sadece Handle'ın
+-- kendi eski joint'lerini temizliyoruz, böylece karakterin kendi iskeletini bozma riski yok.
 local function securizeAccessories(character)
 	local candidateParts = {}
-	local candidateNames = {"Head", "UpperTorso", "LowerTorso", "Torso"}
+	local candidateNames = {"Head", "Torso"} -- R6'ya özgü, sadece bu iki parça var
 	for _, name in ipairs(candidateNames) do
 		local part = character:FindFirstChild(name)
 		if part and part:IsA("BasePart") then
@@ -98,10 +68,9 @@ local function securizeAccessories(character)
 	end
 
 	if #candidateParts == 0 then
-		return -- karakterin gövde parçaları bulunamadıysa yapacak bir şey yok
+		return
 	end
 
-	-- GetDescendants kullanıyoruz ki bir alt klasörde saklı aksesuarları da yakalayalım.
 	for _, accessory in ipairs(character:GetDescendants()) do
 		if accessory:IsA("Accessory") then
 			local handle = accessory:FindFirstChild("Handle")
@@ -109,15 +78,10 @@ local function securizeAccessories(character)
 				continue
 			end
 
-			-- Zaten bu ragdoll sistemi tarafından güvenceye alınmışsa tekrar işleme.
 			if handle:FindFirstChild("RagdollAccessoryWeld") then
 				continue
 			end
 
-			-- SADECE Handle'ın kendi içindeki eski bağlantı türlerini temizle.
-			-- Karakterin gövde parçalarının içine hiç dokunmuyoruz; bu, başka
-			-- aksesuarların veya karakterin kendi iskeletinin bağlantılarını
-			-- yanlışlıkla bozma riskini tamamen ortadan kaldırır.
 			for _, oldJoint in ipairs(handle:GetChildren()) do
 				if oldJoint:IsA("Weld")
 					or oldJoint:IsA("Motor6D")
@@ -127,7 +91,6 @@ local function securizeAccessories(character)
 				end
 			end
 
-			-- Handle'ın o anki dünya konumuna en yakın gövde parçasını bul (mesafe hesabıyla).
 			local closestPart = nil
 			local closestDistance = math.huge
 			for _, part in ipairs(candidateParts) do
@@ -142,66 +105,14 @@ local function securizeAccessories(character)
 				continue
 			end
 
-			-- Yeni, sağlam bir WeldConstraint kur. C0/C1 gerektirmez, iki parçanın
-			-- o anki göreceli konumunu otomatik kilitler.
 			local secureWeld = Instance.new("WeldConstraint")
 			secureWeld.Name = "RagdollAccessoryWeld"
 			secureWeld.Part0 = handle
 			secureWeld.Part1 = closestPart
 			secureWeld.Parent = handle
 
-			-- Handle karakterin geri kalanıyla birlikte çarpışabilir kalsın, ama artık
-			-- WeldConstraint pozisyonunu tamamen sabitlediği için ayrı bir cisim gibi
-			-- fırlayıp uçamaz.
 			handle.CanCollide = false
 		end
-	end
-end
-
--- R15 - YENİ SİSTEM (AJU): Zaten var olan AnimationConstraint'leri devre dışı bırakıp
--- BallSocketConstraint'lerin fizik kontrolünü almasını sağlar.
-local function ragdollR15ViaAJU(character)
-	for _, descendant in ipairs(character:GetDescendants()) do
-		if descendant:IsA("AnimationConstraint") then
-			descendant.Enabled = false
-		elseif descendant:IsA("BallSocketConstraint") then
-			descendant.Enabled = true
-		elseif descendant:IsA("Motor6D") then
-			descendant.Enabled = false
-		end
-	end
-end
-
--- R15 - ESKİ SİSTEM (klasik): Motor6D'leri yok edip yerine BallSocketConstraint kurar.
-local function ragdollR15ViaMotor6D(character)
-	for _, jointInfo in ipairs(R15_JOINTS) do
-		local part0Name, part1Name, att0Name, att1Name = jointInfo[1], jointInfo[2], jointInfo[3], jointInfo[4]
-
-		local part0 = character:FindFirstChild(part0Name)
-		local part1 = character:FindFirstChild(part1Name)
-		if not (part0 and part1) then
-			continue
-		end
-
-		local motor = part1:FindFirstChildOfClass("Motor6D")
-		if motor and (motor.Part0 == part0 or motor.Part1 == part0) then
-			motor:Destroy()
-		end
-
-		local att0 = part0:FindFirstChild(att0Name)
-		local att1 = part1:FindFirstChild(att1Name)
-		if not (att0 and att1) then
-			continue
-		end
-
-		local socket = Instance.new("BallSocketConstraint")
-		socket.Name = "RagdollSocket_" .. part0Name .. "_" .. part1Name
-		socket.Attachment0 = att0
-		socket.Attachment1 = att1
-		socket.LimitsEnabled = true
-		socket.TwistLimitsEnabled = true
-		socket.Restitution = 0
-		socket.Parent = part0
 	end
 end
 
@@ -243,32 +154,30 @@ local function ragdollR6(character)
 	end
 end
 
--- Karakteri ragdoll durumuna geçirir: RigType'a bakıp doğru yolu seçer.
+-- Karakteri ragdoll durumuna geçirir. SADECE R6 için çalışır — RigType R6 değilse
+-- (yani R15 ise) hiçbir şey yapmadan false döner, çağıran taraf bunu görüp
+-- klonlama/respawn akışına hiç girmez; karakter Roblox'un varsayılan ölüm
+-- davranışına bırakılır.
 local function ragdollCharacter(character, humanoid)
+	if humanoid.RigType ~= Enum.HumanoidRigType.R6 then
+		return false
+	end
+
 	humanoid.BreakJointsOnDeath = false -- Roblox'un varsayılan "parçala" davranışını engelle
 	humanoid:ChangeState(Enum.HumanoidStateType.Physics)
 	humanoid.PlatformStand = true
-	humanoid.RequiresNeck = false -- R6'da baş kopup gitmesin
+	humanoid.RequiresNeck = false -- baş kopup gitmesin
 
-	-- Aksesuarları vücuda sağlam şekilde weld'le. Bu, eklemler kırılmadan/devre dışı kalmadan
-	-- ÖNCE yapılmalı ki saç/şapka gibi parçalar o an bir "boşluk" yaşamasın.
 	securizeAccessories(character)
-
-	if humanoid.RigType == Enum.HumanoidRigType.R6 then
-		ragdollR6(character)
-	else
-		if usesAvatarJointUpgrade(character) then
-			ragdollR15ViaAJU(character)
-		else
-			ragdollR15ViaMotor6D(character)
-		end
-	end
+	ragdollR6(character)
 
 	for _, part in ipairs(character:GetDescendants()) do
 		if part:IsA("BasePart") then
 			part.CanCollide = true
 		end
 	end
+
+	return true
 end
 
 -- Karakterin fiziksel olarak "durduğunu" (yere yığılıp sakinleştiğini) tespit eder.
@@ -297,20 +206,19 @@ local function waitUntilSettled(character, timeoutSeconds)
 	return false
 end
 
--- Ragdoll halindeki karakteri klonlar, Dead klasörüne koyar, sabitler ve zamanlayıcıya bağlar.
+-- Ragdoll halindeki karakteri TEK BİR MODEL olarak klonlar, Dead klasörüne koyar,
+-- sabitler ve zamanlayıcıya bağlar. Her klon benzersiz bir isim alır: Raggy_1, Raggy_2, ...
 local function cloneToDeadFolder(character, player)
 	if not deadFolder then
 		return
 	end
 
 	local clone = character:Clone()
-	clone.Name = (player and player.Name or character.Name) .. "_Dead"
 
-	-- Önce silinecekleri bir listede topluyoruz, döngü bittikten SONRA yok ediyoruz.
-	-- GetDescendants() çağrıldığı andaki sabit bir liste döner; döngü içinde :Destroy() çağırırsak
-	-- zincirleme yok etme yüzünden listede sırada bekleyen eleman "nil" haline gelip hataya yol açabilir.
-	-- Bu, WeldConstraint (aksesuar güvencesi dahil), Weld, Motor6D, Attachment ve tüm Constraint
-	-- türlerini kapsar.
+	deadBodyCounter += 1
+	clone.Name = DEAD_BODY_BASE_NAME .. "_" .. tostring(deadBodyCounter)
+	clone:SetAttribute("OriginalPlayerName", player and player.Name or character.Name)
+
 	local toDestroy = {}
 
 	for _, part in ipairs(clone:GetDescendants()) do
@@ -323,7 +231,6 @@ local function cloneToDeadFolder(character, player)
 	end
 
 	for _, part in ipairs(toDestroy) do
-		-- Zincirleme yok etme yüzünden bu ana kadar zaten silinmiş olabilir; kontrol edip geçiyoruz.
 		local stillValid = pcall(function()
 			return part.Parent ~= nil
 		end)
@@ -353,7 +260,13 @@ local function onCharacterDied(player, character, humanoid)
 	end
 	character:SetAttribute("DeathHandled", true)
 
-	ragdollCharacter(character, humanoid)
+	local wasRagdolled = ragdollCharacter(character, humanoid)
+
+	-- R6 değilse (R15), ragdoll/klonlama akışına hiç girmiyoruz.
+	-- Karakter Roblox'un varsayılan ölüm davranışına bırakılır.
+	if not wasRagdolled then
+		return
+	end
 
 	task.spawn(function()
 		waitUntilSettled(character, SETTLE_TIMEOUT)
@@ -384,7 +297,7 @@ local function setupHumanoidTracking(player, character)
 	end)
 end
 
---// TÜM OYUNCULARA UYGULAMA (herkes için geçerli, rig tipi ve admin ayrımı yok) //--
+--// TÜM OYUNCULARA UYGULAMA (herkes için geçerli, admin ayrımı yok; rig kontrolü ölüm anında yapılır) //--
 
 Players.PlayerAdded:Connect(function(player)
 	player.CharacterAdded:Connect(function(character)

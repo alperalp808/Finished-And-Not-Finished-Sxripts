@@ -206,6 +206,21 @@ local function waitUntilSettled(character, timeoutSeconds)
 	return false
 end
 
+-- Karakteri ve TÜM alt nesnelerini klonlanabilir hale getirir. Roblox'ta, bir Model'in
+-- kendisi veya alt nesnelerinden HERHANGİ BİRİ Archivable = false ise, :Clone() sessizce
+-- nil döner (hata fırlatmaz). Bu, "attempt to index nil with 'Name'" hatasının kök nedeniydi:
+-- clone değişkeni zaten nil geliyordu, clone.Name satırı sadece bunu ortaya çıkarıyordu.
+local function forceArchivable(character)
+	character.Archivable = true
+	for _, descendant in ipairs(character:GetDescendants()) do
+		-- Archivable özelliği olmayan nesne sınıfları da var (ör. bazı Attachment'lar);
+		-- pcall ile güvenli şekilde deniyoruz, olmayan bir özelliğe yazmak hataya yol açmasın.
+		pcall(function()
+			descendant.Archivable = true
+		end)
+	end
+end
+
 -- Ragdoll halindeki karakteri TEK BİR MODEL olarak klonlar, Dead klasörüne koyar,
 -- sabitler ve zamanlayıcıya bağlar. Her klon benzersiz bir isim alır: Raggy_1, Raggy_2, ...
 local function cloneToDeadFolder(character, player)
@@ -213,7 +228,19 @@ local function cloneToDeadFolder(character, player)
 		return
 	end
 
+	-- Klonlamadan önce mutlaka çağrılmalı, yoksa Clone() nil dönebilir.
+	forceArchivable(character)
+
 	local clone = character:Clone()
+
+	-- Clone() yine de nil dönerse (çok nadir ama teorik olarak mümkün, örneğin karakter
+	-- klonlama anında Destroy edilmişse), burada güvenli şekilde çıkıyoruz; script çökmüyor,
+	-- sadece bu ölüm için klon oluşturulamamış oluyor.
+	if not clone then
+		warn("[RagdollDeathSystem] Karakter klonlanamadı (Clone() nil döndü), Dead klasörüne kopya eklenemedi: "
+			.. (player and player.Name or character.Name))
+		return
+	end
 
 	deadBodyCounter += 1
 	clone.Name = DEAD_BODY_BASE_NAME .. "_" .. tostring(deadBodyCounter)

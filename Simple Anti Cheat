@@ -6,9 +6,7 @@ local Debris = game:GetService("Debris")
 
 --// AYARLAR //--
 local DEAD_BODY_LIFETIME = 20 -- saniye, klon Dead klasöründe ne kadar kalacak
-local SETTLE_TIMEOUT = 5 -- saniye, ragdoll'un yere düşüp sakinleşmesi için maksimum bekleme
-local SETTLE_CHECK_INTERVAL = 0.1
-local SETTLE_VELOCITY_THRESHOLD = 0.6 -- bu hızın altına inince "durdu" sayılır
+local FALL_WAIT_TIME = 2 -- saniye, ragdoll yere yıkıldıktan sonra klonlanana kadar sabit bekleme
 local DEAD_BODY_BASE_NAME = "Raggy" -- her klonun temel adı, sonuna sayı eklenir
 
 -- Kullanıcı "Dead" klasörünü Workspace'e kendisi ekleyecek; burada sadece bekliyoruz.
@@ -55,11 +53,10 @@ local R6_JOINTS = {
 
 -- Aksesuarların (saç, şapka, kulaklık, sırt çantası, vb.) ragdoll sırasında vücuttan
 -- ayrılıp düşmemesi için Handle'larını sağlam bir WeldConstraint ile en yakın vücut
--- parçasına bağlar. Karakterin gövde parçalarının İÇİNE dokunmuyoruz — sadece Handle'ın
--- kendi eski joint'lerini temizliyoruz, böylece karakterin kendi iskeletini bozma riski yok.
+-- parçasına bağlar.
 local function securizeAccessories(character)
 	local candidateParts = {}
-	local candidateNames = {"Head", "Torso"} -- R6'ya özgü, sadece bu iki parça var
+	local candidateNames = {"Head", "Torso"}
 	for _, name in ipairs(candidateNames) do
 		local part = character:FindFirstChild(name)
 		if part and part:IsA("BasePart") then
@@ -154,90 +151,61 @@ local function ragdollR6(character)
 	end
 end
 
--- Karakteri ragdoll durumuna geçirir. SADECE R6 için çalışır — RigType R6 değilse
--- (yani R15 ise) hiçbir şey yapmadan false döner, çağıran taraf bunu görüp
--- klonlama/respawn akışına hiç girmez; karakter Roblox'un varsayılan ölüm
--- davranışına bırakılır.
+-- Karakteri ragdoll durumuna geçirir. SADECE R6 için çalışır — RigType R6 değilse false döner.
 local function ragdollCharacter(character, humanoid)
 	if humanoid.RigType ~= Enum.HumanoidRigType.R6 then
 		return false
 	end
 
 	humanoid.BreakJointsOnDeath = false -- Roblox'un varsayılan "parçala" davranışını engelle
-	humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+
+	-- ÖNEMLİ DÜZELTME: AutoRotate kapatılmazsa, Humanoid karakteri "dik" tutmaya devam
+	-- edebiliyor ve ragdoll fiziksel olarak kurulsa bile karakter ayakta duruyormuş gibi
+	-- görünüyor (yere yıkılmıyor). Bu, "olduğum anda klonlanıyor, hiç yere düşmüyor"
+	-- sorununun kök nedenlerinden biriydi.
+	humanoid.AutoRotate = false
 	humanoid.PlatformStand = true
 	humanoid.RequiresNeck = false -- baş kopup gitmesin
+	humanoid:ChangeState(Enum.HumanoidStateType.Physics)
 
 	securizeAccessories(character)
 	ragdollR6(character)
 
+	-- HumanoidRootPart dahil TÜM parçaların serbestçe fizik simülasyonuna girmesini
+	-- garanti ediyoruz. HumanoidRootPart bazen ayrı davranıp karakteri dik tutabiliyor,
+	-- bu yüzden burada özellikle de kontrol ediyoruz.
 	for _, part in ipairs(character:GetDescendants()) do
 		if part:IsA("BasePart") then
 			part.CanCollide = true
+			part.Anchored = false
 		end
 	end
 
 	return true
 end
 
--- Karakterin fiziksel olarak "durduğunu" (yere yığılıp sakinleştiğini) tespit eder.
-local function waitUntilSettled(character, timeoutSeconds)
-	local startTime = os.clock()
-
-	while os.clock() - startTime < timeoutSeconds do
-		local maxSpeed = 0
-
-		for _, part in ipairs(character:GetDescendants()) do
-			if part:IsA("BasePart") then
-				local speed = part.AssemblyLinearVelocity.Magnitude
-				if speed > maxSpeed then
-					maxSpeed = speed
-				end
-			end
-		end
-
-		if maxSpeed < SETTLE_VELOCITY_THRESHOLD then
-			return true
-		end
-
-		task.wait(SETTLE_CHECK_INTERVAL)
-	end
-
-	return false
-end
-
--- Karakteri ve TÜM alt nesnelerini klonlanabilir hale getirir. Roblox'ta, bir Model'in
--- kendisi veya alt nesnelerinden HERHANGİ BİRİ Archivable = false ise, :Clone() sessizce
--- nil döner (hata fırlatmaz). Bu, "attempt to index nil with 'Name'" hatasının kök nedeniydi:
--- clone değişkeni zaten nil geliyordu, clone.Name satırı sadece bunu ortaya çıkarıyordu.
+-- Ragdoll halindeki karakteri TEK BİR MODEL olarak klonlar, Dead klasörüne koyar,
+-- sabitler ve zamanlayıcıya bağlar. Her klon benzersiz bir isim alır: Raggy_1, Raggy_2, ...
 local function forceArchivable(character)
 	character.Archivable = true
 	for _, descendant in ipairs(character:GetDescendants()) do
-		-- Archivable özelliği olmayan nesne sınıfları da var (ör. bazı Attachment'lar);
-		-- pcall ile güvenli şekilde deniyoruz, olmayan bir özelliğe yazmak hataya yol açmasın.
 		pcall(function()
 			descendant.Archivable = true
 		end)
 	end
 end
 
--- Ragdoll halindeki karakteri TEK BİR MODEL olarak klonlar, Dead klasörüne koyar,
--- sabitler ve zamanlayıcıya bağlar. Her klon benzersiz bir isim alır: Raggy_1, Raggy_2, ...
 local function cloneToDeadFolder(character, player)
 	if not deadFolder then
 		return
 	end
 
-	-- Klonlamadan önce mutlaka çağrılmalı, yoksa Clone() nil dönebilir.
 	forceArchivable(character)
 
 	local clone = character:Clone()
 
-	-- Clone() yine de nil dönerse (çok nadir ama teorik olarak mümkün, örneğin karakter
-	-- klonlama anında Destroy edilmişse), burada güvenli şekilde çıkıyoruz; script çökmüyor,
-	-- sadece bu ölüm için klon oluşturulamamış oluyor.
 	if not clone then
-		warn("[RagdollDeathSystem] Karakter klonlanamadı (Clone() nil döndü), Dead klasörüne kopya eklenemedi: "
+		warn("[RagdollDeathSystem] Karakter klonlanamadı (Clone() nil döndü): "
 			.. (player and player.Name or character.Name))
 		return
 	end
@@ -289,14 +257,16 @@ local function onCharacterDied(player, character, humanoid)
 
 	local wasRagdolled = ragdollCharacter(character, humanoid)
 
-	-- R6 değilse (R15), ragdoll/klonlama akışına hiç girmiyoruz.
-	-- Karakter Roblox'un varsayılan ölüm davranışına bırakılır.
 	if not wasRagdolled then
 		return
 	end
 
 	task.spawn(function()
-		waitUntilSettled(character, SETTLE_TIMEOUT)
+		-- Sabit bekleme: ragdoll yere yıkılsın diye tam FALL_WAIT_TIME (2) saniye bekleniyor.
+		-- Hız tabanlı dinamik tespit yerine bunu tercih ediyoruz çünkü bazı durumlarda
+		-- (karakter ölüm anında zaten neredeyse hareketsizken) hız eşiği anında sağlanıp
+		-- klonlamayı çok erken tetikleyebiliyordu.
+		task.wait(FALL_WAIT_TIME)
 
 		if not character.Parent then
 			return

@@ -1,11 +1,11 @@
 --[[
-        KillEffectServer (SERVER SCRIPT)
-        - Oyuncu ölümlerini, 'creator' tag'ini ve özel attribute'ları (ör. KilledByLaser, KilledByDivineAxe, KilledByExplode vb.) dinler.
-        - Katilin 'EquippedKillEffect' / 'KillEffect' değerine veya silaha özel öldürme attribute'larına göre ilgili efekti çalıştırır.
-        - Entegre Efektler: Skeleton, Diamond, Ghost, Headless, Laser, Golden, HellFire, BlackHole, Burning, Explode
-        - Her karakter için efekt yalnızca bir kez tetiklenir (respawn olana kadar tekrar tag gelse bile oynatılmaz).
-        - BlackHole: Ölen oyuncunun kafasının 5 stud üstünde karadelik açılır, oyuncu HRP'sinden tutularak yavaşça içine çekilir
-          ve ardından karadelik çöküp yok olur. Ölen oyuncuya KilledByDivineAxe tag'i verilir.
+KillEffectServer (SERVER SCRIPT)
+- Oyuncu ölümlerini, 'creator' tag'ini ve özel attribute'ları (ör. KilledByLaser, KilledByDivineAxe, KilledByExplode vb.) dinler.
+- Katilin 'EquippedKillEffect' / 'KillEffect' değerine veya silaha özel öldürme attribute'larına göre ilgili efekti çalıştırır.
+- Entegre Efektler: Skeleton, Diamond, Ghost, Headless, Laser, Golden, HellFire, BlackHole, Burning, Explode
+- Her karakter için efekt yalnızca bir kez tetiklenir (respawn olana kadar tekrar tag gelse bile oynatılmaz).
+- BlackHole: Ölen oyuncunun kafasının 5 stud üstünde karadelik açılır, oyuncu HRP'sinden tutularak yavaşça içine çekilir
+  ve ardından karadelik çöküp yok olur. Ölen oyuncuya KilledByDivineAxe tag'i verilir.
 ]]
 
 local Players = game:GetService("Players")
@@ -15,7 +15,7 @@ local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 
 --// ELMAS EFEKTİ İÇİN RENK VE GÖRSEL SABİTLER
-local DIAMOND_COLOR = Color3.fromRGB(170, 240, 255) 
+local DIAMOND_COLOR = Color3.fromRGB(170, 240, 255)
 local DIAMOND_EMISSION = Color3.fromRGB(220, 255, 255)
 
 --// ALTIN (GOLDEN PAN) EFEKTİ İÇİN SABİTLER
@@ -68,2456 +68,2062 @@ local BLACKHOLE_SPIRAL_RADIUS = 1.1
 local BLACKHOLE_COLLAPSE_TIME = 0.75
 
 local BLACKHOLE_DISK_LAYERS = {
-        {scale = 1.00, thickness = 0.04, color = Color3.fromRGB(90, 25, 140), transparency = 0.80},
-        {scale = 0.83, thickness = 0.06, color = Color3.fromRGB(190, 45, 70), transparency = 0.60},
-        {scale = 0.67, thickness = 0.08, color = Color3.fromRGB(255, 110, 25), transparency = 0.40},
-        {scale = 0.53, thickness = 0.10, color = Color3.fromRGB(255, 180, 60), transparency = 0.25},
-        {scale = 0.42, thickness = 0.12, color = Color3.fromRGB(255, 240, 210), transparency = 0.10},
+	{scale = 1.00, thickness = 0.04, color = Color3.fromRGB(90, 25, 140), transparency = 0.80},
+	{scale = 0.83, thickness = 0.06, color = Color3.fromRGB(190, 45, 70), transparency = 0.60},
+	{scale = 0.67, thickness = 0.08, color = Color3.fromRGB(255, 110, 25), transparency = 0.40},
+	{scale = 0.53, thickness = 0.10, color = Color3.fromRGB(255, 180, 60), transparency = 0.25},
+	{scale = 0.42, thickness = 0.12, color = Color3.fromRGB(255, 240, 210), transparency = 0.10},
 }
 
 local BLACKHOLE_GLOW_LAYERS = {
-        {scale = 1.00, color = Color3.fromRGB(80, 25, 150), transparency = 0.965},
-        {scale = 0.86, color = Color3.fromRGB(120, 35, 170), transparency = 0.955},
-        {scale = 0.72, color = Color3.fromRGB(190, 55, 150), transparency = 0.94},
-        {scale = 0.60, color = Color3.fromRGB(240, 90, 55), transparency = 0.92},
-        {scale = 0.50, color = Color3.fromRGB(255, 135, 40), transparency = 0.88},
-        {scale = 0.42, color = Color3.fromRGB(255, 180, 75), transparency = 0.82},
-        {scale = 0.35, color = Color3.fromRGB(255, 220, 140), transparency = 0.70},
-        {scale = 0.30, color = Color3.fromRGB(255, 250, 235), transparency = 0.30},
+	{scale = 1.00, color = Color3.fromRGB(80, 25, 150), transparency = 0.965},
+	{scale = 0.86, color = Color3.fromRGB(120, 35, 170), transparency = 0.955},
+	{scale = 0.72, color = Color3.fromRGB(190, 55, 150), transparency = 0.94},
+	{scale = 0.60, color = Color3.fromRGB(240, 90, 55), transparency = 0.92},
+	{scale = 0.50, color = Color3.fromRGB(255, 135, 40), transparency = 0.88},
+	{scale = 0.42, color = Color3.fromRGB(255, 180, 75), transparency = 0.82},
+	{scale = 0.35, color = Color3.fromRGB(255, 220, 140), transparency = 0.70},
+	{scale = 0.30, color = Color3.fromRGB(255, 250, 235), transparency = 0.30},
 }
 
 local BLACKHOLE_SPIN_LAYERS = {
-        {speed = 5.5, minRadius = 1.9, maxRadius = 2.7, count = 7, lifetime = 0.32, width = 0.5,
-                color = ColorSequence.new(Color3.fromRGB(255, 250, 230), Color3.fromRGB(255, 200, 90))},
-        {speed = 3.4, minRadius = 2.8, maxRadius = 3.9, count = 8, lifetime = 0.52, width = 0.6,
-                color = ColorSequence.new(Color3.fromRGB(255, 190, 80), Color3.fromRGB(255, 90, 30))},
-        {speed = 2.0, minRadius = 4.0, maxRadius = 5.0, count = 8, lifetime = 0.85, width = 0.7,
-                color = ColorSequence.new(Color3.fromRGB(255, 90, 60), Color3.fromRGB(140, 40, 200))},
+	{speed = 5.5, minRadius = 1.9, maxRadius = 2.7, count = 7, lifetime = 0.32, width = 0.5,
+		color = ColorSequence.new(Color3.fromRGB(255, 250, 230), Color3.fromRGB(255, 200, 90))},
+	{speed = 3.4, minRadius = 2.8, maxRadius = 3.9, count = 8, lifetime = 0.52, width = 0.6,
+		color = ColorSequence.new(Color3.fromRGB(255, 190, 80), Color3.fromRGB(255, 90, 30))},
+	{speed = 2.0, minRadius = 4.0, maxRadius = 5.0, count = 8, lifetime = 0.85, width = 0.7,
+		color = ColorSequence.new(Color3.fromRGB(255, 90, 60), Color3.fromRGB(140, 40, 200))},
 }
 
 --// R6 RAGDOLL EKLEM VERİLERİ
 local RAGDOLL_JOINTS = {
-        {limb = "Head", motorName = "Neck", pivot = CFrame.new(0, 1, 0) * CFrame.Angles(0, 0, math.rad(90)), cone = 45, twist = 45},
-        {limb = "Left Arm", motorName = "Left Shoulder", pivot = CFrame.new(-1.3, 0.75, 0) * CFrame.Angles(0, 0, math.rad(-90)), cone = 110, twist = 70},
-        {limb = "Right Arm", motorName = "Right Shoulder", pivot = CFrame.new(1.3, 0.75, 0) * CFrame.Angles(0, 0, math.rad(-90)), cone = 110, twist = 70},
-        {limb = "Left Leg", motorName = "Left Hip", pivot = CFrame.new(-0.5, -1, 0) * CFrame.Angles(0, 0, math.rad(-90)), cone = 80, twist = 45},
-        {limb = "Right Leg", motorName = "Right Hip", pivot = CFrame.new(0.5, -1, 0) * CFrame.Angles(0, 0, math.rad(-90)), cone = 80, twist = 45},
+	{limb = "Head", motorName = "Neck", pivot = CFrame.new(0, 1, 0) * CFrame.Angles(0, 0, math.rad(90)), cone = 45, twist = 45},
+	{limb = "Left Arm", motorName = "Left Shoulder", pivot = CFrame.new(-1.3, 0.75, 0) * CFrame.Angles(0, 0, math.rad(-90)), cone = 110, twist = 70},
+	{limb = "Right Arm", motorName = "Right Shoulder", pivot = CFrame.new(1.3, 0.75, 0) * CFrame.Angles(0, 0, math.rad(-90)), cone = 110, twist = 70},
+	{limb = "Left Leg", motorName = "Left Hip", pivot = CFrame.new(-0.5, -1, 0) * CFrame.Angles(0, 0, math.rad(-90)), cone = 80, twist = 45},
+	{limb = "Right Leg", motorName = "Right Hip", pivot = CFrame.new(0.5, -1, 0) * CFrame.Angles(0, 0, math.rad(-90)), cone = 80, twist = 45},
 }
 
 --// SKELETON EFEKTİ İÇİN MESH VERİLERİ
 local SKELETON_CHARACTER_MESHES = {
-        {Name = "Skeleton Left Leg", BodyPart = Enum.BodyPart.LeftLeg, MeshId = 36780079, BaseTextureId = 36780292, OverlayTextureId = 36780292},
-        {Name = "Skeleton Right Leg", BodyPart = Enum.BodyPart.RightLeg, MeshId = 36780195, BaseTextureId = 36780292, OverlayTextureId = 36780292},
-        {Name = "Skeleton Left Arm", BodyPart = Enum.BodyPart.LeftArm, MeshId = 36780032, BaseTextureId = 36780292, OverlayTextureId = 36780292},
-        {Name = "Skeleton Right Arm", BodyPart = Enum.BodyPart.RightArm, MeshId = 36780156, BaseTextureId = 36780292, OverlayTextureId = 36780292},
-        {Name = "Skeleton Torso", BodyPart = Enum.BodyPart.Torso, MeshId = 36780113, BaseTextureId = 36780292, OverlayTextureId = 36780292},
+	{Name = "Skeleton Left Leg", BodyPart = Enum.BodyPart.LeftLeg, MeshId = 36780079, BaseTextureId = 36780292, OverlayTextureId = 36780292},
+	{Name = "Skeleton Right Leg", BodyPart = Enum.BodyPart.RightLeg, MeshId = 36780195, BaseTextureId = 36780292, OverlayTextureId = 36780292},
+	{Name = "Skeleton Left Arm", BodyPart = Enum.BodyPart.LeftArm, MeshId = 36780032, BaseTextureId = 36780292, OverlayTextureId = 36780292},
+	{Name = "Skeleton Right Arm", BodyPart = Enum.BodyPart.RightArm, MeshId = 36780156, BaseTextureId = 36780292, OverlayTextureId = 36780292},
+	{Name = "Skeleton Torso", BodyPart = Enum.BodyPart.Torso, MeshId = 36780113, BaseTextureId = 36780292, OverlayTextureId = 36780292},
 }
 
---------------------------------------------------------------------------------
 -- YARDIMCI FONKSİYONLAR
---------------------------------------------------------------------------------
 
 local function EnsureRootAttached(character)
-        local hrp = character:FindFirstChild("HumanoidRootPart")
-        local torso = character:FindFirstChild("Torso") or character:FindFirstChild("UpperTorso")
-        if not hrp or not torso or hrp == torso then return end
-        if hrp:FindFirstChild("RootReattach") then return end
+	local hrp = character:FindFirstChild("HumanoidRootPart")
+	local torso = character:FindFirstChild("Torso") or character:FindFirstChild("UpperTorso")
+	if not hrp or not torso or hrp == torso then return end
+	if hrp:FindFirstChild("RootReattach") then return end
 
-        local weld = Instance.new("WeldConstraint")
-        weld.Name = "RootReattach"
-        weld.Part0 = hrp
-        weld.Part1 = torso
-        weld.Parent = hrp
+	local weld = Instance.new("WeldConstraint")
+	weld.Name = "RootReattach"
+	weld.Part0 = hrp
+	weld.Part1 = torso
+	weld.Parent = hrp
 end
 
 local function ReattachAccessories(character)
-        local bodyParts = {}
+	local bodyParts = {}
+	for _, name in ipairs({"Head", "Torso", "Left Arm", "Right Arm", "Left Leg", "Right Leg"}) do
+		local part = character:FindFirstChild(name)
+		if part and part:IsA("BasePart") then
+			table.insert(bodyParts, part)
+		end
+	end
+	if #bodyParts == 0 then return end
 
-        for _, name in ipairs({"Head", "Torso", "Left Arm", "Right Arm", "Left Leg", "Right Leg"}) do
-                local part = character:FindFirstChild(name)
-                if part and part:IsA("BasePart") then
-                        table.insert(bodyParts, part)
-                end
-        end
-
-        if #bodyParts == 0 then return end
-
-        for _, accessory in ipairs(character:GetChildren()) do
-                if accessory:IsA("Accessory") or accessory:IsA("Tool") then
-                        local handle = accessory:FindFirstChild("Handle")
-
-                        if handle and handle:IsA("BasePart") and not handle:FindFirstChild("AccessoryReattach") then
-                                local nearest, nearestDistance = nil, math.huge
-
-                                for _, part in ipairs(bodyParts) do
-                                        local distance = (handle.Position - part.Position).Magnitude
-
-                                        if distance < nearestDistance then
-                                                nearest = part
-                                                nearestDistance = distance
-                                        end
-                                end
-
-                                local weld = Instance.new("WeldConstraint")
-                                weld.Name = "AccessoryReattach"
-                                weld.Part0 = nearest
-                                weld.Part1 = handle
-                                weld.Parent = handle
-                        end
-                end
-        end
+	for _, accessory in ipairs(character:GetChildren()) do
+		if accessory:IsA("Accessory") or accessory:IsA("Tool") then
+			local handle = accessory:FindFirstChild("Handle")
+			if handle and handle:IsA("BasePart") and not handle:FindFirstChild("AccessoryReattach") then
+				local nearest, nearestDistance = nil, math.huge
+				for _, part in ipairs(bodyParts) do
+					local distance = (handle.Position - part.Position).Magnitude
+					if distance < nearestDistance then
+						nearest = part
+						nearestDistance = distance
+					end
+				end
+				local weld = Instance.new("WeldConstraint")
+				weld.Name = "AccessoryReattach"
+				weld.Part0 = nearest
+				weld.Part1 = handle
+				weld.Parent = handle
+			end
+		end
+	end
 end
 
 local function WeldPartsToRoot(character, root)
-        for _, part in ipairs(character:GetDescendants()) do
-                if part:IsA("BasePart") and part ~= root and #part:GetJoints() == 0 then
-                        local weld = Instance.new("WeldConstraint")
-                        weld.Name = "FallbackWeld"
-                        weld.Part0 = root
-                        weld.Part1 = part
-                        weld.Parent = part
-                end
-        end
+	for _, part in ipairs(character:GetDescendants()) do
+		if part:IsA("BasePart") and part ~= root and #part:GetJoints() == 0 then
+			local weld = Instance.new("WeldConstraint")
+			weld.Name = "FallbackWeld"
+			weld.Part0 = root
+			weld.Part1 = part
+			weld.Parent = part
+		end
+	end
 end
 
 local function BuildR6Ragdoll(character)
-        local torso = character:FindFirstChild("Torso")
+	local torso = character:FindFirstChild("Torso")
+	if not torso or not torso:IsA("BasePart") then return false end
 
-        if not torso or not torso:IsA("BasePart") then
-                return false
-        end
+	local bodyParts = {torso}
+	for _, info in ipairs(RAGDOLL_JOINTS) do
+		local limb = character:FindFirstChild(info.limb)
+		if limb and limb:IsA("BasePart") then
+			table.insert(bodyParts, limb)
+			local motor = torso:FindFirstChild(info.motorName) or limb:FindFirstChild(info.motorName)
+			if motor and motor:IsA("Motor6D") then
+				motor.Enabled = false
+			end
+			local worldPivot = torso.CFrame * info.pivot
+			local att0 = Instance.new("Attachment")
+			att0.Name = "Ragdoll_" .. info.limb .. "_Torso"
+			att0.CFrame = info.pivot
+			att0.Parent = torso
 
-        local bodyParts = {torso}
+			local att1 = Instance.new("Attachment")
+			att1.Name = "Ragdoll_" .. info.limb .. "_Limb"
+			att1.CFrame = limb.CFrame:ToObjectSpace(worldPivot)
+			att1.Parent = limb
 
-        for _, info in ipairs(RAGDOLL_JOINTS) do
-                local limb = character:FindFirstChild(info.limb)
+			local socket = Instance.new("BallSocketConstraint")
+			socket.Name = "Ragdoll_" .. info.limb
+			socket.Attachment0 = att0
+			socket.Attachment1 = att1
+			socket.LimitsEnabled = true
+			socket.UpperAngle = info.cone
+			socket.TwistLimitsEnabled = true
+			socket.TwistLowerAngle = -info.twist
+			socket.TwistUpperAngle = info.twist
+			socket.Restitution = 0
+			socket.Parent = torso
+		end
+	end
 
-                if limb and limb:IsA("BasePart") then
-                        table.insert(bodyParts, limb)
+	for i = 1, #bodyParts - 1 do
+		for j = i + 1, #bodyParts do
+			local noCollision = Instance.new("NoCollisionConstraint")
+			noCollision.Name = "RagdollNoCollision"
+			noCollision.Part0 = bodyParts[i]
+			noCollision.Part1 = bodyParts[j]
+			noCollision.Parent = torso
+		end
+	end
 
-                        local motor = torso:FindFirstChild(info.motorName) or limb:FindFirstChild(info.motorName)
-
-                        if motor and motor:IsA("Motor6D") then
-                                motor.Enabled = false
-                        end
-
-                        local worldPivot = torso.CFrame * info.pivot
-
-                        local att0 = Instance.new("Attachment")
-                        att0.Name = "Ragdoll_" .. info.limb .. "_Torso"
-                        att0.CFrame = info.pivot
-                        att0.Parent = torso
-
-                        local att1 = Instance.new("Attachment")
-                        att1.Name = "Ragdoll_" .. info.limb .. "_Limb"
-                        att1.CFrame = limb.CFrame:ToObjectSpace(worldPivot)
-                        att1.Parent = limb
-
-                        local socket = Instance.new("BallSocketConstraint")
-                        socket.Name = "Ragdoll_" .. info.limb
-                        socket.Attachment0 = att0
-                        socket.Attachment1 = att1
-                        socket.LimitsEnabled = true
-                        socket.UpperAngle = info.cone
-                        socket.TwistLimitsEnabled = true
-                        socket.TwistLowerAngle = -info.twist
-                        socket.TwistUpperAngle = info.twist
-                        socket.Restitution = 0
-                        socket.Parent = torso
-                end
-        end
-
-        for i = 1, #bodyParts - 1 do
-                for j = i + 1, #bodyParts do
-                        local noCollision = Instance.new("NoCollisionConstraint")
-                        noCollision.Name = "RagdollNoCollision"
-                        noCollision.Part0 = bodyParts[i]
-                        noCollision.Part1 = bodyParts[j]
-                        noCollision.Parent = torso
-                end
-        end
-
-        return true
+	return true
 end
 
 local function TakeServerPhysicsOwnership(character)
-        for _, part in ipairs(character:GetDescendants()) do
-                if part:IsA("BasePart") and not part.Anchored then
-                        pcall(function()
-                                if part:CanSetNetworkOwnership() then
-                                        part:SetNetworkOwner(nil)
-                                end
-                        end)
-                end
-        end
+	for _, part in ipairs(character:GetDescendants()) do
+		if part:IsA("BasePart") and not part.Anchored then
+			pcall(function()
+				if part:CanSetNetworkOwnership() then
+					part:SetNetworkOwner(nil)
+				end
+			end)
+		end
+	end
 end
 
 local function PlayServerSound(soundId, parentPart, customVolume)
-        if not parentPart or not parentPart.Parent then return end
+	if not parentPart or not parentPart.Parent then return end
 
-        local sound = Instance.new("Sound")
-        sound.SoundId = "rbxassetid://" .. tostring(soundId)
-        sound.Volume = customVolume or 1.54
-        sound.RollOffMaxDistance = 300
-        sound.RollOffMinDistance = 15
-        sound.EmitterSize = 25
-        sound.Parent = parentPart
-        sound:Play()
-
-        Debris:AddItem(sound, 6)
-
-        return sound
+	local sound = Instance.new("Sound")
+	sound.SoundId = "rbxassetid://" .. tostring(soundId)
+	sound.Volume = customVolume or 1.54
+	sound.RollOffMaxDistance = 300
+	sound.RollOffMinDistance = 15
+	sound.EmitterSize = 25
+	sound.Parent = parentPart
+	sound:Play()
+	Debris:AddItem(sound, 6)
+	return sound
 end
 
 local function SpawnGoldenBurstOnTarget(targetRoot)
-        local burstLight = Instance.new("PointLight")
-        burstLight.Name = "GoldenDeathBurstLight"
-        burstLight.Color = Color3.fromRGB(255, 200, 60)
-        burstLight.Range = 18
-        burstLight.Brightness = 8
-        burstLight.Shadows = false
-        burstLight.Parent = targetRoot
+	local burstLight = Instance.new("PointLight")
+	burstLight.Name = "GoldenDeathBurstLight"
+	burstLight.Color = Color3.fromRGB(255, 200, 60)
+	burstLight.Range = 18
+	burstLight.Brightness = 8
+	burstLight.Shadows = false
+	burstLight.Parent = targetRoot
 
-        local lightTween = TweenService:Create(
-                burstLight,
-                TweenInfo.new(1.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-                {Brightness = 0, Range = 4}
-        )
+	local lightTween = TweenService:Create(
+		burstLight,
+		TweenInfo.new(1.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+		{Brightness = 0, Range = 4}
+	)
+	lightTween:Play()
+	Debris:AddItem(burstLight, 1.3)
 
-        lightTween:Play()
-        Debris:AddItem(burstLight, 1.3)
-
-        local burstEmitter = Instance.new("ParticleEmitter")
-        burstEmitter.Name = "GoldenDeathBurstParticles"
-        burstEmitter.Texture = "rbxassetid://258122325"
-        burstEmitter.Color = ColorSequence.new(Color3.fromRGB(255, 225, 120))
-
-        burstEmitter.Size = NumberSequence.new({
-                NumberSequenceKeypoint.new(0, 1.2),
-                NumberSequenceKeypoint.new(1, 0),
-        })
-
-        burstEmitter.Transparency = NumberSequence.new({
-                NumberSequenceKeypoint.new(0, 0),
-                NumberSequenceKeypoint.new(1, 1),
-        })
-
-        burstEmitter.Lifetime = NumberRange.new(0.6, 1.2)
-        burstEmitter.Speed = NumberRange.new(4, 9)
-        burstEmitter.SpreadAngle = Vector2.new(360, 360)
-        burstEmitter.Rate = 0
-        burstEmitter.Parent = targetRoot
-        burstEmitter:Emit(60)
-
-        Debris:AddItem(burstEmitter, 1.5)
+	local burstEmitter = Instance.new("ParticleEmitter")
+	burstEmitter.Name = "GoldenDeathBurstParticles"
+	burstEmitter.Texture = "rbxassetid://258122325"
+	burstEmitter.Color = ColorSequence.new(Color3.fromRGB(255, 225, 120))
+	burstEmitter.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 1.2),
+		NumberSequenceKeypoint.new(1, 0),
+	})
+	burstEmitter.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	burstEmitter.Lifetime = NumberRange.new(0.6, 1.2)
+	burstEmitter.Speed = NumberRange.new(4, 9)
+	burstEmitter.SpreadAngle = Vector2.new(360, 360)
+	burstEmitter.Rate = 0
+	burstEmitter.Parent = targetRoot
+	burstEmitter:Emit(60)
+	Debris:AddItem(burstEmitter, 1.5)
 end
 
 local function CreateDiamondSparkle(parentPart)
-        local light = Instance.new("PointLight")
-        light.Color = DIAMOND_EMISSION
-        light.Range = 8
-        light.Brightness = 3
-        light.Parent = parentPart
+	local light = Instance.new("PointLight")
+	light.Color = DIAMOND_EMISSION
+	light.Range = 8
+	light.Brightness = 3
+	light.Parent = parentPart
 
-        local emitter = Instance.new("ParticleEmitter")
-        emitter.Name = "DiamondSparkles"
-        emitter.Color = ColorSequence.new(DIAMOND_EMISSION)
-
-        emitter.Size = NumberSequence.new({
-                NumberSequenceKeypoint.new(0, 0.5),
-                NumberSequenceKeypoint.new(0.5, 0.8),
-                NumberSequenceKeypoint.new(1, 0)
-        })
-
-        emitter.Texture = "rbxassetid://258122325"
-        emitter.Lifetime = NumberRange.new(0.5, 1.2)
-        emitter.Rate = 20
-        emitter.Speed = NumberRange.new(2, 6)
-        emitter.SpreadAngle = Vector2.new(360, 360)
-        emitter.Parent = parentPart
-
-        Debris:AddItem(light, 6)
-        Debris:AddItem(emitter, 6)
+	local emitter = Instance.new("ParticleEmitter")
+	emitter.Name = "DiamondSparkles"
+	emitter.Color = ColorSequence.new(DIAMOND_EMISSION)
+	emitter.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.5),
+		NumberSequenceKeypoint.new(0.5, 0.8),
+		NumberSequenceKeypoint.new(1, 0)
+	})
+	emitter.Texture = "rbxassetid://258122325"
+	emitter.Lifetime = NumberRange.new(0.5, 1.2)
+	emitter.Rate = 20
+	emitter.Speed = NumberRange.new(2, 6)
+	emitter.SpreadAngle = Vector2.new(360, 360)
+	emitter.Parent = parentPart
+	Debris:AddItem(light, 6)
+	Debris:AddItem(emitter, 6)
 end
 
 local function PlayKatanaBloodEffect(position)
-        local effectPart = Instance.new("Part")
-        effectPart.Name = "KillEffect"
-        effectPart.Anchored = true
-        effectPart.CanCollide = false
-        effectPart.CanQuery = false
-        effectPart.CanTouch = false
-        effectPart.Transparency = 1
-        effectPart.Size = Vector3.new(1, 1, 1)
-        effectPart.CFrame = CFrame.new(position)
-        effectPart.Parent = workspace
+	local effectPart = Instance.new("Part")
+	effectPart.Name = "KillEffect"
+	effectPart.Anchored = true
+	effectPart.CanCollide = false
+	effectPart.CanQuery = false
+	effectPart.CanTouch = false
+	effectPart.Transparency = 1
+	effectPart.Size = Vector3.new(1, 1, 1)
+	effectPart.CFrame = CFrame.new(position)
+	effectPart.Parent = workspace
 
-        local attachment = Instance.new("Attachment", effectPart)
+	local attachment = Instance.new("Attachment", effectPart)
+	local sparks = Instance.new("ParticleEmitter")
+	sparks.Color = ColorSequence.new(Color3.fromRGB(255, 70, 70), Color3.fromRGB(110, 0, 0))
+	sparks.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 1.4),
+		NumberSequenceKeypoint.new(1, 0),
+	})
+	sparks.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.1),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	sparks.Lifetime = NumberRange.new(0.3, 0.6)
+	sparks.Speed = NumberRange.new(10, 20)
+	sparks.SpreadAngle = Vector2.new(180, 180)
+	sparks.Rate = 0
+	sparks.Parent = attachment
+	sparks:Emit(45)
 
-        local sparks = Instance.new("ParticleEmitter")
-        sparks.Color = ColorSequence.new(Color3.fromRGB(255, 70, 70), Color3.fromRGB(110, 0, 0))
-
-        sparks.Size = NumberSequence.new({
-                NumberSequenceKeypoint.new(0, 1.4),
-                NumberSequenceKeypoint.new(1, 0),
-        })
-
-        sparks.Transparency = NumberSequence.new({
-                NumberSequenceKeypoint.new(0, 0.1),
-                NumberSequenceKeypoint.new(1, 1),
-        })
-
-        sparks.Lifetime = NumberRange.new(0.3, 0.6)
-        sparks.Speed = NumberRange.new(10, 20)
-        sparks.SpreadAngle = Vector2.new(180, 180)
-        sparks.Rate = 0
-        sparks.Parent = attachment
-        sparks:Emit(45)
-
-        local flash = Instance.new("PointLight")
-        flash.Color = Color3.fromRGB(255, 90, 90)
-        flash.Range = 12
-        flash.Brightness = 6
-        flash.Parent = effectPart
-
-        Debris:AddItem(effectPart, 1)
+	local flash = Instance.new("PointLight")
+	flash.Color = Color3.fromRGB(255, 90, 90)
+	flash.Range = 12
+	flash.Brightness = 6
+	flash.Parent = effectPart
+	Debris:AddItem(effectPart, 1)
 end
 
 local function ReplaceHeadWithSkeletonHead(targetCharacter)
-        local oldHead = targetCharacter:FindFirstChild("Head")
+	local oldHead = targetCharacter:FindFirstChild("Head")
+	if not oldHead then return end
 
-        if not oldHead then return end
+	local morphsFolder = ReplicatedStorage:FindFirstChild("Morphs") or ReplicatedStorage:FindFirstChild("Morpths")
+	local skeletonHeadPrefab = morphsFolder and morphsFolder:FindFirstChild("SkeletonHead")
+	if not skeletonHeadPrefab then
+		warn("ReplicatedStorage.Morphs.SkeletonHead Part'ı bulunamadı!")
+		return
+	end
 
-        local morphsFolder = ReplicatedStorage:FindFirstChild("Morphs") or ReplicatedStorage:FindFirstChild("Morpths")
-        local skeletonHeadPrefab = morphsFolder and morphsFolder:FindFirstChild("SkeletonHead")
+	local newHead = skeletonHeadPrefab:Clone()
+	newHead.Name = "Head"
+	newHead.Size = oldHead.Size
+	newHead.CFrame = oldHead.CFrame
+	newHead.CanCollide = false
+	newHead.Anchored = false
 
-        if not skeletonHeadPrefab then
-                warn("ReplicatedStorage.Morphs.SkeletonHead Part'ı bulunamadı!")
-                return
-        end
+	local specialMesh = newHead:FindFirstChildOfClass("SpecialMesh")
+	if specialMesh then
+		specialMesh.Scale = Vector3.new(1, 1, 1)
+	end
 
-        local newHead = skeletonHeadPrefab:Clone()
-        newHead.Name = "Head"
-        newHead.Size = oldHead.Size
-        newHead.CFrame = oldHead.CFrame
-        newHead.CanCollide = false
-        newHead.Anchored = false
+	local torso = targetCharacter:FindFirstChild("Torso") or targetCharacter:FindFirstChild("UpperTorso")
+	local oldNeck = oldHead:FindFirstChild("Neck") or (torso and torso:FindFirstChild("Neck"))
+	local neckC0 = oldNeck and oldNeck.C0 or CFrame.new(0, 1, 0) * CFrame.Angles(-math.pi/2, 0, math.pi)
+	local neckC1 = oldNeck and oldNeck.C1 or CFrame.new(0, -0.5, 0) * CFrame.Angles(-math.pi/2, 0, math.pi)
 
-        local specialMesh = newHead:FindFirstChildOfClass("SpecialMesh")
+	oldHead:Destroy()
+	newHead.Parent = targetCharacter
 
-        if specialMesh then
-                specialMesh.Scale = Vector3.new(1, 1, 1)
-        end
-
-        local torso = targetCharacter:FindFirstChild("Torso") or targetCharacter:FindFirstChild("UpperTorso")
-        local oldNeck = oldHead:FindFirstChild("Neck") or (torso and torso:FindFirstChild("Neck"))
-
-        local neckC0 = oldNeck and oldNeck.C0 or CFrame.new(0, 1, 0) * CFrame.Angles(-math.pi/2, 0, math.pi)
-        local neckC1 = oldNeck and oldNeck.C1 or CFrame.new(0, -0.5, 0) * CFrame.Angles(-math.pi/2, 0, math.pi)
-
-        oldHead:Destroy()
-        newHead.Parent = targetCharacter
-
-        if torso then
-                local newNeck = Instance.new("Motor6D")
-                newNeck.Name = "Neck"
-                newNeck.Part0 = torso
-                newNeck.Part1 = newHead
-                newNeck.C0 = neckC0
-                newNeck.C1 = neckC1
-                newNeck.Parent = torso
-        end
+	if torso then
+		local newNeck = Instance.new("Motor6D")
+		newNeck.Name = "Neck"
+		newNeck.Part0 = torso
+		newNeck.Part1 = newHead
+		newNeck.C0 = neckC0
+		newNeck.C1 = neckC1
+		newNeck.Parent = torso
+	end
 end
 
---------------------------------------------------------------------------------
+-- SKELETON DUMAN EFEKTİ
+local function CreateSkeletonSmoke(character)
+	task.spawn(function()
+		local effects = {}
+
+		for _, part in ipairs(character:GetDescendants()) do
+			if part:IsA("BasePart") then
+				local attachment = Instance.new("Attachment")
+				attachment.Parent = part
+
+				local smoke = Instance.new("ParticleEmitter")
+				smoke.Texture = "rbxasset://textures/particles/smoke_main.dds"
+				smoke.Rate = 150
+				smoke.Lifetime = NumberRange.new(0.25, 0.5)
+				smoke.Speed = NumberRange.new(0.5, 2.5)
+				smoke.SpreadAngle = Vector2.new(180, 180)
+				smoke.Size = NumberSequence.new({
+					NumberSequenceKeypoint.new(0, 1.5),
+					NumberSequenceKeypoint.new(0.5, 2.5),
+					NumberSequenceKeypoint.new(1, 3)
+				})
+				smoke.Transparency = NumberSequence.new({
+					NumberSequenceKeypoint.new(0, 0.15),
+					NumberSequenceKeypoint.new(0.7, 0.35),
+					NumberSequenceKeypoint.new(1, 1)
+				})
+				smoke.Parent = attachment
+				table.insert(effects, attachment)
+			end
+		end
+
+		task.wait(0.35)
+
+		for _, attachment in ipairs(effects) do
+			local smoke = attachment:FindFirstChildOfClass("ParticleEmitter")
+			if smoke then
+				smoke.Enabled = false
+			end
+		end
+
+		task.wait(0.35)
+
+		for _, attachment in ipairs(effects) do
+			if attachment.Parent then
+				attachment:Destroy()
+			end
+		end
+	end)
+end
+
 -- KARADELİK GÖRSEL YARDIMCILARI
---------------------------------------------------------------------------------
 
 local function CreateSpinLayer(model, core, originCF, config, trails)
-        local spinner = Instance.new("Part")
-        spinner.Name = "AccretionSpinner"
-        spinner.Size = Vector3.new(0.2, 0.2, 0.2)
-        spinner.Transparency = 1
-        spinner.Anchored = false
-        spinner.CanCollide = false
-        spinner.CanQuery = false
-        spinner.CanTouch = false
-        spinner.CastShadow = false
-        spinner.CFrame = originCF
-        spinner.Parent = model
+	local spinner = Instance.new("Part")
+	spinner.Name = "AccretionSpinner"
+	spinner.Size = Vector3.new(0.2, 0.2, 0.2)
+	spinner.Transparency = 1
+	spinner.Anchored = false
+	spinner.CanCollide = false
+	spinner.CanQuery = false
+	spinner.CanTouch = false
+	spinner.CastShadow = false
+	spinner.CFrame = originCF
+	spinner.Parent = model
 
-        local coreAttachment = Instance.new("Attachment")
-        coreAttachment.Name = "SpinAxis"
-        coreAttachment.CFrame = CFrame.Angles(0, 0, math.rad(90))
-        coreAttachment.Parent = core
+	local coreAttachment = Instance.new("Attachment")
+	coreAttachment.Name = "SpinAxis"
+	coreAttachment.CFrame = CFrame.Angles(0, 0, math.rad(90))
+	coreAttachment.Parent = core
 
-        local spinAttachment = Instance.new("Attachment")
-        spinAttachment.Name = "SpinAxis"
-        spinAttachment.CFrame = CFrame.Angles(0, 0, math.rad(90))
-        spinAttachment.Parent = spinner
+	local spinAttachment = Instance.new("Attachment")
+	spinAttachment.Name = "SpinAxis"
+	spinAttachment.CFrame = CFrame.Angles(0, 0, math.rad(90))
+	spinAttachment.Parent = spinner
 
-        local hinge = Instance.new("HingeConstraint")
-        hinge.Name = "SpinMotor"
-        hinge.Attachment0 = coreAttachment
-        hinge.Attachment1 = spinAttachment
-        hinge.ActuatorType = Enum.ActuatorType.Motor
-        hinge.AngularVelocity = config.speed
-        hinge.MotorMaxTorque = 100000
-        hinge.MotorMaxAcceleration = 200
-        hinge.Parent = spinner
+	local hinge = Instance.new("HingeConstraint")
+	hinge.Name = "SpinMotor"
+	hinge.Attachment0 = coreAttachment
+	hinge.Attachment1 = spinAttachment
+	hinge.ActuatorType = Enum.ActuatorType.Motor
+	hinge.AngularVelocity = config.speed
+	hinge.MotorMaxTorque = 100000
+	hinge.MotorMaxAcceleration = 200
+	hinge.Parent = spinner
 
-        for i = 1, config.count do
-                local angle = (i / config.count) * math.pi * 2 + math.random() * 0.6
-                local radius = config.minRadius + math.random() * (config.maxRadius - config.minRadius)
+	for i = 1, config.count do
+		local angle = (i / config.count) * math.pi * 2 + math.random() * 0.6
+		local radius = config.minRadius + math.random() * (config.maxRadius - config.minRadius)
 
-                local carrier = Instance.new("Part")
-                carrier.Name = "AccretionMatter"
-                carrier.Size = Vector3.new(0.2, 0.2, 0.2)
-                carrier.Transparency = 1
-                carrier.Anchored = false
-                carrier.CanCollide = false
-                carrier.CanQuery = false
-                carrier.CanTouch = false
-                carrier.CastShadow = false
-                carrier.Massless = true
-                carrier.CFrame = originCF * CFrame.Angles(0, angle, 0) * CFrame.new(radius, 0, 0)
-                carrier.Parent = model
+		local carrier = Instance.new("Part")
+		carrier.Name = "AccretionMatter"
+		carrier.Size = Vector3.new(0.2, 0.2, 0.2)
+		carrier.Transparency = 1
+		carrier.Anchored = false
+		carrier.CanCollide = false
+		carrier.CanQuery = false
+		carrier.CanTouch = false
+		carrier.CastShadow = false
+		carrier.Massless = true
+		carrier.CFrame = originCF * CFrame.Angles(0, angle, 0) * CFrame.new(radius, 0, 0)
+		carrier.Parent = model
 
-                local weld = Instance.new("WeldConstraint")
-                weld.Part0 = spinner
-                weld.Part1 = carrier
-                weld.Parent = carrier
+		local weld = Instance.new("WeldConstraint")
+		weld.Part0 = spinner
+		weld.Part1 = carrier
+		weld.Parent = carrier
 
-                local a0 = Instance.new("Attachment")
-                a0.Position = Vector3.new(0, config.width / 2, 0)
-                a0.Parent = carrier
+		local a0 = Instance.new("Attachment")
+		a0.Position = Vector3.new(0, config.width / 2, 0)
+		a0.Parent = carrier
 
-                local a1 = Instance.new("Attachment")
-                a1.Position = Vector3.new(0, -config.width / 2, 0)
-                a1.Parent = carrier
+		local a1 = Instance.new("Attachment")
+		a1.Position = Vector3.new(0, -config.width / 2, 0)
+		a1.Parent = carrier
 
-                local trail = Instance.new("Trail")
-                trail.Name = "AccretionTrail"
-                trail.Attachment0 = a0
-                trail.Attachment1 = a1
-                trail.Color = config.color
+		local trail = Instance.new("Trail")
+		trail.Name = "AccretionTrail"
+		trail.Attachment0 = a0
+		trail.Attachment1 = a1
+		trail.Color = config.color
+		trail.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0.1),
+			NumberSequenceKeypoint.new(1, 1),
+		})
+		trail.WidthScale = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 1),
+			NumberSequenceKeypoint.new(1, 0.15),
+		})
+		trail.Lifetime = config.lifetime
+		trail.MinLength = 0.05
+		trail.LightEmission = 1
+		trail.LightInfluence = 0
+		trail.FaceCamera = true
+		trail.Enabled = false
+		trail.Parent = carrier
+		table.insert(trails, trail)
+	end
 
-                trail.Transparency = NumberSequence.new({
-                        NumberSequenceKeypoint.new(0, 0.1),
-                        NumberSequenceKeypoint.new(1, 1),
-                })
+	pcall(function()
+		if spinner:CanSetNetworkOwnership() then
+			spinner:SetNetworkOwner(nil)
+		end
+	end)
 
-                trail.WidthScale = NumberSequence.new({
-                        NumberSequenceKeypoint.new(0, 1),
-                        NumberSequenceKeypoint.new(1, 0.15),
-                })
-
-                trail.Lifetime = config.lifetime
-                trail.MinLength = 0.05
-                trail.LightEmission = 1
-                trail.LightInfluence = 0
-                trail.FaceCamera = true
-                trail.Enabled = false
-                trail.Parent = carrier
-
-                table.insert(trails, trail)
-        end
-
-        pcall(function()
-                if spinner:CanSetNetworkOwnership() then
-                        spinner:SetNetworkOwner(nil)
-                end
-        end)
-
-        return spinner
+	return spinner
 end
 
 local function CreateBlackHole(position)
-        local TINY = 0.05
-        local yaw = math.random() * math.pi * 2
-
-        local originCF =
-                CFrame.new(position)
-                * CFrame.Angles(0, yaw, 0)
-                * CFrame.Angles(0, 0, math.rad(BLACKHOLE_TILT_DEGREES))
-
-        local diskCF = originCF * CFrame.Angles(0, 0, math.rad(90))
-        local horizonDiameter = BLACKHOLE_HORIZON_RADIUS * 2
-        local glowSize = BLACKHOLE_DISK_RADIUS * 2.1
-
-        local model = Instance.new("Model")
-        model.Name = "SingularityBlackHole"
-        model.Parent = workspace
-
-        local function NewPart(name, shape, size, cframe, color, material, transparency)
-                local part = Instance.new("Part")
-                part.Name = name
-                part.Shape = shape
-                part.Size = size
-                part.CFrame = cframe
-                part.Color = color
-                part.Material = material
-                part.Transparency = transparency
-                part.Anchored = true
-                part.CanCollide = false
-                part.CanQuery = false
-                part.CanTouch = false
-                part.CastShadow = false
-                part.Parent = model
-                return part
-        end
-
-        local core = NewPart(
-                "Core",
-                Enum.PartType.Block,
-                Vector3.new(0.4, 0.4, 0.4),
-                originCF,
-                Color3.new(0, 0, 0),
-                Enum.Material.SmoothPlastic,
-                1
-        )
-
-        local horizon = NewPart(
-                "EventHorizon",
-                Enum.PartType.Ball,
-                Vector3.new(TINY, TINY, TINY),
-                originCF,
-                Color3.new(0, 0, 0),
-                Enum.Material.Neon,
-                0
-        )
-
-        local infallDiameter = BLACKHOLE_DISK_RADIUS * 1.85
-
-        local infallField = NewPart(
-                "InfallField",
-                Enum.PartType.Ball,
-                Vector3.new(infallDiameter, infallDiameter, infallDiameter),
-                originCF,
-                Color3.new(0, 0, 0),
-                Enum.Material.SmoothPlastic,
-                1
-        )
-
-        local discs = {}
-
-        for _, layer in ipairs(BLACKHOLE_DISK_LAYERS) do
-                local diameter = BLACKHOLE_DISK_RADIUS * 2 * layer.scale
-
-                local disc = NewPart(
-                        "AccretionDisk",
-                        Enum.PartType.Cylinder,
-                        Vector3.new(layer.thickness, TINY, TINY),
-                        diskCF,
-                        layer.color,
-                        Enum.Material.Neon,
-                        layer.transparency
-                )
-
-                table.insert(discs, {
-                        part = disc,
-                        size = Vector3.new(layer.thickness, diameter, diameter)
-                })
-        end
-
-        local billboard = Instance.new("BillboardGui")
-        billboard.Name = "GravitationalGlow"
-        billboard.Adornee = core
-        billboard.Size = UDim2.fromScale(TINY, TINY)
-        billboard.AlwaysOnTop = false
-        billboard.LightInfluence = 0
-        billboard.MaxDistance = 300
-        billboard.Active = false
-        billboard.ClipsDescendants = false
-        billboard.Parent = core
-
-        for index, layer in ipairs(BLACKHOLE_GLOW_LAYERS) do
-                local frame = Instance.new("Frame")
-                frame.Name = "GlowLayer" .. index
-                frame.AnchorPoint = Vector2.new(0.5, 0.5)
-                frame.Position = UDim2.fromScale(0.5, 0.5)
-                frame.Size = UDim2.fromScale(layer.scale, layer.scale)
-                frame.BackgroundColor3 = layer.color
-                frame.BackgroundTransparency = layer.transparency
-                frame.BorderSizePixel = 0
-                frame.ZIndex = index
-                frame.Parent = billboard
-
-                local corner = Instance.new("UICorner")
-                corner.CornerRadius = UDim.new(0.5, 0)
-                corner.Parent = frame
-        end
-
-        local light = Instance.new("PointLight")
-        light.Name = "AccretionLight"
-        light.Color = Color3.fromRGB(255, 150, 70)
-        light.Range = 22
-        light.Brightness = 0
-        light.Shadows = false
-        light.Parent = core
-
-        local hum = Instance.new("Sound")
-        hum.Name = "SingularityHum"
-        hum.SoundId = "rbxassetid://" .. tostring(BLACKHOLE_HUM_SOUND_ID)
-        hum.Volume = 0
-        hum.PlaybackSpeed = 0.7
-        hum.Looped = true
-        hum.RollOffMaxDistance = 250
-        hum.RollOffMinDistance = 12
-        hum.Parent = core
-        hum:Play()
-
-        local infall = Instance.new("ParticleEmitter")
-        infall.Name = "InfallMatter"
-        infall.Texture = "rbxassetid://258122325"
-        infall.Shape = Enum.ParticleEmitterShape.Sphere
-        infall.ShapeInOut = Enum.ParticleEmitterShapeInOut.Inward
-        infall.ShapeStyle = Enum.ParticleEmitterShapeStyle.Surface
-
-        infall.Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0, Color3.fromRGB(120, 60, 220)),
-                ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 130, 50)),
-                ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 240, 200)),
-        })
-
-        infall.LightEmission = 1
-        infall.LightInfluence = 0
-
-        infall.Size = NumberSequence.new({
-                NumberSequenceKeypoint.new(0, 0.3),
-                NumberSequenceKeypoint.new(1, 0.05),
-        })
-
-        infall.Transparency = NumberSequence.new({
-                NumberSequenceKeypoint.new(0, 1),
-                NumberSequenceKeypoint.new(0.15, 0.3),
-                NumberSequenceKeypoint.new(0.8, 0.2),
-                NumberSequenceKeypoint.new(1, 1),
-        })
-
-        infall.Lifetime = NumberRange.new(0.8, 1.1)
-        infall.Speed = NumberRange.new(5, 8)
-        infall.Rate = 90
-        infall.Enabled = false
-        infall.Parent = infallField
-
-        local function NewJet(direction, speedRange, lifetimeRange, rate)
-                local jet = Instance.new("ParticleEmitter")
-                jet.Name = "PolarJet"
-                jet.Texture = "rbxassetid://258122325"
-                jet.EmissionDirection = direction
-                jet.Color = ColorSequence.new(Color3.fromRGB(190, 200, 255), Color3.fromRGB(120, 70, 255))
-                jet.LightEmission = 1
-                jet.LightInfluence = 0
-
-                jet.Size = NumberSequence.new({
-                        NumberSequenceKeypoint.new(0, 0.9),
-                        NumberSequenceKeypoint.new(1, 0.1),
-                })
-
-                jet.Transparency = NumberSequence.new({
-                        NumberSequenceKeypoint.new(0, 0.25),
-                        NumberSequenceKeypoint.new(1, 1),
-                })
-
-                jet.Lifetime = lifetimeRange
-                jet.Speed = speedRange
-                jet.SpreadAngle = Vector2.new(4, 4)
-                jet.Rate = rate
-                jet.Enabled = false
-                jet.Parent = core
-
-                return jet
-        end
-
-        local jetUp = NewJet(
-                Enum.NormalId.Top,
-                NumberRange.new(20, 28),
-                NumberRange.new(0.3, 0.5),
-                50
-        )
-
-        local jetDown = NewJet(
-                Enum.NormalId.Bottom,
-                NumberRange.new(12, 16),
-                NumberRange.new(0.2, 0.3),
-                30
-        )
-
-        local emitters = {infall, jetUp, jetDown}
-
-        local trails = {}
-
-        for _, config in ipairs(BLACKHOLE_SPIN_LAYERS) do
-                CreateSpinLayer(model, core, originCF, config, trails)
-        end
-
-        local function Shockwave(maxDiameter, duration, color, thickness)
-                local anchor = NewPart(
-                        "SingularityShockwave",
-                        Enum.PartType.Block,
-                        Vector3.new(0.2, 0.2, 0.2),
-                        CFrame.new(position),
-                        color,
-                        Enum.Material.SmoothPlastic,
-                        1
-                )
-
-                local gui = Instance.new("BillboardGui")
-                gui.Adornee = anchor
-                gui.Size = UDim2.fromScale(0.5, 0.5)
-                gui.AlwaysOnTop = false
-                gui.LightInfluence = 0
-                gui.MaxDistance = 300
-                gui.Parent = anchor
-
-                local ring = Instance.new("Frame")
-                ring.AnchorPoint = Vector2.new(0.5, 0.5)
-                ring.Position = UDim2.fromScale(0.5, 0.5)
-                ring.Size = UDim2.fromScale(1, 1)
-                ring.BackgroundTransparency = 1
-                ring.BorderSizePixel = 0
-                ring.Parent = gui
-
-                local corner = Instance.new("UICorner")
-                corner.CornerRadius = UDim.new(0.5, 0)
-                corner.Parent = ring
-
-                local stroke = Instance.new("UIStroke")
-                stroke.Color = color
-                stroke.Thickness = thickness
-                stroke.Transparency = 0.1
-                stroke.Parent = ring
-
-                local info = TweenInfo.new(
-                        duration,
-                        Enum.EasingStyle.Quad,
-                        Enum.EasingDirection.Out
-                )
-
-                TweenService:Create(
-                        gui,
-                        info,
-                        {Size = UDim2.fromScale(maxDiameter, maxDiameter)}
-                ):Play()
-
-                TweenService:Create(
-                        stroke,
-                        info,
-                        {Transparency = 1, Thickness = 1}
-                ):Play()
-
-                Debris:AddItem(anchor, duration + 0.1)
-        end
-
-        local function Flash(maxDiameter, duration)
-                local flash = NewPart(
-                        "SingularityFlash",
-                        Enum.PartType.Ball,
-                        Vector3.new(0.5, 0.5, 0.5),
-                        CFrame.new(position),
-                        Color3.fromRGB(255, 235, 200),
-                        Enum.Material.Neon,
-                        0.1
-                )
-
-                TweenService:Create(
-                        flash,
-                        TweenInfo.new(
-                                duration,
-                                Enum.EasingStyle.Quad,
-                                Enum.EasingDirection.Out
-                        ),
-                        {
-                                Size = Vector3.new(maxDiameter, maxDiameter, maxDiameter),
-                                Transparency = 1
-                        }
-                ):Play()
-
-                Debris:AddItem(flash, duration + 0.1)
-        end
-
-        local hole = {Core = core}
-
-        function hole.Grow(duration)
-                if not model.Parent then return end
-
-                TweenService:Create(
-                        horizon,
-                        TweenInfo.new(duration, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
-                        {
-                                Size = Vector3.new(
-                                        horizonDiameter,
-                                        horizonDiameter,
-                                        horizonDiameter
-                                )
-                        }
-                ):Play()
-
-                for _, entry in ipairs(discs) do
-                        TweenService:Create(
-                                entry.part,
-                                TweenInfo.new(duration, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
-                                {
-                                        Size = entry.size
-                                }
-                        ):Play()
-                end
-
-                TweenService:Create(
-                        billboard,
-                        TweenInfo.new(duration, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
-                        {
-                                Size = UDim2.fromScale(glowSize, glowSize)
-                        }
-                ):Play()
-
-                TweenService:Create(
-                        light,
-                        TweenInfo.new(duration),
-                        {Brightness = 3}
-                ):Play()
-
-                TweenService:Create(
-                        hum,
-                        TweenInfo.new(duration * 1.6),
-                        {Volume = 1.4}
-                ):Play()
-
-                Flash(BLACKHOLE_DISK_RADIUS * 1.6, 0.5)
-                Shockwave(
-                        BLACKHOLE_DISK_RADIUS * 3.2,
-                        0.9,
-                        Color3.fromRGB(255, 190, 110),
-                        5
-                )
-
-                task.delay(duration * 0.4, function()
-                        if not model.Parent then return end
-
-                        for _, trail in ipairs(trails) do
-                                trail.Enabled = true
-                        end
-
-                        for _, emitter in ipairs(emitters) do
-                                emitter.Enabled = true
-                        end
-                end)
-        end
-
-        function hole.Intensify(duration)
-                if not model.Parent then return end
-
-                TweenService:Create(
-                        hum,
-                        TweenInfo.new(duration),
-                        {PlaybackSpeed = 1.1}
-                ):Play()
-
-                TweenService:Create(
-                        light,
-                        TweenInfo.new(duration),
-                        {Brightness = 5}
-                ):Play()
-
-                TweenService:Create(
-                        infall,
-                        TweenInfo.new(duration),
-                        {Rate = 170}
-                ):Play()
-        end
-
-        function hole.Pulse()
-                if not model.Parent then return end
-
-                TweenService:Create(
-                        light,
-                        TweenInfo.new(
-                                0.12,
-                                Enum.EasingStyle.Quad,
-                                Enum.EasingDirection.Out
-                        ),
-                        {Brightness = 9}
-                ):Play()
-
-                task.delay(0.12, function()
-                        if light.Parent then
-                                TweenService:Create(
-                                        light,
-                                        TweenInfo.new(0.4),
-                                        {Brightness = 4}
-                                ):Play()
-                        end
-                end)
-
-                Shockwave(
-                        BLACKHOLE_DISK_RADIUS * 2.2,
-                        0.55,
-                        Color3.fromRGB(255, 220, 170),
-                        4
-                )
-        end
-
-        function hole.Collapse(duration)
-                if not model.Parent then return end
-
-                for _, trail in ipairs(trails) do
-                        trail.Enabled = false
-                end
-
-                for _, emitter in ipairs(emitters) do
-                        emitter.Enabled = false
-                end
-
-                local info = TweenInfo.new(
-                        duration,
-                        Enum.EasingStyle.Back,
-                        Enum.EasingDirection.In
-                )
-
-                TweenService:Create(
-                        horizon,
-                        info,
-                        {
-                                Size = Vector3.new(TINY, TINY, TINY)
-                        }
-                ):Play()
-
-                for _, entry in ipairs(discs) do
-                        TweenService:Create(
-                                entry.part,
-                                info,
-                                {
-                                        Size = Vector3.new(entry.size.X, TINY, TINY)
-                                }
-                        ):Play()
-                end
-
-                TweenService:Create(
-                        billboard,
-                        info,
-                        {
-                                Size = UDim2.fromScale(TINY, TINY)
-                        }
-                ):Play()
-
-                TweenService:Create(
-                        light,
-                        TweenInfo.new(duration),
-                        {Brightness = 0}
-                ):Play()
-
-                TweenService:Create(
-                        hum,
-                        TweenInfo.new(duration),
-                        {Volume = 0}
-                ):Play()
-
-                task.delay(duration, function()
-                        if not model.Parent then return end
-
-                        Flash(
-                                BLACKHOLE_DISK_RADIUS * 1.2,
-                                0.35
-                        )
-
-                        Shockwave(
-                                BLACKHOLE_DISK_RADIUS * 2.6,
-                                0.6,
-                                Color3.fromRGB(190, 140, 255),
-                                4
-                        )
-                end)
-
-                Debris:AddItem(model, duration + 1.2)
-        end
-
-        Debris:AddItem(
-                model,
-                BLACKHOLE_GROW_TIME
-                        + BLACKHOLE_PULL_DELAY
-                        + BLACKHOLE_PULL_DURATION
-                        + BLACKHOLE_COLLAPSE_TIME
-                        + 6
-        )
-
-        return hole
+	local TINY = 0.05
+	local yaw = math.random() * math.pi * 2
+
+	local originCF = CFrame.new(position) * CFrame.Angles(0, yaw, 0) * CFrame.Angles(0, 0, math.rad(BLACKHOLE_TILT_DEGREES))
+	local diskCF = originCF * CFrame.Angles(0, 0, math.rad(90))
+
+	local horizonDiameter = BLACKHOLE_HORIZON_RADIUS * 2
+	local glowSize = BLACKHOLE_DISK_RADIUS * 2.1
+
+	local model = Instance.new("Model")
+	model.Name = "SingularityBlackHole"
+	model.Parent = workspace
+
+	local function NewPart(name, shape, size, cframe, color, material, transparency)
+		local part = Instance.new("Part")
+		part.Name = name
+		part.Shape = shape
+		part.Size = size
+		part.CFrame = cframe
+		part.Color = color
+		part.Material = material
+		part.Transparency = transparency
+		part.Anchored = true
+		part.CanCollide = false
+		part.CanQuery = false
+		part.CanTouch = false
+		part.CastShadow = false
+		part.Parent = model
+		return part
+	end
+
+	local core = NewPart(
+		"Core", Enum.PartType.Block, Vector3.new(0.4, 0.4, 0.4),
+		originCF, Color3.new(0, 0, 0), Enum.Material.SmoothPlastic, 1
+	)
+
+	local horizon = NewPart(
+		"EventHorizon", Enum.PartType.Ball, Vector3.new(TINY, TINY, TINY),
+		originCF, Color3.new(0, 0, 0), Enum.Material.Neon, 0
+	)
+
+	local infallDiameter = BLACKHOLE_DISK_RADIUS * 1.85
+	local infallField = NewPart(
+		"InfallField", Enum.PartType.Ball, Vector3.new(infallDiameter, infallDiameter, infallDiameter),
+		originCF, Color3.new(0, 0, 0), Enum.Material.SmoothPlastic, 1
+	)
+
+	local discs = {}
+	for _, layer in ipairs(BLACKHOLE_DISK_LAYERS) do
+		local diameter = BLACKHOLE_DISK_RADIUS * 2 * layer.scale
+		local disc = NewPart(
+			"AccretionDisk", Enum.PartType.Cylinder, Vector3.new(layer.thickness, TINY, TINY),
+			diskCF, layer.color, Enum.Material.Neon, layer.transparency
+		)
+		table.insert(discs, {
+			part = disc,
+			size = Vector3.new(layer.thickness, diameter, diameter)
+		})
+	end
+
+	local billboard = Instance.new("BillboardGui")
+	billboard.Name = "GravitationalGlow"
+	billboard.Adornee = core
+	billboard.Size = UDim2.fromScale(TINY, TINY)
+	billboard.AlwaysOnTop = false
+	billboard.LightInfluence = 0
+	billboard.MaxDistance = 300
+	billboard.Active = false
+	billboard.ClipsDescendants = false
+	billboard.Parent = core
+
+	for index, layer in ipairs(BLACKHOLE_GLOW_LAYERS) do
+		local frame = Instance.new("Frame")
+		frame.Name = "GlowLayer" .. index
+		frame.AnchorPoint = Vector2.new(0.5, 0.5)
+		frame.Position = UDim2.fromScale(0.5, 0.5)
+		frame.Size = UDim2.fromScale(layer.scale, layer.scale)
+		frame.BackgroundColor3 = layer.color
+		frame.BackgroundTransparency = layer.transparency
+		frame.BorderSizePixel = 0
+		frame.ZIndex = index
+		frame.Parent = billboard
+
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(0.5, 0)
+		corner.Parent = frame
+	end
+
+	local light = Instance.new("PointLight")
+	light.Name = "AccretionLight"
+	light.Color = Color3.fromRGB(255, 150, 70)
+	light.Range = 22
+	light.Brightness = 0
+	light.Shadows = false
+	light.Parent = core
+
+	local hum = Instance.new("Sound")
+	hum.Name = "SingularityHum"
+	hum.SoundId = "rbxassetid://" .. tostring(BLACKHOLE_HUM_SOUND_ID)
+	hum.Volume = 0
+	hum.PlaybackSpeed = 0.7
+	hum.Looped = true
+	hum.RollOffMaxDistance = 250
+	hum.RollOffMinDistance = 12
+	hum.Parent = core
+	hum:Play()
+
+	local infall = Instance.new("ParticleEmitter")
+	infall.Name = "InfallMatter"
+	infall.Texture = "rbxassetid://258122325"
+	infall.Shape = Enum.ParticleEmitterShape.Sphere
+	infall.ShapeInOut = Enum.ParticleEmitterShapeInOut.Inward
+	infall.ShapeStyle = Enum.ParticleEmitterShapeStyle.Surface
+	infall.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(120, 60, 220)),
+		ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 130, 50)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 240, 200)),
+	})
+	infall.LightEmission = 1
+	infall.LightInfluence = 0
+	infall.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.3),
+		NumberSequenceKeypoint.new(1, 0.05),
+	})
+	infall.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 1),
+		NumberSequenceKeypoint.new(0.15, 0.3),
+		NumberSequenceKeypoint.new(0.8, 0.2),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	infall.Lifetime = NumberRange.new(0.8, 1.1)
+	infall.Speed = NumberRange.new(5, 8)
+	infall.Rate = 90
+	infall.Enabled = false
+	infall.Parent = infallField
+
+	local function NewJet(direction, speedRange, lifetimeRange, rate)
+		local jet = Instance.new("ParticleEmitter")
+		jet.Name = "PolarJet"
+		jet.Texture = "rbxassetid://258122325"
+		jet.EmissionDirection = direction
+		jet.Color = ColorSequence.new(Color3.fromRGB(190, 200, 255), Color3.fromRGB(120, 70, 255))
+		jet.LightEmission = 1
+		jet.LightInfluence = 0
+		jet.Size = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0.9),
+			NumberSequenceKeypoint.new(1, 0.1),
+		})
+		jet.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0.25),
+			NumberSequenceKeypoint.new(1, 1),
+		})
+		jet.Lifetime = lifetimeRange
+		jet.Speed = speedRange
+		jet.SpreadAngle = Vector2.new(4, 4)
+		jet.Rate = rate
+		jet.Enabled = false
+		jet.Parent = core
+		return jet
+	end
+
+	local jetUp = NewJet(
+		Enum.NormalId.Top,
+		NumberRange.new(20, 28),
+		NumberRange.new(0.3, 0.5),
+		50
+	)
+	local jetDown = NewJet(
+		Enum.NormalId.Bottom,
+		NumberRange.new(12, 16),
+		NumberRange.new(0.2, 0.3),
+		30
+	)
+
+	local emitters = {infall, jetUp, jetDown}
+	local trails = {}
+
+	for _, config in ipairs(BLACKHOLE_SPIN_LAYERS) do
+		CreateSpinLayer(model, core, originCF, config, trails)
+	end
+
+	local function Shockwave(maxDiameter, duration, color, thickness)
+		local anchor = NewPart(
+			"SingularityShockwave", Enum.PartType.Block, Vector3.new(0.2, 0.2, 0.2),
+			CFrame.new(position), color, Enum.Material.SmoothPlastic, 1
+		)
+
+		local gui = Instance.new("BillboardGui")
+		gui.Adornee = anchor
+		gui.Size = UDim2.fromScale(0.5, 0.5)
+		gui.AlwaysOnTop = false
+		gui.LightInfluence = 0
+		gui.MaxDistance = 300
+		gui.Parent = anchor
+
+		local ring = Instance.new("Frame")
+		ring.AnchorPoint = Vector2.new(0.5, 0.5)
+		ring.Position = UDim2.fromScale(0.5, 0.5)
+		ring.Size = UDim2.fromScale(1, 1)
+		ring.BackgroundTransparency = 1
+		ring.BorderSizePixel = 0
+		ring.Parent = gui
+
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(0.5, 0)
+		corner.Parent = ring
+
+		local stroke = Instance.new("UIStroke")
+		stroke.Color = color
+		stroke.Thickness = thickness
+		stroke.Transparency = 0.1
+		stroke.Parent = ring
+
+		local info = TweenInfo.new(
+			duration,
+			Enum.EasingStyle.Quad,
+			Enum.EasingDirection.Out
+		)
+
+		TweenService:Create(
+			gui, info,
+			{Size = UDim2.fromScale(maxDiameter, maxDiameter)}
+		):Play()
+
+		TweenService:Create(
+			stroke, info,
+			{Transparency = 1, Thickness = 1}
+		):Play()
+
+		Debris:AddItem(anchor, duration + 0.1)
+	end
+
+	local function Flash(maxDiameter, duration)
+		local flash = NewPart(
+			"SingularityFlash", Enum.PartType.Ball, Vector3.new(0.5, 0.5, 0.5),
+			CFrame.new(position), Color3.fromRGB(255, 235, 200), Enum.Material.Neon, 0.1
+		)
+
+		TweenService:Create(
+			flash,
+			TweenInfo.new(
+				duration,
+				Enum.EasingStyle.Quad,
+				Enum.EasingDirection.Out
+			),
+			{
+				Size = Vector3.new(maxDiameter, maxDiameter, maxDiameter),
+				Transparency = 1
+			}
+		):Play()
+
+		Debris:AddItem(flash, duration + 0.1)
+	end
+
+	local hole = {Core = core}
+
+	function hole.Grow(duration)
+		if not model.Parent then return end
+
+		TweenService:Create(
+			horizon,
+			TweenInfo.new(duration, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+			{
+				Size = Vector3.new(
+					horizonDiameter,
+					horizonDiameter,
+					horizonDiameter
+				)
+			}
+		):Play()
+
+		for _, entry in ipairs(discs) do
+			TweenService:Create(
+				entry.part,
+				TweenInfo.new(duration, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+				{
+					Size = entry.size
+				}
+			):Play()
+		end
+
+		TweenService:Create(
+			billboard,
+			TweenInfo.new(duration, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+			{
+				Size = UDim2.fromScale(glowSize, glowSize)
+			}
+		):Play()
+
+		TweenService:Create(
+			light,
+			TweenInfo.new(duration),
+			{Brightness = 3}
+		):Play()
+
+		TweenService:Create(
+			hum,
+			TweenInfo.new(duration * 1.6),
+			{Volume = 1.4}
+		):Play()
+
+		Flash(BLACKHOLE_DISK_RADIUS * 1.6, 0.5)
+		Shockwave(
+			BLACKHOLE_DISK_RADIUS * 3.2,
+			0.9,
+			Color3.fromRGB(255, 190, 110),
+			5
+		)
+
+		task.delay(duration * 0.4, function()
+			if not model.Parent then return end
+			for _, trail in ipairs(trails) do
+				trail.Enabled = true
+			end
+			for _, emitter in ipairs(emitters) do
+				emitter.Enabled = true
+			end
+		end)
+	end
+
+	function hole.Intensify(duration)
+		if not model.Parent then return end
+
+		TweenService:Create(
+			hum,
+			TweenInfo.new(duration),
+			{PlaybackSpeed = 1.1}
+		):Play()
+
+		TweenService:Create(
+			light,
+			TweenInfo.new(duration),
+			{Brightness = 5}
+		):Play()
+
+		TweenService:Create(
+			infall,
+			TweenInfo.new(duration),
+			{Rate = 170}
+		):Play()
+	end
+
+	function hole.Pulse()
+		if not model.Parent then return end
+
+		TweenService:Create(
+			light,
+			TweenInfo.new(
+				0.12,
+				Enum.EasingStyle.Quad,
+				Enum.EasingDirection.Out
+			),
+			{Brightness = 9}
+		):Play()
+
+		task.delay(0.12, function()
+			if light.Parent then
+				TweenService:Create(
+					light,
+					TweenInfo.new(0.4),
+					{Brightness = 4}
+				):Play()
+			end
+		end)
+
+		Shockwave(
+			BLACKHOLE_DISK_RADIUS * 2.2,
+			0.55,
+			Color3.fromRGB(255, 220, 170),
+			4
+		)
+	end
+
+	function hole.Collapse(duration)
+		if not model.Parent then return end
+
+		for _, trail in ipairs(trails) do
+			trail.Enabled = false
+		end
+		for _, emitter in ipairs(emitters) do
+			emitter.Enabled = false
+		end
+
+		local info = TweenInfo.new(
+			duration,
+			Enum.EasingStyle.Back,
+			Enum.EasingDirection.In
+		)
+
+		TweenService:Create(
+			horizon,
+			info,
+			{
+				Size = Vector3.new(TINY, TINY, TINY)
+			}
+		):Play()
+
+		for _, entry in ipairs(discs) do
+			TweenService:Create(
+				entry.part,
+				info,
+				{
+					Size = Vector3.new(entry.size.X, TINY, TINY)
+				}
+			):Play()
+		end
+
+		TweenService:Create(
+			billboard,
+			info,
+			{
+				Size = UDim2.fromScale(TINY, TINY)
+			}
+		):Play()
+
+		TweenService:Create(
+			light,
+			TweenInfo.new(duration),
+			{Brightness = 0}
+		):Play()
+
+		TweenService:Create(
+			hum,
+			TweenInfo.new(duration),
+			{Volume = 0}
+		):Play()
+
+		task.delay(duration, function()
+			if not model.Parent then return end
+
+			Flash(
+				BLACKHOLE_DISK_RADIUS * 1.2,
+				0.35
+			)
+
+			Shockwave(
+				BLACKHOLE_DISK_RADIUS * 2.6,
+				0.6,
+				Color3.fromRGB(190, 140, 255),
+				4
+			)
+		end)
+
+		Debris:AddItem(model, duration + 1.2)
+	end
+
+	Debris:AddItem(
+		model,
+		BLACKHOLE_GROW_TIME + BLACKHOLE_PULL_DELAY + BLACKHOLE_PULL_DURATION + BLACKHOLE_COLLAPSE_TIME + 6
+	)
+
+	return hole
 end
 
---------------------------------------------------------------------------------
 -- KILL EFEKT KANALLARI
---------------------------------------------------------------------------------
 
 local EffectHandlers = {}
 
 -- 1. SKELETON
 EffectHandlers["Skeleton"] = function(victimCharacter, killerPlayer)
-        if not victimCharacter or victimCharacter:GetAttribute("IsSkeletonTransformed") then return end
+	if not victimCharacter or victimCharacter:GetAttribute("IsSkeletonTransformed") then return end
+	victimCharacter:SetAttribute("IsSkeletonTransformed", true)
 
-        victimCharacter:SetAttribute("IsSkeletonTransformed", true)
+	local targetRoot = victimCharacter:FindFirstChild("HumanoidRootPart") or victimCharacter:FindFirstChild("Head") or victimCharacter:FindFirstChildOfClass("BasePart")
+	if targetRoot then
+		PlayServerSound(96098241, targetRoot)
+	end
 
-        local targetRoot =
-                victimCharacter:FindFirstChild("HumanoidRootPart")
-                or victimCharacter:FindFirstChild("Head")
-                or victimCharacter:FindFirstChildOfClass("BasePart")
+	CreateSkeletonSmoke(victimCharacter)
 
-        if targetRoot then
-                PlayServerSound(96098241, targetRoot)
-        end
+	for _, descendant in ipairs(victimCharacter:GetDescendants()) do
+		if descendant.ClassName == "CharacterMesh" then
+			descendant:Destroy()
+		end
+	end
 
-        for _, descendant in ipairs(victimCharacter:GetDescendants()) do
-                if descendant.ClassName == "CharacterMesh" then
-                        descendant:Destroy()
-                end
-        end
+	for _, child in ipairs(victimCharacter:GetChildren()) do
+		if child:IsA("Shirt") or child:IsA("Pants") or child:IsA("ShirtGraphic") or child:IsA("Accessory") then
+			child:Destroy()
+		end
+	end
 
-        for _, child in ipairs(victimCharacter:GetChildren()) do
-                if child:IsA("Shirt")
-                        or child:IsA("Pants")
-                        or child:IsA("ShirtGraphic")
-                        or child:IsA("Accessory") then
-                        child:Destroy()
-                end
-        end
+	for _, data in ipairs(SKELETON_CHARACTER_MESHES) do
+		local charMesh = Instance.new("CharacterMesh")
+		charMesh.Name = data.Name
+		charMesh.BodyPart = data.BodyPart
+		charMesh.MeshId = data.MeshId
+		charMesh.BaseTextureId = data.BaseTextureId
+		charMesh.OverlayTextureId = data.OverlayTextureId
+		charMesh.Parent = victimCharacter
+	end
 
-        for _, data in ipairs(SKELETON_CHARACTER_MESHES) do
-                local charMesh = Instance.new("CharacterMesh")
-                charMesh.Name = data.Name
-                charMesh.BodyPart = data.BodyPart
-                charMesh.MeshId = data.MeshId
-                charMesh.BaseTextureId = data.BaseTextureId
-                charMesh.OverlayTextureId = data.OverlayTextureId
-                charMesh.Parent = victimCharacter
-        end
-
-        ReplaceHeadWithSkeletonHead(victimCharacter)
+	ReplaceHeadWithSkeletonHead(victimCharacter)
 end
 
 -- 2. DIAMOND
 EffectHandlers["Diamond"] = function(victimCharacter, killerPlayer)
-        if not victimCharacter or victimCharacter:GetAttribute("IsDiamondTransformed") then return end
+	if not victimCharacter or victimCharacter:GetAttribute("IsDiamondTransformed") then return end
+	victimCharacter:SetAttribute("IsDiamondTransformed", true)
 
-        victimCharacter:SetAttribute("IsDiamondTransformed", true)
+	local targetRoot = victimCharacter:FindFirstChild("HumanoidRootPart") or victimCharacter:FindFirstChild("Torso") or victimCharacter:FindFirstChildOfClass("BasePart")
+	if targetRoot then
+		PlayServerSound(9114223179, targetRoot)
+	end
 
-        local targetRoot =
-                victimCharacter:FindFirstChild("HumanoidRootPart")
-                or victimCharacter:FindFirstChild("Torso")
-                or victimCharacter:FindFirstChildOfClass("BasePart")
+	for _, child in ipairs(victimCharacter:GetChildren()) do
+		if child:IsA("Clothing") or child:IsA("ShirtGraphic") or child:IsA("Accessory") or child:IsA("BodyColors") or child:IsA("CharacterMesh") then
+			child:Destroy()
+		end
+	end
 
-        if targetRoot then
-                PlayServerSound(9114223179, targetRoot)
-        end
+	local head = victimCharacter:FindFirstChild("Head")
+	if head then
+		head:Destroy()
+	end
 
-        for _, child in ipairs(victimCharacter:GetChildren()) do
-                if child:IsA("Clothing")
-                        or child:IsA("ShirtGraphic")
-                        or child:IsA("Accessory")
-                        or child:IsA("BodyColors")
-                        or child:IsA("CharacterMesh") then
-                        child:Destroy()
-                end
-        end
+	local pushDirection = Vector3.new(0, 50, 0)
+	if killerPlayer and killerPlayer.Character then
+		local killerRoot = killerPlayer.Character:FindFirstChild("HumanoidRootPart") or killerPlayer.Character:FindFirstChild("Torso")
+		if killerRoot then
+			pushDirection = (killerRoot.CFrame.LookVector * 130) + Vector3.new(0, 55, 0)
+		end
+	end
 
-        local head = victimCharacter:FindFirstChild("Head")
-
-        if head then
-                head:Destroy()
-        end
-
-        local pushDirection = Vector3.new(0, 50, 0)
-
-        if killerPlayer and killerPlayer.Character then
-                local killerRoot =
-                        killerPlayer.Character:FindFirstChild("HumanoidRootPart")
-                        or killerPlayer.Character:FindFirstChild("Torso")
-
-                if killerRoot then
-                        pushDirection =
-                                (killerRoot.CFrame.LookVector * 130)
-                                + Vector3.new(0, 55, 0)
-                end
-        end
-
-        for _, part in ipairs(victimCharacter:GetChildren()) do
-                if part:IsA("BasePart") then
-                        part.Material = Enum.Material.Glass
-                        part.Color = DIAMOND_COLOR
-                        part.Transparency = 0.15
-                        part.Reflectance = 0.8
-                        part.AssemblyLinearVelocity = pushDirection
-
-                        CreateDiamondSparkle(part)
-                end
-        end
+	for _, part in ipairs(victimCharacter:GetChildren()) do
+		if part:IsA("BasePart") then
+			part.Material = Enum.Material.Glass
+			part.Color = DIAMOND_COLOR
+			part.Transparency = 0.15
+			part.Reflectance = 0.8
+			part.AssemblyLinearVelocity = pushDirection
+			CreateDiamondSparkle(part)
+		end
+	end
 end
 
 -- 3. GHOST
 EffectHandlers["Ghost"] = function(victimCharacter, killerPlayer)
-        if not victimCharacter or victimCharacter:GetAttribute("IsGhostTransformed") then return end
+	if not victimCharacter or victimCharacter:GetAttribute("IsGhostTransformed") then return end
+	victimCharacter:SetAttribute("IsGhostTransformed", true)
 
-        victimCharacter:SetAttribute("IsGhostTransformed", true)
+	local hrp = victimCharacter:FindFirstChild("HumanoidRootPart")
+	local humanoid = victimCharacter:FindFirstChildOfClass("Humanoid")
 
-        local hrp = victimCharacter:FindFirstChild("HumanoidRootPart")
-        local humanoid = victimCharacter:FindFirstChildOfClass("Humanoid")
+	local soundPart = hrp or victimCharacter:FindFirstChild("Torso") or victimCharacter:FindFirstChildOfClass("BasePart")
+	if soundPart then
+		PlayServerSound(GHOST_SOUND_ID, soundPart)
+	end
 
-        local soundPart =
-                hrp
-                or victimCharacter:FindFirstChild("Torso")
-                or victimCharacter:FindFirstChildOfClass("BasePart")
+	if not hrp then
+		Debris:AddItem(victimCharacter, 2)
+		return
+	end
 
-        if soundPart then
-                PlayServerSound(GHOST_SOUND_ID, soundPart)
-        end
+	if humanoid then
+		humanoid.BreakJointsOnDeath = false
+		humanoid.PlatformStand = true
+		humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+	end
 
-        if not hrp then
-                Debris:AddItem(victimCharacter, 2)
-                return
-        end
+	EnsureRootAttached(victimCharacter)
+	ReattachAccessories(victimCharacter)
 
-        if humanoid then
-                humanoid.BreakJointsOnDeath = false
-                humanoid.PlatformStand = true
-                humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
-        end
+	if not BuildR6Ragdoll(victimCharacter) then
+		WeldPartsToRoot(victimCharacter, hrp)
+	end
 
-        EnsureRootAttached(victimCharacter)
-        ReattachAccessories(victimCharacter)
+	for _, part in ipairs(victimCharacter:GetDescendants()) do
+		if part:IsA("BasePart") then
+			part.CanCollide = false
 
-        if not BuildR6Ragdoll(victimCharacter) then
-                WeldPartsToRoot(victimCharacter, hrp)
-        end
+			local gravityAttachment = Instance.new("Attachment")
+			gravityAttachment.Name = "GhostGravityAttachment"
+			gravityAttachment.Parent = part
 
-        for _, part in ipairs(victimCharacter:GetDescendants()) do
-                if part:IsA("BasePart") then
-                        part.CanCollide = false
+			local antiGravity = Instance.new("VectorForce")
+			antiGravity.Name = "GhostAntiGravity"
+			antiGravity.Attachment0 = gravityAttachment
+			antiGravity.RelativeTo = Enum.ActuatorRelativeTo.World
+			antiGravity.ApplyAtCenterOfMass = true
+			antiGravity.Force = Vector3.new(
+				0,
+				part:GetMass() * workspace.Gravity * GHOST_ANTIGRAVITY,
+				0
+			)
+			antiGravity.Parent = part
+		end
+	end
 
-                        local gravityAttachment = Instance.new("Attachment")
-                        gravityAttachment.Name = "GhostGravityAttachment"
-                        gravityAttachment.Parent = part
+	TakeServerPhysicsOwnership(victimCharacter)
 
-                        local antiGravity = Instance.new("VectorForce")
-                        antiGravity.Name = "GhostAntiGravity"
-                        antiGravity.Attachment0 = gravityAttachment
-                        antiGravity.RelativeTo = Enum.ActuatorRelativeTo.World
-                        antiGravity.ApplyAtCenterOfMass = true
-                        antiGravity.Force = Vector3.new(
-                                0,
-                                part:GetMass() * workspace.Gravity * GHOST_ANTIGRAVITY,
-                                0
-                        )
-                        antiGravity.Parent = part
-                end
-        end
+	victimCharacter:SetAttribute("KilledByDivineAxe", true)
 
-        TakeServerPhysicsOwnership(victimCharacter)
+	local fadeTargets = {}
+	for _, obj in ipairs(victimCharacter:GetDescendants()) do
+		if (obj:IsA("BasePart") and obj ~= hrp) or obj:IsA("Decal") then
+			if obj.Transparency < 1 then
+				table.insert(fadeTargets, {
+					instance = obj,
+					base = obj.Transparency
+				})
+			end
+		end
+	end
 
-        victimCharacter:SetAttribute("KilledByDivineAxe", true)
+	local glow = Instance.new("PointLight")
+	glow.Name = "GhostGlow"
+	glow.Color = GHOST_COLOR
+	glow.Range = 10
+	glow.Brightness = 1.5
+	glow.Shadows = false
+	glow.Parent = hrp
 
-        local fadeTargets = {}
+	local wisps = Instance.new("ParticleEmitter")
+	wisps.Name = "GhostWisps"
+	wisps.Texture = "rbxassetid://258122325"
+	wisps.Color = ColorSequence.new(GHOST_COLOR)
+	wisps.LightEmission = 0.6
+	wisps.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.7),
+		NumberSequenceKeypoint.new(1, 0),
+	})
+	wisps.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.4),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	wisps.Lifetime = NumberRange.new(0.8, 1.6)
+	wisps.Speed = NumberRange.new(0.5, 2)
+	wisps.Acceleration = Vector3.new(0, 3, 0)
+	wisps.SpreadAngle = Vector2.new(180, 180)
+	wisps.Rate = 25
+	wisps.Parent = hrp
 
-        for _, obj in ipairs(victimCharacter:GetDescendants()) do
-                if (obj:IsA("BasePart") and obj ~= hrp)
-                        or obj:IsA("Decal") then
+	local holdAttachment = Instance.new("Attachment")
+	holdAttachment.Name = "GhostHoldAttachment"
+	holdAttachment.Parent = hrp
 
-                        if obj.Transparency < 1 then
-                                table.insert(fadeTargets, {
-                                        instance = obj,
-                                        base = obj.Transparency
-                                })
-                        end
-                end
-        end
+	local startPosition = hrp.Position
+	local look = hrp.CFrame.LookVector
+	local baseYaw = math.atan2(-look.X, -look.Z)
+	local tilt = math.rad(GHOST_TILT_DEGREES)
+	local phase = math.random() * math.pi * 2
 
-        local glow = Instance.new("PointLight")
-        glow.Name = "GhostGlow"
-        glow.Color = GHOST_COLOR
-        glow.Range = 10
-        glow.Brightness = 1.5
-        glow.Shadows = false
-        glow.Parent = hrp
+	local alignPosition = Instance.new("AlignPosition")
+	alignPosition.Name = "GhostHoldPosition"
+	alignPosition.Mode = Enum.PositionAlignmentMode.OneAttachment
+	alignPosition.Attachment0 = holdAttachment
+	alignPosition.Position = startPosition
+	alignPosition.ApplyAtCenterOfMass = true
+	alignPosition.RigidityEnabled = false
+	alignPosition.MaxForce = 200000
+	alignPosition.MaxVelocity = 14
+	alignPosition.Responsiveness = 20
+	alignPosition.Parent = hrp
 
-        local wisps = Instance.new("ParticleEmitter")
-        wisps.Name = "GhostWisps"
-        wisps.Texture = "rbxassetid://258122325"
-        wisps.Color = ColorSequence.new(GHOST_COLOR)
-        wisps.LightEmission = 0.6
-        wisps.Size = NumberSequence.new({
-                NumberSequenceKeypoint.new(0, 0.7),
-                NumberSequenceKeypoint.new(1, 0),
-        })
+	local alignOrientation = Instance.new("AlignOrientation")
+	alignOrientation.Name = "GhostHoldOrientation"
+	alignOrientation.Mode = Enum.OrientationAlignmentMode.OneAttachment
+	alignOrientation.Attachment0 = holdAttachment
+	alignOrientation.CFrame = hrp.CFrame.Rotation
+	alignOrientation.RigidityEnabled = false
+	alignOrientation.MaxTorque = 100000
+	alignOrientation.MaxAngularVelocity = 3
+	alignOrientation.Responsiveness = 12
+	alignOrientation.Parent = hrp
 
-        wisps.Transparency = NumberSequence.new({
-                NumberSequenceKeypoint.new(0, 0.4),
-                NumberSequenceKeypoint.new(1, 1),
-        })
+	Debris:AddItem(victimCharacter, GHOST_DURATION + 3)
 
-        wisps.Lifetime = NumberRange.new(0.8, 1.6)
-        wisps.Speed = NumberRange.new(0.5, 2)
-        wisps.Acceleration = Vector3.new(0, 3, 0)
-        wisps.SpreadAngle = Vector2.new(180, 180)
-        wisps.Rate = 25
-        wisps.Parent = hrp
+	task.spawn(function()
+		local startTime = os.clock()
 
-        local holdAttachment = Instance.new("Attachment")
-        holdAttachment.Name = "GhostHoldAttachment"
-        holdAttachment.Parent = hrp
+		while true do
+			if not victimCharacter.Parent or not hrp.Parent then return end
 
-        local startPosition = hrp.Position
-        local look = hrp.CFrame.LookVector
-        local baseYaw = math.atan2(-look.X, -look.Z)
-        local tilt = math.rad(GHOST_TILT_DEGREES)
-        local phase = math.random() * math.pi * 2
+			local elapsed = os.clock() - startTime
+			local alpha = math.clamp(elapsed / GHOST_DURATION, 0, 1)
 
-        local alignPosition = Instance.new("AlignPosition")
-        alignPosition.Name = "GhostHoldPosition"
-        alignPosition.Mode = Enum.PositionAlignmentMode.OneAttachment
-        alignPosition.Attachment0 = holdAttachment
-        alignPosition.Position = startPosition
-        alignPosition.ApplyAtCenterOfMass = true
-        alignPosition.RigidityEnabled = false
-        alignPosition.MaxForce = 200000
-        alignPosition.MaxVelocity = 14
-        alignPosition.Responsiveness = 20
-        alignPosition.Parent = hrp
+			local rise = GHOST_RISE_HEIGHT * math.sin(alpha * math.pi / 2)
+			local sway = GHOST_SWAY_AMPLITUDE * math.min(1, elapsed)
 
-        local alignOrientation = Instance.new("AlignOrientation")
-        alignOrientation.Name = "GhostHoldOrientation"
-        alignOrientation.Mode = Enum.OrientationAlignmentMode.OneAttachment
-        alignOrientation.Attachment0 = holdAttachment
-        alignOrientation.CFrame = hrp.CFrame.Rotation
-        alignOrientation.RigidityEnabled = false
-        alignOrientation.MaxTorque = 100000
-        alignOrientation.MaxAngularVelocity = 3
-        alignOrientation.Responsiveness = 12
-        alignOrientation.Parent = hrp
+			alignPosition.Position = startPosition + Vector3.new(
+				math.sin(elapsed * 1.6 + phase) * sway,
+				rise + math.sin(elapsed * 2.8 + phase) * 0.25,
+				math.cos(elapsed * 1.2 + phase) * sway * 0.7
+			)
 
-        Debris:AddItem(victimCharacter, GHOST_DURATION + 3)
+			local settle = math.min(1, elapsed / 0.8)
+			alignOrientation.CFrame = CFrame.Angles(
+				0,
+				baseYaw + elapsed * 0.35,
+				0
+			) * CFrame.Angles(
+				tilt * settle + math.sin(elapsed * 1.3 + phase) * 0.08,
+				0,
+				math.sin(elapsed * 1.7 + phase) * 0.1
+			)
 
-        task.spawn(function()
-                local startTime = os.clock()
+			local fadeAlpha = math.clamp(
+				(alpha - GHOST_FADE_START) / (1 - GHOST_FADE_START),
+				0,
+				1
+			)
+			fadeAlpha = fadeAlpha * fadeAlpha * (3 - 2 * fadeAlpha)
 
-                while true do
-                        if not victimCharacter.Parent or not hrp.Parent then
-                                return
-                        end
+			for _, entry in ipairs(fadeTargets) do
+				local inst = entry.instance
+				if inst.Parent then
+					inst.Transparency = entry.base + (1 - entry.base) * fadeAlpha
+				end
+			end
 
-                        local elapsed = os.clock() - startTime
-                        local alpha = math.clamp(elapsed / GHOST_DURATION, 0, 1)
+			glow.Brightness = 1.5 * (1 - fadeAlpha)
+			wisps.Rate = 25 * (1 - fadeAlpha)
 
-                        local rise = GHOST_RISE_HEIGHT * math.sin(alpha * math.pi / 2)
-                        local sway = GHOST_SWAY_AMPLITUDE * math.min(1, elapsed)
+			if alpha >= 1 then break end
+			RunService.Heartbeat:Wait()
+		end
 
-                        alignPosition.Position =
-                                startPosition
-                                + Vector3.new(
-                                        math.sin(elapsed * 1.6 + phase) * sway,
-                                        rise + math.sin(elapsed * 2.8 + phase) * 0.25,
-                                        math.cos(elapsed * 1.2 + phase) * sway * 0.7
-                                )
-
-                        local settle = math.min(1, elapsed / 0.8)
-
-                        alignOrientation.CFrame =
-                                CFrame.Angles(
-                                        0,
-                                        baseYaw + elapsed * 0.35,
-                                        0
-                                )
-                                * CFrame.Angles(
-                                        tilt * settle + math.sin(elapsed * 1.3 + phase) * 0.08,
-                                        0,
-                                        math.sin(elapsed * 1.7 + phase) * 0.1
-                                )
-
-                        local fadeAlpha =
-                                math.clamp(
-                                        (alpha - GHOST_FADE_START)
-                                        / (1 - GHOST_FADE_START),
-                                        0,
-                                        1
-                                )
-
-                        fadeAlpha =
-                                fadeAlpha
-                                * fadeAlpha
-                                * (3 - 2 * fadeAlpha)
-
-                        for _, entry in ipairs(fadeTargets) do
-                                local inst = entry.instance
-
-                                if inst.Parent then
-                                        inst.Transparency =
-                                                entry.base
-                                                + (1 - entry.base) * fadeAlpha
-                                end
-                        end
-
-                        glow.Brightness = 1.5 * (1 - fadeAlpha)
-                        wisps.Rate = 25 * (1 - fadeAlpha)
-
-                        if alpha >= 1 then
-                                break
-                        end
-
-                        RunService.Heartbeat:Wait()
-                end
-
-                task.wait(0.15)
-
-                if victimCharacter.Parent then
-                        victimCharacter:Destroy()
-                end
-        end)
+		task.wait(0.15)
+		if victimCharacter.Parent then
+			victimCharacter:Destroy()
+		end
+	end)
 end
 
 -- 4. HEADLESS
 EffectHandlers["Headless"] = function(victimCharacter, killerPlayer)
-        if not victimCharacter or victimCharacter:GetAttribute("IsHeadlessTransformed") then return end
+	if not victimCharacter or victimCharacter:GetAttribute("IsHeadlessTransformed") then return end
+	victimCharacter:SetAttribute("IsHeadlessTransformed", true)
 
-        victimCharacter:SetAttribute("IsHeadlessTransformed", true)
+	local targetRoot = victimCharacter:FindFirstChild("HumanoidRootPart") or victimCharacter:FindFirstChild("Torso") or victimCharacter:FindFirstChildOfClass("BasePart")
+	if targetRoot then
+		PlayServerSound(128403319571587, targetRoot)
+	end
 
-        local targetRoot =
-                victimCharacter:FindFirstChild("HumanoidRootPart")
-                or victimCharacter:FindFirstChild("Torso")
-                or victimCharacter:FindFirstChildOfClass("BasePart")
+	if killerPlayer and killerPlayer.Character then
+		local killerRoot = killerPlayer.Character:FindFirstChild("HumanoidRootPart") or killerPlayer.Character:FindFirstChild("Torso")
+		if killerRoot then
+			victimCharacter:SetAttribute(
+				"KatanaAttackerPos",
+				killerRoot.Position
+			)
+		end
+	end
 
-        if targetRoot then
-                PlayServerSound(128403319571587, targetRoot)
-        end
+	victimCharacter:SetAttribute("KilledByKatana", true)
 
-        if killerPlayer and killerPlayer.Character then
-                local killerRoot =
-                        killerPlayer.Character:FindFirstChild("HumanoidRootPart")
-                        or killerPlayer.Character:FindFirstChild("Torso")
-
-                if killerRoot then
-                        victimCharacter:SetAttribute(
-                                "KatanaAttackerPos",
-                                killerRoot.Position
-                        )
-                end
-        end
-
-        victimCharacter:SetAttribute("KilledByKatana", true)
-
-        if targetRoot then
-                PlayKatanaBloodEffect(targetRoot.Position)
-        end
+	if targetRoot then
+		PlayKatanaBloodEffect(targetRoot.Position)
+	end
 end
 
 -- 5. LASER
 EffectHandlers["Laser"] = function(victimCharacter, killerPlayer)
-        if not victimCharacter or victimCharacter:GetAttribute("IsLaserTransformed") then return end
+	if not victimCharacter or victimCharacter:GetAttribute("IsLaserTransformed") then return end
+	victimCharacter:SetAttribute("IsLaserTransformed", true)
 
-        victimCharacter:SetAttribute("IsLaserTransformed", true)
+	local targetRoot = victimCharacter:FindFirstChild("HumanoidRootPart") or victimCharacter:FindFirstChild("Torso") or victimCharacter:FindFirstChild("Head") or victimCharacter:FindFirstChildOfClass("BasePart")
+	if targetRoot then
+		PlayServerSound(LASER_KILL_SOUND_ID, targetRoot)
+	end
 
-        local targetRoot =
-                victimCharacter:FindFirstChild("HumanoidRootPart")
-                or victimCharacter:FindFirstChild("Torso")
-                or victimCharacter:FindFirstChild("Head")
-                or victimCharacter:FindFirstChildOfClass("BasePart")
+	for _, child in ipairs(victimCharacter:GetChildren()) do
+		if child:IsA("Accessory") or child:IsA("Shirt") or child:IsA("Pants") or child:IsA("ShirtGraphic") or child:IsA("BodyColors") then
+			child:Destroy()
+		end
+	end
 
-        if targetRoot then
-                PlayServerSound(LASER_KILL_SOUND_ID, targetRoot)
-        end
+	local head = victimCharacter:FindFirstChild("Head")
+	if head then
+		for _, item in ipairs(head:GetChildren()) do
+			if item:IsA("Decal") then
+				item:Destroy()
+			end
+		end
+	end
 
-        for _, child in ipairs(victimCharacter:GetChildren()) do
-                if child:IsA("Accessory")
-                        or child:IsA("Shirt")
-                        or child:IsA("Pants")
-                        or child:IsA("ShirtGraphic")
-                        or child:IsA("BodyColors") then
-                        child:Destroy()
-                end
-        end
+	for _, part in ipairs(victimCharacter:GetDescendants()) do
+		if part:IsA("BasePart") then
+			part.Material = Enum.Material.Neon
+			part.Color = LASER_COLOR
 
-        local head = victimCharacter:FindFirstChild("Head")
+			local light = Instance.new("PointLight")
+			light.Color = LASER_COLOR
+			light.Brightness = 5
+			light.Range = 8
+			light.Parent = part
+		end
+	end
 
-        if head then
-                for _, item in ipairs(head:GetChildren()) do
-                        if item:IsA("Decal") then
-                                item:Destroy()
-                        end
-                end
-        end
-
-        for _, part in ipairs(victimCharacter:GetDescendants()) do
-                if part:IsA("BasePart") then
-                        part.Material = Enum.Material.Neon
-                        part.Color = LASER_COLOR
-
-                        local light = Instance.new("PointLight")
-                        light.Color = LASER_COLOR
-                        light.Brightness = 5
-                        light.Range = 8
-                        light.Parent = part
-                end
-        end
-
-        local highlight = Instance.new("Highlight")
-        highlight.FillColor = LASER_COLOR
-        highlight.OutlineColor = LASER_OUTLINE_COLOR
-        highlight.FillTransparency = 0.1
-        highlight.DepthMode = Enum.HighlightDepthMode.Occluded
-        highlight.Parent = victimCharacter
+	local highlight = Instance.new("Highlight")
+	highlight.FillColor = LASER_COLOR
+	highlight.OutlineColor = LASER_OUTLINE_COLOR
+	highlight.FillTransparency = 0.1
+	highlight.DepthMode = Enum.HighlightDepthMode.Occluded
+	highlight.Parent = victimCharacter
 end
 
 -- 6. GOLDEN
 EffectHandlers["Golden"] = function(victimCharacter, killerPlayer)
-        if not victimCharacter or victimCharacter:GetAttribute("IsGoldenTransformed") then return end
+	if not victimCharacter or victimCharacter:GetAttribute("IsGoldenTransformed") then return end
+	victimCharacter:SetAttribute("IsGoldenTransformed", true)
 
-        victimCharacter:SetAttribute("IsGoldenTransformed", true)
+	local targetRoot = victimCharacter:FindFirstChild("HumanoidRootPart") or victimCharacter:FindFirstChild("Torso") or victimCharacter:FindFirstChild("UpperTorso") or victimCharacter:FindFirstChildOfClass("BasePart")
+	if not targetRoot then return end
 
-        local targetRoot =
-                victimCharacter:FindFirstChild("HumanoidRootPart")
-                or victimCharacter:FindFirstChild("Torso")
-                or victimCharacter:FindFirstChild("UpperTorso")
-                or victimCharacter:FindFirstChildOfClass("BasePart")
+	local attackDirection = Vector3.new(0, 0, -1)
+	if killerPlayer and killerPlayer.Character then
+		local killerRoot = killerPlayer.Character:FindFirstChild("HumanoidRootPart") or killerPlayer.Character:FindFirstChild("Torso")
+		if killerRoot then
+			attackDirection = killerRoot.CFrame.LookVector
+		end
+	end
 
-        if not targetRoot then return end
+	PlayServerSound(GOLD_TRANSFORM_SOUND_ID, targetRoot, 4)
+	SpawnGoldenBurstOnTarget(targetRoot)
 
-        local attackDirection = Vector3.new(0, 0, -1)
+	for _, item in ipairs(victimCharacter:GetChildren()) do
+		if item:IsA("Shirt") or item:IsA("Pants") or item:IsA("ShirtGraphic") then
+			item:Destroy()
+		end
+	end
 
-        if killerPlayer and killerPlayer.Character then
-                local killerRoot =
-                        killerPlayer.Character:FindFirstChild("HumanoidRootPart")
-                        or killerPlayer.Character:FindFirstChild("Torso")
+	local basePart = targetRoot
 
-                if killerRoot then
-                        attackDirection = killerRoot.CFrame.LookVector
-                end
-        end
+	for _, desc in ipairs(victimCharacter:GetDescendants()) do
+		if desc:IsA("BasePart") then
+			desc.Color = GOLD_COLOR
+			desc.Material = GOLD_MATERIAL
+			desc.Reflectance = GOLD_REFLECTANCE
 
-        PlayServerSound(GOLD_TRANSFORM_SOUND_ID, targetRoot, 4)
-        SpawnGoldenBurstOnTarget(targetRoot)
+			if desc:IsA("MeshPart") then
+				desc.TextureID = ""
+			end
 
-        for _, item in ipairs(victimCharacter:GetChildren()) do
-                if item:IsA("Shirt")
-                        or item:IsA("Pants")
-                        or item:IsA("ShirtGraphic") then
-                        item:Destroy()
-                end
-        end
+			for _, child in ipairs(desc:GetChildren()) do
+				if child:IsA("Decal") or child:IsA("Texture") then
+					child:Destroy()
+				elseif child:IsA("SpecialMesh") then
+					child.TextureId = ""
+				end
+			end
 
-        local basePart = targetRoot
+			if desc ~= basePart then
+				local weld = Instance.new("WeldConstraint")
+				weld.Part0 = basePart
+				weld.Part1 = desc
+				weld.Parent = basePart
+			end
 
-        for _, desc in ipairs(victimCharacter:GetDescendants()) do
-                if desc:IsA("BasePart") then
-                        desc.Color = GOLD_COLOR
-                        desc.Material = GOLD_MATERIAL
-                        desc.Reflectance = GOLD_REFLECTANCE
+		elseif desc:IsA("Accessory") then
+			for _, accDesc in ipairs(desc:GetDescendants()) do
+				if accDesc:IsA("BasePart") then
+					accDesc.Color = GOLD_COLOR
+					accDesc.Material = GOLD_MATERIAL
+					accDesc.Reflectance = GOLD_REFLECTANCE
 
-                        if desc:IsA("MeshPart") then
-                                desc.TextureID = ""
-                        end
+					if accDesc:IsA("MeshPart") then
+						accDesc.TextureID = ""
+					end
+				elseif accDesc:IsA("SpecialMesh") then
+					accDesc.TextureId = ""
+				elseif accDesc:IsA("Decal") or accDesc:IsA("Texture") then
+					accDesc:Destroy()
+				end
+			end
+		end
+	end
 
-                        for _, child in ipairs(desc:GetChildren()) do
-                                if child:IsA("Decal") or child:IsA("Texture") then
-                                        child:Destroy()
-                                elseif child:IsA("SpecialMesh") then
-                                        child.TextureId = ""
-                                end
-                        end
+	basePart.AssemblyLinearVelocity = (attackDirection * 65) + Vector3.new(0, 20, 0)
+	basePart.AssemblyAngularVelocity = Vector3.new(
+		math.random(-5, 5),
+		math.random(-5, 5),
+		math.random(-5, 5)
+	)
 
-                        if desc ~= basePart then
-                                local weld = Instance.new("WeldConstraint")
-                                weld.Part0 = basePart
-                                weld.Part1 = desc
-                                weld.Parent = basePart
-                        end
-
-                elseif desc:IsA("Accessory") then
-                        for _, accDesc in ipairs(desc:GetDescendants()) do
-                                if accDesc:IsA("BasePart") then
-                                        accDesc.Color = GOLD_COLOR
-                                        accDesc.Material = GOLD_MATERIAL
-                                        accDesc.Reflectance = GOLD_REFLECTANCE
-
-                                        if accDesc:IsA("MeshPart") then
-                                                accDesc.TextureID = ""
-                                        end
-
-                                elseif accDesc:IsA("SpecialMesh") then
-                                        accDesc.TextureId = ""
-
-                                elseif accDesc:IsA("Decal")
-                                        or accDesc:IsA("Texture") then
-                                        accDesc:Destroy()
-                                end
-                        end
-                end
-        end
-
-        basePart.AssemblyLinearVelocity =
-                (attackDirection * 65)
-                + Vector3.new(0, 20, 0)
-
-        basePart.AssemblyAngularVelocity = Vector3.new(
-                math.random(-5, 5),
-                math.random(-5, 5),
-                math.random(-5, 5)
-        )
-
-        Debris:AddItem(victimCharacter, 8)
+	Debris:AddItem(victimCharacter, 8)
 end
 
 -- 7. HELLFIRE
 EffectHandlers["HellFire"] = function(victimCharacter, killerPlayer)
-        if not victimCharacter or victimCharacter:GetAttribute("DivineDeathActive") then return end
+	if not victimCharacter or victimCharacter:GetAttribute("DivineDeathActive") then return end
+	victimCharacter:SetAttribute("DivineDeathActive", true)
 
-        victimCharacter:SetAttribute("DivineDeathActive", true)
+	local hrp = victimCharacter:FindFirstChild("HumanoidRootPart")
+	local targetRoot = hrp or victimCharacter:FindFirstChild("Torso")
+	local targetHum = victimCharacter:FindFirstChildOfClass("Humanoid")
 
-        local hrp = victimCharacter:FindFirstChild("HumanoidRootPart")
-        local targetRoot = hrp or victimCharacter:FindFirstChild("Torso")
-        local targetHum = victimCharacter:FindFirstChildOfClass("Humanoid")
+	local attackerChar = killerPlayer and killerPlayer.Character
+	local attackerRoot = attackerChar and (
+		attackerChar:FindFirstChild("HumanoidRootPart") or attackerChar:FindFirstChild("Torso")
+	)
 
-        local attackerChar = killerPlayer and killerPlayer.Character
+	if targetHum then
+		targetHum.BreakJointsOnDeath = false
+		targetHum.PlatformStand = true
+	end
 
-        local attackerRoot =
-                attackerChar
-                and (
-                        attackerChar:FindFirstChild("HumanoidRootPart")
-                        or attackerChar:FindFirstChild("Torso")
-                )
+	if targetRoot then
+		PlayServerSound(HELLFIRE_KILL_SOUND_ID, targetRoot, 1.5)
+	end
 
-        if targetHum then
-                targetHum.BreakJointsOnDeath = false
-                targetHum.PlatformStand = true
-        end
+	for _, child in ipairs(victimCharacter:GetChildren()) do
+		if child:IsA("Accessory") or child:IsA("Shirt") or child:IsA("Pants") or child:IsA("ShirtGraphic") or child:IsA("BodyColors") then
+			child:Destroy()
+		end
+	end
 
-        if targetRoot then
-                PlayServerSound(HELLFIRE_KILL_SOUND_ID, targetRoot, 1.5)
-        end
+	local head = victimCharacter:FindFirstChild("Head")
+	if head then
+		for _, item in ipairs(head:GetChildren()) do
+			if item:IsA("Decal") then
+				item:Destroy()
+			end
+		end
+	end
 
-        for _, child in ipairs(victimCharacter:GetChildren()) do
-                if child:IsA("Accessory")
-                        or child:IsA("Shirt")
-                        or child:IsA("Pants")
-                        or child:IsA("ShirtGraphic")
-                        or child:IsA("BodyColors") then
-                        child:Destroy()
-                end
-        end
+	EnsureRootAttached(victimCharacter)
 
-        local head = victimCharacter:FindFirstChild("Head")
+	if not BuildR6Ragdoll(victimCharacter) and hrp then
+		WeldPartsToRoot(victimCharacter, hrp)
+	end
 
-        if head then
-                for _, item in ipairs(head:GetChildren()) do
-                        if item:IsA("Decal") then
-                                item:Destroy()
-                        end
-                end
-        end
+	if hrp then
+		hrp.CanCollide = false
+	end
 
-        EnsureRootAttached(victimCharacter)
+	TakeServerPhysicsOwnership(victimCharacter)
 
-        if not BuildR6Ragdoll(victimCharacter) and hrp then
-                WeldPartsToRoot(victimCharacter, hrp)
-        end
+	if targetRoot then
+		local pushDirection = Vector3.new(0, 1, 0)
+		if attackerRoot then
+			local delta = targetRoot.Position - attackerRoot.Position
+			if delta.Magnitude > 0.001 then
+				pushDirection = delta.Unit
+			else
+				pushDirection = attackerRoot.CFrame.LookVector
+			end
+		end
 
-        if hrp then
-                hrp.CanCollide = false
-        end
+		local throwVelocity = (pushDirection * 40) + Vector3.new(0, 30, 0)
+		for _, child in ipairs(victimCharacter:GetDescendants()) do
+			if child:IsA("BasePart") then
+				child.AssemblyLinearVelocity = throwVelocity
+				child.AssemblyAngularVelocity = Vector3.new(
+					math.random(-8, 8),
+					math.random(-8, 8),
+					math.random(-8, 8)
+				)
+			end
+		end
+	end
 
-        TakeServerPhysicsOwnership(victimCharacter)
+	if targetRoot then
+		local fire = Instance.new("Fire")
+		fire.Name = "DivineDeathFire"
+		fire.Color = Color3.fromRGB(255, 0, 0)
+		fire.SecondaryColor = Color3.fromRGB(255, 100, 0)
+		fire.Size = 14
+		fire.Heat = 25
+		fire.Parent = targetRoot
+	end
 
-        if targetRoot then
-                local pushDirection = Vector3.new(0, 1, 0)
+	local partsToFade = {}
+	for _, child in ipairs(victimCharacter:GetDescendants()) do
+		if child:IsA("BasePart") and child ~= hrp then
+			child.CanCollide = true
+			child.Color = Color3.fromRGB(255, 40, 40)
+			child.Material = Enum.Material.Neon
+			child.Transparency = 0.4
+			table.insert(partsToFade, child)
+		end
+	end
 
-                if attackerRoot then
-                        local delta = targetRoot.Position - attackerRoot.Position
+	task.delay(HELLFIRE_LIFT_DELAY, function()
+		if not targetRoot or not targetRoot.Parent then return end
 
-                        if delta.Magnitude > 0.001 then
-                                pushDirection = delta.Unit
-                        else
-                                pushDirection = attackerRoot.CFrame.LookVector
-                        end
-                end
+		local liftAttachment = Instance.new("Attachment")
+		liftAttachment.Name = "DivineLiftAttachment"
+		liftAttachment.Parent = targetRoot
 
-                local throwVelocity =
-                        (pushDirection * 40)
-                        + Vector3.new(0, 30, 0)
+		local lift = Instance.new("LinearVelocity")
+		lift.Name = "DivineLiftPower"
+		lift.Attachment0 = liftAttachment
+		lift.RelativeTo = Enum.ActuatorRelativeTo.World
+		lift.VelocityConstraintMode = Enum.VelocityConstraintMode.Vector
+		lift.ForceLimitMode = Enum.ForceLimitMode.Magnitude
+		lift.MaxForce = 30000
+		lift.VectorVelocity = targetRoot.AssemblyLinearVelocity
+		lift.Parent = targetRoot
 
-                for _, child in ipairs(victimCharacter:GetDescendants()) do
-                        if child:IsA("BasePart") then
-                                child.AssemblyLinearVelocity = throwVelocity
-                                child.AssemblyAngularVelocity = Vector3.new(
-                                        math.random(-8, 8),
-                                        math.random(-8, 8),
-                                        math.random(-8, 8)
-                                )
-                        end
-                end
-        end
+		TweenService:Create(
+			lift,
+			TweenInfo.new(
+				0.6,
+				Enum.EasingStyle.Sine,
+				Enum.EasingDirection.Out
+			),
+			{
+				VectorVelocity = Vector3.new(
+					0,
+					HELLFIRE_LIFT_SPEED,
+					0
+				)
+			}
+		):Play()
 
-        if targetRoot then
-                local fire = Instance.new("Fire")
-                fire.Name = "DivineDeathFire"
-                fire.Color = Color3.fromRGB(255, 0, 0)
-                fire.SecondaryColor = Color3.fromRGB(255, 100, 0)
-                fire.Size = 14
-                fire.Heat = 25
-                fire.Parent = targetRoot
-        end
+		local fadeDuration, steps = 3.8, 38
+		for i = 1, steps do
+			task.wait(fadeDuration / steps)
+			local alpha = i / steps
+			for _, part in ipairs(partsToFade) do
+				if part and part.Parent then
+					part.Transparency = math.clamp(
+						0.4 + (alpha * 0.6),
+						0.4,
+						1
+					)
+				end
+			end
+		end
+	end)
 
-        local partsToFade = {}
-
-        for _, child in ipairs(victimCharacter:GetDescendants()) do
-                if child:IsA("BasePart") and child ~= hrp then
-                        child.CanCollide = true
-                        child.Color = Color3.fromRGB(255, 40, 40)
-                        child.Material = Enum.Material.Neon
-                        child.Transparency = 0.4
-
-                        table.insert(partsToFade, child)
-                end
-        end
-
-        task.delay(HELLFIRE_LIFT_DELAY, function()
-                if not targetRoot or not targetRoot.Parent then return end
-
-                local liftAttachment = Instance.new("Attachment")
-                liftAttachment.Name = "DivineLiftAttachment"
-                liftAttachment.Parent = targetRoot
-
-                local lift = Instance.new("LinearVelocity")
-                lift.Name = "DivineLiftPower"
-                lift.Attachment0 = liftAttachment
-                lift.RelativeTo = Enum.ActuatorRelativeTo.World
-                lift.VelocityConstraintMode = Enum.VelocityConstraintMode.Vector
-                lift.ForceLimitMode = Enum.ForceLimitMode.Magnitude
-                lift.MaxForce = 30000
-                lift.VectorVelocity = targetRoot.AssemblyLinearVelocity
-                lift.Parent = targetRoot
-
-                TweenService:Create(
-                        lift,
-                        TweenInfo.new(
-                                0.6,
-                                Enum.EasingStyle.Sine,
-                                Enum.EasingDirection.Out
-                        ),
-                        {
-                                VectorVelocity = Vector3.new(
-                                        0,
-                                        HELLFIRE_LIFT_SPEED,
-                                        0
-                                )
-                        }
-                ):Play()
-
-                local fadeDuration, steps = 3.8, 38
-
-                for i = 1, steps do
-                        task.wait(fadeDuration / steps)
-
-                        local alpha = i / steps
-
-                        for _, part in ipairs(partsToFade) do
-                                if part and part.Parent then
-                                        part.Transparency =
-                                                math.clamp(
-                                                        0.4 + (alpha * 0.6),
-                                                        0.4,
-                                                        1
-                                                )
-                                end
-                        end
-                end
-        end)
-
-        Debris:AddItem(victimCharacter, HELLFIRE_LIFETIME)
+	Debris:AddItem(victimCharacter, HELLFIRE_LIFETIME)
 end
 
 -- 8. BLACK HOLE
 EffectHandlers["BlackHole"] = function(victimCharacter, killerPlayer)
-        if not victimCharacter or victimCharacter:GetAttribute("IsBlackHoleTransformed") then return end
-
-        victimCharacter:SetAttribute("IsBlackHoleTransformed", true)
-
-        local hrp = victimCharacter:FindFirstChild("HumanoidRootPart")
-        local head = victimCharacter:FindFirstChild("Head")
-        local humanoid = victimCharacter:FindFirstChildOfClass("Humanoid")
-
-        if not hrp then
-                victimCharacter:SetAttribute("KilledByDivineAxe", true)
-                Debris:AddItem(victimCharacter, 2)
-                return
-        end
-
-        local headPosition =
-                (head and head:IsA("BasePart"))
-                and head.Position
-                or (hrp.Position + Vector3.new(0, 1.5, 0))
-
-        local holePosition =
-                headPosition
-                + Vector3.new(0, BLACKHOLE_HEIGHT_ABOVE_HEAD, 0)
-
-        if humanoid then
-                humanoid.BreakJointsOnDeath = false
-                humanoid.PlatformStand = true
-                humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
-                humanoid.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
-        end
-
-        EnsureRootAttached(victimCharacter)
-        ReattachAccessories(victimCharacter)
-
-        local ragdollBuilt = BuildR6Ragdoll(victimCharacter)
-
-        if not ragdollBuilt then
-                WeldPartsToRoot(victimCharacter, hrp)
-        end
-
-        for _, part in ipairs(victimCharacter:GetDescendants()) do
-                if part:IsA("BasePart") then
-                        part.CanCollide = false
-                end
-        end
-
-        victimCharacter:SetAttribute("KilledByDivineAxe", true)
-
-        local holdAttachment = Instance.new("Attachment")
-        holdAttachment.Name = "BlackHoleHoldAttachment"
-        holdAttachment.Parent = hrp
-
-        local startPosition = hrp.Position
-        local endPosition =
-                holePosition
-                + Vector3.new(0, BLACKHOLE_SWALLOW_DEPTH, 0)
-
-        local startRotation = hrp.CFrame.Rotation
-        local look = hrp.CFrame.LookVector
-        local baseYaw = math.atan2(-look.X, -look.Z)
-        local phase = math.random() * math.pi * 2
-
-        local alignPosition = Instance.new("AlignPosition")
-        alignPosition.Name = "BlackHoleHoldPosition"
-        alignPosition.Mode = Enum.PositionAlignmentMode.OneAttachment
-        alignPosition.Attachment0 = holdAttachment
-        alignPosition.Position = startPosition
-        alignPosition.ApplyAtCenterOfMass = true
-        alignPosition.RigidityEnabled = false
-        alignPosition.MaxForce = 400000
-        alignPosition.MaxVelocity = 40
-        alignPosition.Responsiveness = 18
-        alignPosition.Parent = hrp
-
-        local alignOrientation = Instance.new("AlignOrientation")
-        alignOrientation.Name = "BlackHoleHoldOrientation"
-        alignOrientation.Mode = Enum.OrientationAlignmentMode.OneAttachment
-        alignOrientation.Attachment0 = holdAttachment
-        alignOrientation.CFrame = startRotation
-        alignOrientation.RigidityEnabled = false
-        alignOrientation.MaxTorque = 100000
-        alignOrientation.MaxAngularVelocity = 8
-        alignOrientation.Responsiveness = 15
-        alignOrientation.Parent = hrp
-
-        local limbForces = {}
-
-        if ragdollBuilt then
-                for _, info in ipairs(RAGDOLL_JOINTS) do
-                        local limb = victimCharacter:FindFirstChild(info.limb)
-
-                        if limb and limb:IsA("BasePart") then
-                                local attachment = Instance.new("Attachment")
-                                attachment.Name = "BlackHolePullAttachment"
-                                attachment.Parent = limb
-
-                                local force = Instance.new("VectorForce")
-                                force.Name = "BlackHolePull"
-                                force.Attachment0 = attachment
-                                force.RelativeTo = Enum.ActuatorRelativeTo.World
-                                force.ApplyAtCenterOfMass = true
-                                force.Force = Vector3.zero
-                                force.Parent = limb
-
-                                table.insert(limbForces, {
-                                        part = limb,
-                                        force = force,
-                                        mass = limb.AssemblyMass
-                                })
-                        end
-                end
-        end
-
-        TakeServerPhysicsOwnership(victimCharacter)
-
-        local swallowDistance = BLACKHOLE_HORIZON_RADIUS * 1.15
-        local fadeStartDistance = BLACKHOLE_HORIZON_RADIUS * 3.4
-        local fadeEntries = {}
-
-        for _, obj in ipairs(victimCharacter:GetDescendants()) do
-                if obj:IsA("BasePart") and obj ~= hrp then
-                        if obj.Transparency < 1 then
-                                table.insert(fadeEntries, {
-                                        inst = obj,
-                                        part = obj,
-                                        base = obj.Transparency,
-                                        swallowed = false
-                                })
-                        end
-
-                elseif obj:IsA("Decal") and obj.Transparency < 1 then
-                        local ownerPart = obj.Parent
-
-                        if ownerPart and ownerPart:IsA("BasePart") then
-                                table.insert(fadeEntries, {
-                                        inst = obj,
-                                        part = ownerPart,
-                                        base = obj.Transparency,
-                                        swallowed = false
-                                })
-                        end
-                end
-        end
-
-        local strip = Instance.new("ParticleEmitter")
-        strip.Name = "BlackHoleMatterStrip"
-        strip.Texture = "rbxassetid://258122325"
-        strip.Color = ColorSequence.new(
-                Color3.fromRGB(255, 150, 60),
-                Color3.fromRGB(150, 60, 255)
-        )
-        strip.LightEmission = 0.8
-        strip.LightInfluence = 0
-
-        strip.Size = NumberSequence.new({
-                NumberSequenceKeypoint.new(0, 0.55),
-                NumberSequenceKeypoint.new(1, 0),
-        })
-
-        strip.Transparency = NumberSequence.new({
-                NumberSequenceKeypoint.new(0, 0.2),
-                NumberSequenceKeypoint.new(1, 1),
-        })
-
-        strip.Lifetime = NumberRange.new(0.5, 0.9)
-        strip.Speed = NumberRange.new(1, 3)
-        strip.Acceleration = Vector3.new(0, 35, 0)
-        strip.SpreadAngle = Vector2.new(60, 60)
-        strip.Rate = 0
-        strip.Parent = hrp
-
-        local hole = CreateBlackHole(holePosition)
-
-        PlayServerSound(
-                BLACKHOLE_SPAWN_SOUND_ID,
-                hole.Core,
-                2
-        )
-
-        hole.Grow(BLACKHOLE_GROW_TIME)
-
-        Debris:AddItem(
-                victimCharacter,
-                BLACKHOLE_PULL_DELAY
-                        + BLACKHOLE_PULL_DURATION
-                        + 4
-        )
-
-        task.spawn(function()
-                task.wait(BLACKHOLE_PULL_DELAY)
-
-                hole.Intensify(BLACKHOLE_PULL_DURATION)
-
-                local startTime = os.clock()
-
-                while true do
-                        if not victimCharacter.Parent or not hrp.Parent then
-                                break
-                        end
-
-                        local elapsed = os.clock() - startTime
-                        local progress =
-                                math.clamp(
-                                        elapsed / BLACKHOLE_PULL_DURATION,
-                                        0,
-                                        1
-                                )
-
-                        local ease =
-                                0.25 * progress
-                                + 0.75 * progress * progress
-
-                        local swirlAngle =
-                                phase
-                                + elapsed * (1.2 + 3.5 * ease)
-
-                        local swirlRadius =
-                                BLACKHOLE_SPIRAL_RADIUS
-                                * (1 - ease)
-                                * math.min(1, elapsed / 0.6)
-
-                        alignPosition.Position =
-                                startPosition:Lerp(
-                                        endPosition,
-                                        ease
-                                )
-                                + Vector3.new(
-                                        math.cos(swirlAngle),
-                                        0,
-                                        math.sin(swirlAngle)
-                                ) * swirlRadius
-
-                        local settle =
-                                math.min(1, elapsed / 0.8)
-
-                        local spin =
-                                elapsed * 0.9
-                                + 4.5 * ease * ease
-
-                        local targetRotation =
-                                CFrame.Angles(
-                                        0,
-                                        baseYaw + spin,
-                                        0
-                                )
-                                * CFrame.Angles(
-                                        math.sin(elapsed * 1.7 + phase) * 0.1,
-                                        0,
-                                        math.sin(elapsed * 1.3 + phase) * 0.1
-                                )
-
-                        alignOrientation.CFrame =
-                                startRotation:Lerp(
-                                        targetRotation,
-                                        settle
-                                )
-
-                        local pullFactor =
-                                0.25
-                                + 1.4 * ease
-
-                        for _, entry in ipairs(limbForces) do
-                                if entry.part.Parent
-                                        and entry.force.Parent then
-
-                                        local toHole =
-                                                holePosition
-                                                - entry.part.Position
-
-                                        if toHole.Magnitude > 0.05 then
-                                                entry.force.Force =
-                                                        toHole.Unit
-                                                        * entry.mass
-                                                        * workspace.Gravity
-                                                        * pullFactor
-                                        end
-                                end
-                        end
-
-                        for _, entry in ipairs(fadeEntries) do
-                                if not entry.swallowed
-                                        and entry.inst.Parent
-                                        and entry.part.Parent then
-
-                                        local distance =
-                                                (
-                                                        entry.part.Position
-                                                        - holePosition
-                                                ).Magnitude
-
-                                        if distance <= swallowDistance then
-                                                entry.swallowed = true
-                                                entry.inst.Transparency = 1
-
-                                        elseif distance < fadeStartDistance then
-                                                local t =
-                                                        1
-                                                        - (
-                                                                distance
-                                                                - swallowDistance
-                                                        )
-                                                        / (
-                                                                fadeStartDistance
-                                                                - swallowDistance
-                                                        )
-
-                                                t =
-                                                        t
-                                                        * t
-                                                        * (3 - 2 * t)
-
-                                                entry.inst.Transparency =
-                                                        entry.base
-                                                        + (1 - entry.base) * t
-                                        end
-                                end
-                        end
-
-                        strip.Rate = 8 + 55 * ease
-
-                        if progress >= 1 then
-                                break
-                        end
-
-                        RunService.Heartbeat:Wait()
-                end
-
-                strip.Enabled = false
-
-                for _, entry in ipairs(fadeEntries) do
-                        if entry.inst.Parent then
-                                entry.inst.Transparency = 1
-                        end
-                end
-
-                hole.Pulse()
-
-                task.wait(0.15)
-
-                if victimCharacter.Parent then
-                        victimCharacter:Destroy()
-                end
-
-                task.wait(0.25)
-
-                hole.Collapse(BLACKHOLE_COLLAPSE_TIME)
-        end)
+	if not victimCharacter or victimCharacter:GetAttribute("IsBlackHoleTransformed") then return end
+	victimCharacter:SetAttribute("IsBlackHoleTransformed", true)
+
+	local hrp = victimCharacter:FindFirstChild("HumanoidRootPart")
+	local head = victimCharacter:FindFirstChild("Head")
+	local humanoid = victimCharacter:FindFirstChildOfClass("Humanoid")
+
+	if not hrp then
+		victimCharacter:SetAttribute("KilledByDivineAxe", true)
+		Debris:AddItem(victimCharacter, 2)
+		return
+	end
+
+	local headPosition = (head and head:IsA("BasePart")) and head.Position or (hrp.Position + Vector3.new(0, 1.5, 0))
+	local holePosition = headPosition + Vector3.new(0, BLACKHOLE_HEIGHT_ABOVE_HEAD, 0)
+
+	if humanoid then
+		humanoid.BreakJointsOnDeath = false
+		humanoid.PlatformStand = true
+		humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+		humanoid.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
+	end
+
+	EnsureRootAttached(victimCharacter)
+	ReattachAccessories(victimCharacter)
+
+	local ragdollBuilt = BuildR6Ragdoll(victimCharacter)
+	if not ragdollBuilt then
+		WeldPartsToRoot(victimCharacter, hrp)
+	end
+
+	for _, part in ipairs(victimCharacter:GetDescendants()) do
+		if part:IsA("BasePart") then
+			part.CanCollide = false
+		end
+	end
+
+	victimCharacter:SetAttribute("KilledByDivineAxe", true)
+
+	local holdAttachment = Instance.new("Attachment")
+	holdAttachment.Name = "BlackHoleHoldAttachment"
+	holdAttachment.Parent = hrp
+
+	local startPosition = hrp.Position
+	local endPosition = holePosition + Vector3.new(0, BLACKHOLE_SWALLOW_DEPTH, 0)
+
+	local startRotation = hrp.CFrame.Rotation
+	local look = hrp.CFrame.LookVector
+	local baseYaw = math.atan2(-look.X, -look.Z)
+	local phase = math.random() * math.pi * 2
+
+	local alignPosition = Instance.new("AlignPosition")
+	alignPosition.Name = "BlackHoleHoldPosition"
+	alignPosition.Mode = Enum.PositionAlignmentMode.OneAttachment
+	alignPosition.Attachment0 = holdAttachment
+	alignPosition.Position = startPosition
+	alignPosition.ApplyAtCenterOfMass = true
+	alignPosition.RigidityEnabled = false
+	alignPosition.MaxForce = 400000
+	alignPosition.MaxVelocity = 40
+	alignPosition.Responsiveness = 18
+	alignPosition.Parent = hrp
+
+	local alignOrientation = Instance.new("AlignOrientation")
+	alignOrientation.Name = "BlackHoleHoldOrientation"
+	alignOrientation.Mode = Enum.OrientationAlignmentMode.OneAttachment
+	alignOrientation.Attachment0 = holdAttachment
+	alignOrientation.CFrame = startRotation
+	alignOrientation.RigidityEnabled = false
+	alignOrientation.MaxTorque = 100000
+	alignOrientation.MaxAngularVelocity = 8
+	alignOrientation.Responsiveness = 15
+	alignOrientation.Parent = hrp
+
+	local limbForces = {}
+	if ragdollBuilt then
+		for _, info in ipairs(RAGDOLL_JOINTS) do
+			local limb = victimCharacter:FindFirstChild(info.limb)
+			if limb and limb:IsA("BasePart") then
+				local attachment = Instance.new("Attachment")
+				attachment.Name = "BlackHolePullAttachment"
+				attachment.Parent = limb
+
+				local force = Instance.new("VectorForce")
+				force.Name = "BlackHolePull"
+				force.Attachment0 = attachment
+				force.RelativeTo = Enum.ActuatorRelativeTo.World
+				force.ApplyAtCenterOfMass = true
+				force.Force = Vector3.zero
+				force.Parent = limb
+
+				table.insert(limbForces, {
+					part = limb,
+					force = force,
+					mass = limb.AssemblyMass
+				})
+			end
+		end
+	end
+
+	TakeServerPhysicsOwnership(victimCharacter)
+
+	local swallowDistance = BLACKHOLE_HORIZON_RADIUS * 1.15
+	local fadeStartDistance = BLACKHOLE_HORIZON_RADIUS * 3.4
+
+	local fadeEntries = {}
+	for _, obj in ipairs(victimCharacter:GetDescendants()) do
+		if obj:IsA("BasePart") and obj ~= hrp then
+			if obj.Transparency < 1 then
+				table.insert(fadeEntries, {
+					inst = obj,
+					part = obj,
+					base = obj.Transparency,
+					swallowed = false
+				})
+			end
+		elseif obj:IsA("Decal") and obj.Transparency < 1 then
+			local ownerPart = obj.Parent
+			if ownerPart and ownerPart:IsA("BasePart") then
+				table.insert(fadeEntries, {
+					inst = obj,
+					part = ownerPart,
+					base = obj.Transparency,
+					swallowed = false
+				})
+			end
+		end
+	end
+
+	local strip = Instance.new("ParticleEmitter")
+	strip.Name = "BlackHoleMatterStrip"
+	strip.Texture = "rbxassetid://258122325"
+	strip.Color = ColorSequence.new(
+		Color3.fromRGB(255, 150, 60),
+		Color3.fromRGB(150, 60, 255)
+	)
+	strip.LightEmission = 0.8
+	strip.LightInfluence = 0
+	strip.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.55),
+		NumberSequenceKeypoint.new(1, 0),
+	})
+	strip.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.2),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	strip.Lifetime = NumberRange.new(0.5, 0.9)
+	strip.Speed = NumberRange.new(1, 3)
+	strip.Acceleration = Vector3.new(0, 35, 0)
+	strip.SpreadAngle = Vector2.new(60, 60)
+	strip.Rate = 0
+	strip.Parent = hrp
+
+	local hole = CreateBlackHole(holePosition)
+	PlayServerSound(
+		BLACKHOLE_SPAWN_SOUND_ID,
+		hole.Core,
+		2
+	)
+	hole.Grow(BLACKHOLE_GROW_TIME)
+
+	Debris:AddItem(
+		victimCharacter,
+		BLACKHOLE_PULL_DELAY + BLACKHOLE_PULL_DURATION + 4
+	)
+
+	task.spawn(function()
+		task.wait(BLACKHOLE_PULL_DELAY)
+		hole.Intensify(BLACKHOLE_PULL_DURATION)
+
+		local startTime = os.clock()
+
+		while true do
+			if not victimCharacter.Parent or not hrp.Parent then break end
+
+			local elapsed = os.clock() - startTime
+			local progress = math.clamp(
+				elapsed / BLACKHOLE_PULL_DURATION,
+				0,
+				1
+			)
+			local ease = 0.25 * progress + 0.75 * progress * progress
+
+			local swirlAngle = phase + elapsed * (1.2 + 3.5 * ease)
+			local swirlRadius = BLACKHOLE_SPIRAL_RADIUS * (1 - ease) * math.min(1, elapsed / 0.6)
+
+			alignPosition.Position = startPosition:Lerp(
+				endPosition,
+				ease
+			) + Vector3.new(
+				math.cos(swirlAngle),
+				0,
+				math.sin(swirlAngle)
+			) * swirlRadius
+
+			local settle = math.min(1, elapsed / 0.8)
+			local spin = elapsed * 0.9 + 4.5 * ease * ease
+
+			local targetRotation = CFrame.Angles(
+				0,
+				baseYaw + spin,
+				0
+			) * CFrame.Angles(
+				math.sin(elapsed * 1.7 + phase) * 0.1,
+				0,
+				math.sin(elapsed * 1.3 + phase) * 0.1
+			)
+
+			alignOrientation.CFrame = startRotation:Lerp(
+				targetRotation,
+				settle
+			)
+
+			local pullFactor = 0.25 + 1.4 * ease
+			for _, entry in ipairs(limbForces) do
+				if entry.part.Parent and entry.force.Parent then
+					local toHole = holePosition - entry.part.Position
+					if toHole.Magnitude > 0.05 then
+						entry.force.Force = toHole.Unit * entry.mass * workspace.Gravity * pullFactor
+					end
+				end
+			end
+
+			for _, entry in ipairs(fadeEntries) do
+				if not entry.swallowed and entry.inst.Parent and entry.part.Parent then
+					local distance = (
+						entry.part.Position - holePosition
+					).Magnitude
+
+					if distance <= swallowDistance then
+						entry.swallowed = true
+						entry.inst.Transparency = 1
+					elseif distance < fadeStartDistance then
+						local t = 1 - (
+							distance - swallowDistance
+						) / (
+							fadeStartDistance - swallowDistance
+						)
+						t = t * t * (3 - 2 * t)
+						entry.inst.Transparency = entry.base + (1 - entry.base) * t
+					end
+				end
+			end
+
+			strip.Rate = 8 + 55 * ease
+
+			if progress >= 1 then break end
+			RunService.Heartbeat:Wait()
+		end
+
+		strip.Enabled = false
+
+		for _, entry in ipairs(fadeEntries) do
+			if entry.inst.Parent then
+				entry.inst.Transparency = 1
+			end
+		end
+
+		hole.Pulse()
+		task.wait(0.15)
+
+		if victimCharacter.Parent then
+			victimCharacter:Destroy()
+		end
+
+		task.wait(0.25)
+		hole.Collapse(BLACKHOLE_COLLAPSE_TIME)
+	end)
 end
 
 -- 9. BURNING
 EffectHandlers["Burning"] = function(victimCharacter, killerPlayer)
-        if not victimCharacter or victimCharacter:GetAttribute("IsBurningTransformed") then return end
+	if not victimCharacter or victimCharacter:GetAttribute("IsBurningTransformed") then return end
+	victimCharacter:SetAttribute("IsBurningTransformed", true)
 
-        victimCharacter:SetAttribute("IsBurningTransformed", true)
+	for _, child in ipairs(victimCharacter:GetChildren()) do
+		if child:IsA("Clothing") or child:IsA("ShirtGraphic") then
+			child:Destroy()
+		end
+	end
 
-        for _, child in ipairs(victimCharacter:GetChildren()) do
-                if child:IsA("Clothing")
-                        or child:IsA("ShirtGraphic") then
-                        child:Destroy()
-                end
-        end
+	local head = victimCharacter:FindFirstChild("Head")
+	if head then
+		local face = head:FindFirstChildOfClass("Decal")
+		if face then
+			face:Destroy()
+		end
+	end
 
-        local head = victimCharacter:FindFirstChild("Head")
+	local rootPart = victimCharacter:FindFirstChild("HumanoidRootPart") or victimCharacter:FindFirstChild("Torso") or victimCharacter:FindFirstChild("UpperTorso")
+	if rootPart then
+		PlayServerSound(
+			116275103627699,
+			rootPart,
+			1.1
+		)
+	end
 
-        if head then
-                local face = head:FindFirstChildOfClass("Decal")
+	for _, obj in ipairs(victimCharacter:GetDescendants()) do
+		if obj:IsA("Texture") or obj:IsA("SurfaceAppearance") then
+			obj:Destroy()
+		elseif obj:IsA("SpecialMesh") then
+			obj.TextureId = ""
+		elseif obj:IsA("BasePart") then
+			obj.Color = Color3.fromRGB(15, 15, 15)
+			obj.Material = Enum.Material.Basalt
 
-                if face then
-                        face:Destroy()
-                end
-        end
+			if obj.Name == "HumanoidRootPart" or obj.Name == "Torso" or obj.Name == "UpperTorso" or obj.Name == "Head" then
+				local fire = Instance.new("Fire")
+				fire.Size = 8
+				fire.Heat = 12
+				fire.Color = Color3.fromRGB(255, 60, 0)
+				fire.SecondaryColor = Color3.fromRGB(255, 0, 0)
+				fire.Parent = obj
+				Debris:AddItem(fire, 6)
 
-        local rootPart =
-                victimCharacter:FindFirstChild("HumanoidRootPart")
-                or victimCharacter:FindFirstChild("Torso")
-                or victimCharacter:FindFirstChild("UpperTorso")
-
-        if rootPart then
-                PlayServerSound(
-                        116275103627699,
-                        rootPart,
-                        1.1
-                )
-        end
-
-        for _, obj in ipairs(victimCharacter:GetDescendants()) do
-                if obj:IsA("Texture")
-                        or obj:IsA("SurfaceAppearance") then
-
-                        obj:Destroy()
-
-                elseif obj:IsA("SpecialMesh") then
-                        obj.TextureId = ""
-
-                elseif obj:IsA("BasePart") then
-                        obj.Color = Color3.fromRGB(15, 15, 15)
-                        obj.Material = Enum.Material.Basalt
-
-                        if obj.Name == "HumanoidRootPart"
-                                or obj.Name == "Torso"
-                                or obj.Name == "UpperTorso"
-                                or obj.Name == "Head" then
-
-                                local fire = Instance.new("Fire")
-                                fire.Size = 8
-                                fire.Heat = 12
-                                fire.Color = Color3.fromRGB(255, 60, 0)
-                                fire.SecondaryColor = Color3.fromRGB(255, 0, 0)
-                                fire.Parent = obj
-
-                                Debris:AddItem(fire, 6)
-
-                                local emberEmitter = Instance.new("ParticleEmitter")
-                                emberEmitter.Texture = "rbxassetid://258122325"
-
-                                emberEmitter.Color = ColorSequence.new({
-                                        ColorSequenceKeypoint.new(
-                                                0,
-                                                Color3.fromRGB(255, 120, 0)
-                                        ),
-                                        ColorSequenceKeypoint.new(
-                                                1,
-                                                Color3.fromRGB(255, 0, 0)
-                                        )
-                                })
-
-                                emberEmitter.Size = NumberSequence.new({
-                                        NumberSequenceKeypoint.new(0, 0.6),
-                                        NumberSequenceKeypoint.new(1, 0)
-                                })
-
-                                emberEmitter.Lifetime = NumberRange.new(0.8, 1.8)
-                                emberEmitter.Rate = 40
-                                emberEmitter.Speed = NumberRange.new(3, 8)
-                                emberEmitter.SpreadAngle = Vector2.new(180, 180)
-                                emberEmitter.Parent = obj
-
-                                Debris:AddItem(emberEmitter, 6)
-                        end
-                end
-        end
+				local emberEmitter = Instance.new("ParticleEmitter")
+				emberEmitter.Texture = "rbxassetid://258122325"
+				emberEmitter.Color = ColorSequence.new({
+					ColorSequenceKeypoint.new(
+						0,
+						Color3.fromRGB(255, 120, 0)
+					),
+					ColorSequenceKeypoint.new(
+						1,
+						Color3.fromRGB(255, 0, 0)
+					)
+				})
+				emberEmitter.Size = NumberSequence.new({
+					NumberSequenceKeypoint.new(0, 0.6),
+					NumberSequenceKeypoint.new(1, 0)
+				})
+				emberEmitter.Lifetime = NumberRange.new(0.8, 1.8)
+				emberEmitter.Rate = 40
+				emberEmitter.Speed = NumberRange.new(3, 8)
+				emberEmitter.SpreadAngle = Vector2.new(180, 180)
+				emberEmitter.Parent = obj
+				Debris:AddItem(emberEmitter, 6)
+			end
+		end
+	end
 end
 
 -- 10. EXPLODE
 EffectHandlers["Explode"] = function(victimCharacter, killerPlayer)
-        if not victimCharacter or victimCharacter:GetAttribute("IsExplodeTransformed") then
-                return
-        end
+	if not victimCharacter or victimCharacter:GetAttribute("IsExplodeTransformed") then
+		return
+	end
+	victimCharacter:SetAttribute("IsExplodeTransformed", true)
 
-        victimCharacter:SetAttribute("IsExplodeTransformed", true)
+	local hrp = victimCharacter:FindFirstChild("HumanoidRootPart") or victimCharacter:FindFirstChild("Torso") or victimCharacter:FindFirstChild("UpperTorso")
+	local position = hrp and hrp.Position or victimCharacter:GetPivot().Position
 
-        local hrp =
-                victimCharacter:FindFirstChild("HumanoidRootPart")
-                or victimCharacter:FindFirstChild("Torso")
-                or victimCharacter:FindFirstChild("UpperTorso")
+	-- İKİ PATLAMA SESİ AYNI ANDA
+	local soundPart = hrp or victimCharacter:FindFirstChildOfClass("BasePart")
+	if soundPart then
+		PlayServerSound(
+			EXPLODE_SOUND_ID_1,
+			soundPart,
+			1.5
+		)
+		PlayServerSound(
+			EXPLODE_SOUND_ID_2,
+			soundPart,
+			1.5
+		)
+	end
 
-        local position =
-                hrp
-                and hrp.Position
-                or victimCharacter:GetPivot().Position
+	local explosion = Instance.new("Explosion")
+	explosion.Position = position
+	explosion.BlastRadius = 0
+	explosion.BlastPressure = 0
+	explosion.DestroyJointRadiusPercent = 0
+	explosion.Parent = workspace
 
-        -- İKİ PATLAMA SESİ AYNI ANDA
-        local soundPart =
-                hrp
-                or victimCharacter:FindFirstChildOfClass("BasePart")
+	-- Mevcut patlama hız ölçeği
+	local speedScale = math.sqrt(EXPLODE_SCALE)
 
-        if soundPart then
-                PlayServerSound(
-                        EXPLODE_SOUND_ID_1,
-                        soundPart,
-                        1.5
-                )
+	for _, part in ipairs(victimCharacter:GetDescendants()) do
+		if part:IsA("BasePart") and not part.Anchored then
+			-- Eklemeleri kır
+			for _, joint in ipairs(part:GetJoints()) do
+				joint:Destroy()
+			end
 
-                PlayServerSound(
-                        EXPLODE_SOUND_ID_2,
-                        soundPart,
-                        1.5
-                )
-        end
+			local offset = part.Position - position
+			local direction
 
-        local explosion = Instance.new("Explosion")
-        explosion.Position = position
-        explosion.BlastRadius = 0
-        explosion.BlastPressure = 0
-        explosion.DestroyJointRadiusPercent = 0
-        explosion.Parent = workspace
+			if offset.Magnitude > 0.001 then
+				direction = offset.Unit
+			else
+				direction = Vector3.new(
+					math.random() - 0.5,
+					0,
+					math.random() - 0.5
+				)
+				if direction.Magnitude < 0.001 then
+					direction = Vector3.new(0, 0, 1)
+				else
+					direction = direction.Unit
+				end
+			end
 
-        -- Mevcut patlama hız ölçeği
-        local speedScale = math.sqrt(EXPLODE_SCALE)
+			-- Hafif dışa doğru savrulma
+			local horizontalVelocity = direction * (20 * speedScale)
+			-- Ana yukarı savurma
+			local upwardVelocity = Vector3.new(
+				0,
+				EXPLODE_UPWARD_VELOCITY * speedScale,
+				0
+			)
 
-        for _, part in ipairs(victimCharacter:GetDescendants()) do
-                if part:IsA("BasePart") and not part.Anchored then
+			-- Hem dışa hem yukarı
+			part.AssemblyLinearVelocity = horizontalVelocity + upwardVelocity
 
-                        -- Eklemeleri kır
-                        for _, joint in ipairs(part:GetJoints()) do
-                                joint:Destroy()
-                        end
+			-- Rastgele dönme
+			part.AssemblyAngularVelocity = Vector3.new(
+				math.random(-12, 12),
+				math.random(-12, 12),
+				math.random(-12, 12)
+			)
+		end
+	end
 
-                        local offset = part.Position - position
-                        local direction
-
-                        if offset.Magnitude > 0.001 then
-                                direction = offset.Unit
-                        else
-                                direction = Vector3.new(
-                                        math.random() - 0.5,
-                                        0,
-                                        math.random() - 0.5
-                                )
-
-                                if direction.Magnitude < 0.001 then
-                                        direction = Vector3.new(0, 0, 1)
-                                else
-                                        direction = direction.Unit
-                                end
-                        end
-
-                        -- Hafif dışa doğru savrulma
-                        local horizontalVelocity =
-                                direction
-                                * (20 * speedScale)
-
-                        -- Ana yukarı savurma
-                        local upwardVelocity =
-                                Vector3.new(
-                                        0,
-                                        EXPLODE_UPWARD_VELOCITY * speedScale,
-                                        0
-                                )
-
-                        -- Hem dışa hem yukarı
-                        part.AssemblyLinearVelocity =
-                                horizontalVelocity
-                                + upwardVelocity
-
-                        -- Rastgele dönme
-                        part.AssemblyAngularVelocity =
-                                Vector3.new(
-                                        math.random(-12, 12),
-                                        math.random(-12, 12),
-                                        math.random(-12, 12)
-                                )
-                end
-        end
-
-        Debris:AddItem(victimCharacter, 5)
+	Debris:AddItem(victimCharacter, 5)
 end
 
---------------------------------------------------------------------------------
 -- OYUNCU ÖLÜM TAKİBİ VE EFEKT TETİKLEME
---------------------------------------------------------------------------------
 
 local function GetKillerEffectName(killer)
-        if not killer then return nil end
+	if not killer then return nil end
 
-        local equippedVal =
-                killer:FindFirstChild("EquippedKillEffect")
+	local equippedVal = killer:FindFirstChild("EquippedKillEffect")
+	if equippedVal and equippedVal.Value ~= "" then
+		return equippedVal.Value
+	end
 
-        if equippedVal and equippedVal.Value ~= "" then
-                return equippedVal.Value
-        end
+	local attrEffect = killer:GetAttribute("KillEffect") or killer:GetAttribute("EquippedKillEffect")
+	if attrEffect and attrEffect ~= "" then
+		return attrEffect
+	end
 
-        local attrEffect =
-                killer:GetAttribute("KillEffect")
-                or killer:GetAttribute("EquippedKillEffect")
+	local leaderstats = killer:FindFirstChild("leaderstats")
+	local lsEffect = leaderstats and leaderstats:FindFirstChild("KillEffect")
+	if lsEffect and lsEffect.Value ~= "" then
+		return lsEffect.Value
+	end
 
-        if attrEffect and attrEffect ~= "" then
-                return attrEffect
-        end
-
-        local leaderstats =
-                killer:FindFirstChild("leaderstats")
-
-        local lsEffect =
-                leaderstats
-                and leaderstats:FindFirstChild("KillEffect")
-
-        if lsEffect and lsEffect.Value ~= "" then
-                return lsEffect.Value
-        end
-
-        return nil
+	return nil
 end
 
-local EffectLockedCharacters =
-        setmetatable({}, {__mode = "k"})
-
-local HookedCharacters =
-        setmetatable({}, {__mode = "k"})
+local EffectLockedCharacters = setmetatable({}, {__mode = "k"})
+local HookedCharacters = setmetatable({}, {__mode = "k"})
 
 local function OnCharacterAdded(character, player)
-        if HookedCharacters[character] then
-                return
-        end
+	if HookedCharacters[character] then
+		return
+	end
+	HookedCharacters[character] = true
 
-        HookedCharacters[character] = true
+	local humanoid = character:WaitForChild("Humanoid", 10)
+	if not humanoid then return end
 
-        local humanoid =
-                character:WaitForChild("Humanoid", 10)
+	humanoid.Died:Connect(function()
+		if EffectLockedCharacters[character] then return end
+		EffectLockedCharacters[character] = true
 
-        if not humanoid then
-                return
-        end
+		-- 1. Doğrudan Silah Attribute'ları
+		if character:GetAttribute("KilledByLaser") then
+			local killerPlayer = nil
+			local killerId = character:GetAttribute("LaserKiller")
+			if killerId then
+				killerPlayer = Players:GetPlayerByUserId(killerId)
+			end
+			EffectHandlers["Laser"](character, killerPlayer)
+			return
 
-        humanoid.Died:Connect(function()
-                if EffectLockedCharacters[character] then
-                        return
-                end
+		elseif character:GetAttribute("KilledByGolden") then
+			local killerPlayer = nil
+			local killerId = character:GetAttribute("GoldenKiller")
+			if killerId then
+				killerPlayer = Players:GetPlayerByUserId(killerId)
+			end
+			EffectHandlers["Golden"](character, killerPlayer)
+			return
 
-                EffectLockedCharacters[character] = true
+		elseif character:GetAttribute("KilledByDivineAxe") then
+			local killerPlayer = nil
+			local lastAttackerName = character:GetAttribute("LastAttacker")
+			if lastAttackerName then
+				killerPlayer = Players:FindFirstChild(lastAttackerName)
+			end
+			if not killerPlayer then
+				local creatorTag = humanoid:FindFirstChild("creator")
+				if creatorTag and creatorTag.Value and creatorTag.Value:IsA("Player") then
+					killerPlayer = creatorTag.Value
+				end
+			end
+			EffectHandlers["HellFire"](character, killerPlayer)
+			return
 
-                -- 1. Doğrudan Silah Attribute'ları
-                if character:GetAttribute("KilledByLaser") then
+		elseif character:GetAttribute("KilledByBlackHole") then
+			local killerPlayer = nil
+			local creatorTag = humanoid:FindFirstChild("creator")
+			if creatorTag and creatorTag.Value and creatorTag.Value:IsA("Player") then
+				killerPlayer = creatorTag.Value
+			end
+			EffectHandlers["BlackHole"](character, killerPlayer)
+			return
 
-                        local killerPlayer = nil
-                        local killerId =
-                                character:GetAttribute("LaserKiller")
+		elseif character:GetAttribute("KilledByBurning") then
+			local killerPlayer = nil
+			local creatorTag = humanoid:FindFirstChild("creator")
+			if creatorTag and creatorTag.Value and creatorTag.Value:IsA("Player") then
+				killerPlayer = creatorTag.Value
+			end
+			EffectHandlers["Burning"](character, killerPlayer)
+			return
 
-                        if killerId then
-                                killerPlayer =
-                                        Players:GetPlayerByUserId(killerId)
-                        end
+		elseif character:GetAttribute("KilledByExplode") then
+			local killerPlayer = nil
+			local creatorTag = humanoid:FindFirstChild("creator")
+			if creatorTag and creatorTag.Value and creatorTag.Value:IsA("Player") then
+				killerPlayer = creatorTag.Value
+			end
+			EffectHandlers["Explode"](character, killerPlayer)
+			return
+		end
 
-                        EffectHandlers["Laser"](
-                                character,
-                                killerPlayer
-                        )
-
-                        return
-
-                elseif character:GetAttribute("KilledByGolden") then
-
-                        local killerPlayer = nil
-                        local killerId =
-                                character:GetAttribute("GoldenKiller")
-
-                        if killerId then
-                                killerPlayer =
-                                        Players:GetPlayerByUserId(killerId)
-                        end
-
-                        EffectHandlers["Golden"](
-                                character,
-                                killerPlayer
-                        )
-
-                        return
-
-                elseif character:GetAttribute("KilledByDivineAxe") then
-
-                        local killerPlayer = nil
-                        local lastAttackerName =
-                                character:GetAttribute("LastAttacker")
-
-                        if lastAttackerName then
-                                killerPlayer =
-                                        Players:FindFirstChild(lastAttackerName)
-                        end
-
-                        if not killerPlayer then
-                                local creatorTag =
-                                        humanoid:FindFirstChild("creator")
-
-                                if creatorTag
-                                        and creatorTag.Value
-                                        and creatorTag.Value:IsA("Player") then
-
-                                        killerPlayer =
-                                                creatorTag.Value
-                                end
-                        end
-
-                        EffectHandlers["HellFire"](
-                                character,
-                                killerPlayer
-                        )
-
-                        return
-
-                elseif character:GetAttribute("KilledByBlackHole") then
-
-                        local killerPlayer = nil
-
-                        local creatorTag =
-                                humanoid:FindFirstChild("creator")
-
-                        if creatorTag
-                                and creatorTag.Value
-                                and creatorTag.Value:IsA("Player") then
-
-                                killerPlayer =
-                                        creatorTag.Value
-                        end
-
-                        EffectHandlers["BlackHole"](
-                                character,
-                                killerPlayer
-                        )
-
-                        return
-
-                elseif character:GetAttribute("KilledByBurning") then
-
-                        local killerPlayer = nil
-
-                        local creatorTag =
-                                humanoid:FindFirstChild("creator")
-
-                        if creatorTag
-                                and creatorTag.Value
-                                and creatorTag.Value:IsA("Player") then
-
-                                killerPlayer =
-                                        creatorTag.Value
-                        end
-
-                        EffectHandlers["Burning"](
-                                character,
-                                killerPlayer
-                        )
-
-                        return
-
-                elseif character:GetAttribute("KilledByExplode") then
-
-                        local killerPlayer = nil
-
-                        local creatorTag =
-                                humanoid:FindFirstChild("creator")
-
-                        if creatorTag
-                                and creatorTag.Value
-                                and creatorTag.Value:IsA("Player") then
-
-                                killerPlayer =
-                                        creatorTag.Value
-                        end
-
-                        EffectHandlers["Explode"](
-                                character,
-                                killerPlayer
-                        )
-
-                        return
-                end
-
-                -- 2. Katilin kuşanılmış Kill Effect'i
-                local creatorTag =
-                        humanoid:FindFirstChild("creator")
-
-                if creatorTag
-                        and creatorTag.Value
-                        and creatorTag.Value:IsA("Player") then
-
-                        local killer = creatorTag.Value
-
-                        if killer ~= player then
-                                local effectName =
-                                        GetKillerEffectName(killer)
-
-                                if effectName
-                                        and EffectHandlers[effectName] then
-
-                                        EffectHandlers[effectName](
-                                                character,
-                                                killer
-                                        )
-                                end
-                        end
-                end
-        end)
+		-- 2. Katilin kuşanılmış Kill Effect'i
+		local creatorTag = humanoid:FindFirstChild("creator")
+		if creatorTag and creatorTag.Value and creatorTag.Value:IsA("Player") then
+			local killer = creatorTag.Value
+			if killer ~= player then
+				local effectName = GetKillerEffectName(killer)
+				if effectName and EffectHandlers[effectName] then
+					EffectHandlers[effectName](character, killer)
+				end
+			end
+		end
+	end)
 end
 
 local function OnPlayerAdded(player)
-        player.CharacterAdded:Connect(function(character)
-                OnCharacterAdded(character, player)
-        end)
+	player.CharacterAdded:Connect(function(character)
+		OnCharacterAdded(character, player)
+	end)
 
-        if player.Character then
-                OnCharacterAdded(
-                        player.Character,
-                        player
-                )
-        end
+	if player.Character then
+		OnCharacterAdded(player.Character, player)
+	end
 end
 
 Players.PlayerAdded:Connect(OnPlayerAdded)
 
 for _, player in ipairs(Players:GetPlayers()) do
-        OnPlayerAdded(player)
+	OnPlayerAdded(player)
 end

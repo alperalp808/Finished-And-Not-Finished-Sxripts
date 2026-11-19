@@ -1,0 +1,88 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local localPlayer = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+
+-- Kamera kafaya bu mesafeden daha yakınsa her şey anında gizlenir
+local FIRST_PERSON_DISTANCE = 2.5
+
+-- Bir aksesuarın Kafa, Yüz veya Saç kategorisinde olup olmadığını kontrol eder
+local function isHeadOrFaceAccessory(accessory, head)
+	if not accessory:IsA("Accessory") then return false end
+
+	-- 1. Geçerli Roblox Enum Kategorileri Kontrolü
+	local accType = accessory.AccessoryType
+	if accType == Enum.AccessoryType.Hair 
+		or accType == Enum.AccessoryType.Hat 
+		or accType == Enum.AccessoryType.Face then
+		return true
+	end
+
+	local handle = accessory:FindFirstChild("Handle")
+	if not handle then return false end
+
+	-- 2. Attachment İsim Kontrolü (Gözlük, Saç ve Özel Aksesuarlar İçin)
+	for _, child in ipairs(handle:GetChildren()) do
+		if child:IsA("Attachment") then
+			local name = child.Name:lower()
+			if string.find(name, "head") 
+				or string.find(name, "hair") 
+				or string.find(name, "face") 
+				or string.find(name, "hat") 
+				or string.find(name, "eye") then
+				return true
+			end
+		end
+	end
+
+	-- 3. Fiziksel Bağlantı (Weld) Kontrolü (Kafaya bağlı olan parçalar)
+	for _, child in ipairs(handle:GetChildren()) do
+		if child:IsA("Weld") or child:IsA("WeldConstraint") then
+			if child.Part0 == head or child.Part1 == head then
+				return true
+			end
+		end
+	end
+
+	return false
+end
+
+local function updateVisibility()
+	local character = localPlayer.Character
+	if not character then return end
+
+	local head = character:FindFirstChild("Head")
+	if not head then return end
+
+	local distance = (camera.CFrame.Position - head.Position).Magnitude
+	-- Yarı saydamlığı engellemek için doğrudan 1 (Gizli) veya 0 (Görünür) yapılır
+	local targetTransparency = (distance <= FIRST_PERSON_DISTANCE) and 1 or 0
+
+	-- Kafayı ve yüz detaylarını gizle/göster
+	head.LocalTransparencyModifier = targetTransparency
+	for _, child in ipairs(head:GetChildren()) do
+		if child:IsA("Decal") or child:IsA("Texture") then
+			child.LocalTransparencyModifier = targetTransparency
+		end
+	end
+
+	-- Tüm Saçları, Yüz ve Kafa Aksesuarlarını Tara
+	for _, item in ipairs(character:GetChildren()) do
+		if isHeadOrFaceAccessory(item, head) then
+			local handle = item:FindFirstChild("Handle")
+			if handle then
+				handle.LocalTransparencyModifier = targetTransparency
+				
+				for _, subPart in ipairs(handle:GetChildren()) do
+					if subPart:IsA("BasePart") then
+						subPart.LocalTransparencyModifier = targetTransparency
+					end
+				end
+			end
+		end
+	end
+end
+
+-- Kamera güncellemesinden hemen sonra çalışarak varsayılan fade animasyonunu ezer
+RunService:BindToRenderStep("InstantFPSHeadHide", Enum.RenderPriority.Camera.Value + 1, updateVisibility)

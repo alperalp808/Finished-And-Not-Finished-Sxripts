@@ -1,0 +1,382 @@
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
+
+local LocalPlayer = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
+
+local Maps = {
+    "BioLab", "Bank2", "Factory", "Hospital3", "Hotel", "House2", "Mansion2", 
+    "MilBase", "Office3", "PoliceStation", "ResearchFacility", "Workplace", 
+    "Yacht", "BeachResort", "IceCastle", "Workshop", "ChristmasItaly", 
+    "Station", "SkiVillage_RegularMode", "SkiLodge", "LogCabin", "Pier", "Farmhouse","HauntedHouse2","Barn","Mineshaft", "VampireCastle","Farmhouse","Manor", "Spaceship"
+}
+
+local MapSet = {}
+local MapLookup = {}
+for _, mapName in ipairs(Maps) do
+    MapSet[mapName] = true
+    MapLookup[mapName] = true
+end
+
+local Cache = { Highlights = {}, NameTags = {} }
+
+-- ====================================================================
+-- 2. SOL ALT KÖŞE BİLGİ EKRANI (OVERLAY GUI)
+-- ====================================================================
+local guiParent = (gethui and gethui()) or CoreGui
+local StatusGui = Instance.new("ScreenGui")
+StatusGui.Name = "LegitScriptMM_StatusOverlay"
+StatusGui.ResetOnSpawn = false
+StatusGui.Parent = guiParent
+
+local StatusFrame = Instance.new("Frame")
+StatusFrame.Name = "StatusFrame"
+StatusFrame.Size = UDim2.new(0, 260, 0, 210)
+StatusFrame.Position = UDim2.new(0, 15, 1, -225) -- Sol alt köşe
+StatusFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+StatusFrame.BackgroundTransparency = 0.3
+StatusFrame.BorderSizePixel = 0
+StatusFrame.Parent = StatusGui
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 6)
+UICorner.Parent = StatusFrame
+
+local UIListLayout = Instance.new("UIListLayout")
+UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+UIListLayout.Padding = UDim.new(0, 3)
+UIListLayout.Parent = StatusFrame
+
+local UIPadding = Instance.new("UIPadding")
+UIPadding.PaddingTop = UDim.new(0, 8)
+UIPadding.PaddingBottom = UDim.new(0, 8)
+UIPadding.PaddingLeft = UDim.new(0, 10)
+UIPadding.PaddingRight = UDim.new(0, 10)
+UIPadding.Parent = StatusFrame
+
+local function createStatusLabel(name, text)
+    local lbl = Instance.new("TextLabel")
+    lbl.Name = name
+    lbl.Size = UDim2.new(1, 0, 0, 20)
+    lbl.BackgroundTransparency = 1
+    lbl.Font = Enum.Font.SourceSansBold
+    lbl.TextSize = 14
+    lbl.TextColor3 = Color3.fromRGB(255, 255, 255)
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.Text = text
+    lbl.Parent = StatusFrame
+    return lbl
+end
+
+local LblTitle = createStatusLabel("Title", "--- LegitScriptMM Status ---")
+LblTitle.TextColor3 = Color3.fromRGB(0, 170, 255)
+
+local LblHighlight = createStatusLabel("Highlight", "Highlight: OFF")
+local LblESP = createStatusLabel("ESP", "ESP Names: OFF")
+local LblAutoGun = createStatusLabel("AutoGun", "Auto Grab Gun: OFF")
+local LblAntiFling = createStatusLabel("AntiFling", "Anti Fling: OFF")
+local LblMurderer = createStatusLabel("Murderer", "Murderer: None")
+local LblSheriff = createStatusLabel("Sheriff", "Sheriff: None")
+local LblGunDrop = createStatusLabel("GunDrop", "Gun Drop: Not Found")
+
+-- RightCtrl ile Ekranı Gizleme / Gösterme
+local IsOverlayVisible = true
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if input.KeyCode == Enum.KeyCode.RightControl then
+        IsOverlayVisible = not IsOverlayVisible
+        StatusFrame.Visible = IsOverlayVisible
+    end
+end)
+
+-- ====================================================================
+-- 3. YARDIMCI FONKSİYONLAR
+-- ====================================================================
+local function getCurrentMap()
+    for _, child in ipairs(Workspace:GetChildren()) do
+        if MapLookup[child.Name] then
+            return child
+        end
+    end
+    return nil
+end
+
+local function getRoles()
+    local remote = ReplicatedStorage:FindFirstChild("GetPlayerData", true)
+    if remote and remote:IsA("RemoteFunction") then
+        local success, result = pcall(function() return remote:InvokeServer() end)
+        if success and type(result) == "table" then 
+            return result 
+        end
+    end
+    return {}
+end
+
+local function GetCharacter(player)
+    return player and player.Character
+end
+
+local function CreateOrUpdateHighlight(target, color, enabled)
+    if not target or (not target:IsA("Model") and not target:IsA("BasePart")) then return end
+    if not target.Parent then return end
+    local hl = Cache.Highlights[target]
+    if enabled then
+        if not hl or not hl.Parent then
+            hl = Instance.new("Highlight")
+            hl.Name = "ESP_Highlight"
+            hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+            hl.Parent = target
+            Cache.Highlights[target] = hl
+        end
+        hl.FillColor = color
+        hl.OutlineColor = color
+        hl.FillTransparency = tonumber(getgenv().LegitScriptMM.HighlightFillTransparency) or 0.5
+        hl.OutlineTransparency = tonumber(getgenv().LegitScriptMM.HighlightOutlineTransparency) or 0
+        hl.Enabled = true
+    elseif hl then
+        hl.Enabled = false
+    end
+end
+
+local function CreateOrUpdateNameTag(target, text, color, enabled, offset)
+    if not target or not target.Parent then return end
+    local adornment = target:IsA("Model") and (target.PrimaryPart or target:FindFirstChild("HumanoidRootPart") or target:FindFirstChildWhichIsA("BasePart")) or target
+    if not adornment or not adornment.Parent then return end
+
+    local tag = Cache.NameTags[target]
+    if enabled and getgenv().LegitScriptMM.EnableNames then
+        if not tag or not tag.Parent then
+            tag = Instance.new("BillboardGui")
+            tag.Name = "ESP_NameTag"
+            tag.AlwaysOnTop = true
+            tag.Size = UDim2.new(0, 200, 0, 50)
+            tag.StudsOffset = offset or Vector3.new(0, 3, 0)
+
+            local label = Instance.new("TextLabel")
+            label.Name = "Label"
+            label.BackgroundTransparency = 1
+            label.Size = UDim2.new(1, 0, 1, 0)
+            label.Font = Enum.Font.SourceSansBold
+            label.TextStrokeTransparency = 0
+            label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+            label.Parent = tag
+
+            tag.Parent = adornment
+            Cache.NameTags[target] = tag
+        end
+        local label = tag.Label
+        label.Text = text
+        label.TextColor3 = color
+        label.TextSize = tonumber(getgenv().LegitScriptMM.NameSize) or 14
+        tag.Enabled = true
+    elseif tag then
+        tag.Enabled = false
+    end
+end
+
+local function ProcessPlayers(playerData)
+    local isGlobalHL = getgenv().LegitScriptMM.EnableHighlight
+    local isGlobalName = getgenv().LegitScriptMM.EnableNames
+
+    local foundMurderer = "None"
+    local foundSheriff = "None"
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            local char = GetCharacter(player)
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                local data = playerData[player.Name] or playerData[player.UserId]
+                local role = data and data.Role or "None"
+
+                local backpack = player:FindFirstChildOfClass("Backpack")
+                local hasKnife = (char:FindFirstChild("Knife") ~= nil) or (backpack and backpack:FindFirstChild("Knife") ~= nil)
+                local hasGun = (char:FindFirstChild("Gun") ~= nil) or (backpack and backpack:FindFirstChild("Gun") ~= nil)
+
+                if hasKnife then role = "Murderer" end
+                if hasGun and (role == "None" or role == "Innocent") then role = "Sheriff" end
+
+                local color = getgenv().LegitScriptMM.Colors.None
+                local hlAllowed, nameAllowed = false, false
+
+                if role == "Murderer" then
+                    color = getgenv().LegitScriptMM.Colors.Murderer
+                    hlAllowed = getgenv().LegitScriptMM.MurdererHighlight
+                    nameAllowed = getgenv().LegitScriptMM.MurdererName
+                    foundMurderer = player.Name
+                elseif role == "Sheriff" or role == "Hero" or role == "Survivor" then
+                    color = getgenv().LegitScriptMM.Colors.Sheriff
+                    hlAllowed = getgenv().LegitScriptMM.SherifHighlight
+                    nameAllowed = getgenv().LegitScriptMM.SherifName
+                    foundSheriff = player.Name
+                elseif role == "Innocent" then
+                    color = getgenv().LegitScriptMM.Colors.Innocent
+                    hlAllowed = getgenv().LegitScriptMM.InnocentHighlight
+                    nameAllowed = getgenv().LegitScriptMM.InnocentName
+                end
+
+                CreateOrUpdateHighlight(char, color, isGlobalHL and hlAllowed)
+                CreateOrUpdateNameTag(char, player.DisplayName, color, isGlobalName and nameAllowed, Vector3.new(0, 3, 0))
+            end
+        end
+    end
+
+    -- UI Etiketlerini Güncelle
+    LblMurderer.Text = "Murderer: " .. foundMurderer
+    LblSheriff.Text = "Sheriff: " .. foundSheriff
+end
+
+local function ProcessMapObjects()
+    local activeMap = getCurrentMap()
+    local searchContainers = {activeMap, Workspace}
+    local gunFound = false
+
+    for _, container in ipairs(searchContainers) do
+        if container then
+            local gunDrop = container:FindFirstChild("GunDrop", true)
+            if not gunDrop then
+                -- Alternatif olarak haritada düşmüş "Gun" objesini arayalım (oyuncunun üstündeki canlı silahı elemek için kontrol ediyoruz)
+                local possibleGun = container:FindFirstChild("Gun", true)
+                if possibleGun and not possibleGun:FindFirstAncestorOfClass("Model") and possibleGun.Parent ~= LocalPlayer.Character then
+                    -- Eğer model içinde değilse veya karakter elinde değilse yerdeki silahtır
+                    gunDrop = possibleGun
+                end
+            end
+
+            if gunDrop then
+                gunFound = true
+                local isGlobalHL = getgenv().LegitScriptMM.EnableHighlight
+                local isGlobalName = getgenv().LegitScriptMM.EnableNames
+                
+                CreateOrUpdateHighlight(gunDrop, getgenv().LegitScriptMM.Colors.Sheriff, isGlobalHL and getgenv().LegitScriptMM.GunHighlight)
+                CreateOrUpdateNameTag(gunDrop, "[ Gun ]", getgenv().LegitScriptMM.Colors.Sheriff, isGlobalName and getgenv().LegitScriptMM.GunName, Vector3.new(0, 1.5, 0))
+                break
+            end
+        end
+    end
+
+    if gunFound then
+        LblGunDrop.Text = "Gun Drop: Detected"
+        LblGunDrop.TextColor3 = Color3.fromRGB(0, 255, 0)
+    else
+        LblGunDrop.Text = "Gun Drop: Not Found"
+        LblGunDrop.TextColor3 = Color3.fromRGB(255, 255, 255)
+    end
+end
+
+local function GrabGunAction()
+    local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        local activeMap = getCurrentMap()
+        local searchContainers = {activeMap, Workspace}
+        for _, container in ipairs(searchContainers) do
+            if container then
+                -- Sadece gerçek düşen silahı (GunDrop veya haritadaki bağımsız Gun objesini) arıyoruz
+                local gunDrop = container:FindFirstChild("GunDrop", true)
+                if not gunDrop then
+                    local possibleGun = container:FindFirstChild("Gun", true)
+                    if possibleGun and possibleGun.Parent ~= LocalPlayer.Character and not possibleGun:FindFirstAncestorOfClass("Model") then
+                        gunDrop = possibleGun
+                    end
+                end
+
+                if gunDrop then
+                    if gunDrop:IsA("BasePart") then
+                        gunDrop.CFrame = hrp.CFrame
+                    elseif gunDrop:IsA("Model") then
+                        gunDrop:PivotTo(hrp.CFrame)
+                    end
+                    break
+                end
+            end
+        end
+    end
+end
+
+-- ====================================================================
+-- 4. ANTI FLING (BAŞLANGIÇ ÇALIŞTIRMA)
+-- ====================================================================
+local Doldi = nil
+local function UpdateAntiFling()
+    if getgenv().LegitScriptMM.AntiFling then
+        if not Doldi then
+            Doldi = RunService.Stepped:Connect(function()
+                for _, player in pairs(Players:GetPlayers()) do
+                    if player ~= LocalPlayer and player.Character then
+                        for _, part in pairs(player.Character:GetChildren()) do
+                            if part:IsA("BasePart") and part.CanCollide == true then
+                                part.CanCollide = false
+                            end
+                        end
+                    end
+                end
+            end)
+        end
+    else
+        if Doldi then
+            Doldi:Disconnect()
+            Doldi = nil
+        end
+    end
+end
+UpdateAntiFling()
+
+-- ====================================================================
+-- 5. TUŞ KONTROL SİSTEMİ VE ARAYÜZ GÜNCELLEMELERİ
+-- ====================================================================
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+
+    local keys = getgenv().LegitScriptMM.Keybinds
+
+    if input.KeyCode == keys.GrabGun then
+        GrabGunAction()
+    elseif input.KeyCode == keys.EnableHighlight then
+        getgenv().LegitScriptMM.EnableHighlight = not getgenv().LegitScriptMM.EnableHighlight
+    elseif input.KeyCode == keys.EnableNames then
+        getgenv().LegitScriptMM.EnableNames = not getgenv().LegitScriptMM.EnableNames
+    elseif input.KeyCode == keys.AutoTPGun then
+        getgenv().LegitScriptMM.AutoTPGun = not getgenv().LegitScriptMM.AutoTPGun
+        if getgenv().LegitScriptMM.AutoTPGun then
+            GrabGunAction()
+        end
+    elseif input.KeyCode == keys.AntiFling then
+        getgenv().LegitScriptMM.AntiFling = not getgenv().LegitScriptMM.AntiFling
+        UpdateAntiFling()
+    end
+end)
+
+-- Arka Plan Durum ve ESP Güncelleme Döngüsü
+task.spawn(function()
+    while task.wait(0.2) do
+        -- Durum Panelindeki Yazıları Güncelle
+        LblHighlight.Text = "Highlight: " .. (getgenv().LegitScriptMM.EnableHighlight and "ON" or "OFF")
+        LblHighlight.TextColor3 = getgenv().LegitScriptMM.EnableHighlight and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 255, 255)
+
+        LblESP.Text = "ESP Names: " .. (getgenv().LegitScriptMM.EnableNames and "ON" or "OFF")
+        LblESP.TextColor3 = getgenv().LegitScriptMM.EnableNames and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 255, 255)
+
+        LblAutoGun.Text = "Auto Grab Gun: " .. (getgenv().LegitScriptMM.AutoTPGun and "ON" or "OFF")
+        LblAutoGun.TextColor3 = getgenv().LegitScriptMM.AutoTPGun and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 255, 255)
+
+        LblAntiFling.Text = "Anti Fling: " .. (getgenv().LegitScriptMM.AntiFling and "ON" or "OFF")
+        LblAntiFling.TextColor3 = getgenv().LegitScriptMM.AntiFling and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 255, 255)
+
+        -- ESP Fonksiyonunu Çalıştır
+        pcall(function()
+            ProcessPlayers(getRoles())
+            ProcessMapObjects()
+        end)
+    end
+end)
+
+-- Auto Grab Gun Döngüsü
+task.spawn(function()
+    while task.wait(0.5) do
+        if getgenv().LegitScriptMM.AutoTPGun then
+            GrabGunAction()
+        end
+    end
+end)

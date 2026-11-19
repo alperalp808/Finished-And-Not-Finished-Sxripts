@@ -1,0 +1,232 @@
+-- LocalScript: Animasyonlar + Giysiler + Korblox + Headless kafa + Aksesuar
+-- Karakter ölüp respawn olunca otomatik tekrar uygulanır.
+
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+----------------------------------------------------------------
+-- AYARLAR
+----------------------------------------------------------------
+local ANIMS = {
+	run   = "rbxassetid://10921148209",
+	walk  = "rbxassetid://10921152678",
+	jump  = "rbxassetid://10921242013",
+	fall  = "rbxassetid://10921307241",
+	idle1 = "rbxassetid://10921230744",
+	idle2 = "rbxassetid://10921232093",
+}
+
+local PANTS = "rbxassetid://103978361845108"
+local SHIRT = "rbxassetid://6143579290"
+local ACCESSORY_ID = 93762663362787
+
+local HEADLESS = true -- false yaparsan orijinal kafa görünür kalır
+local KORBLOX = true  -- false yaparsan sağ bacak değişmez
+
+----------------------------------------------------------------
+-- YARDIMCI: değeri yaz ve oyun geri değiştirirse tekrar yaz
+----------------------------------------------------------------
+local function lock(inst, prop, value)
+	pcall(function() inst[prop] = value end)
+	inst:GetPropertyChangedSignal(prop):Connect(function()
+		if inst[prop] ~= value then
+			pcall(function() inst[prop] = value end)
+		end
+	end)
+end
+
+----------------------------------------------------------------
+-- KORBLOX SAĞ BACAK
+----------------------------------------------------------------
+local function applyKorblox(char)
+	local foot  = char:WaitForChild("RightFoot", 10)
+	local lower = char:WaitForChild("RightLowerLeg", 10)
+	local upper = char:WaitForChild("RightUpperLeg", 10)
+	if not (foot and lower and upper) then
+		warn("Korblox: sağ bacak parçaları bulunamadı")
+		return
+	end
+
+	lock(foot, "MeshId", "rbxassetid://902942089")
+	lock(foot, "Transparency", 1)
+
+	lock(lower, "MeshId", "rbxassetid://902942093")
+	lock(lower, "Transparency", 1)
+
+	lock(upper, "MeshId", "rbxassetid://902942096")
+	lock(upper, "TextureID", "rbxassetid://902843398")
+end
+
+----------------------------------------------------------------
+-- HEADLESS KAFA
+----------------------------------------------------------------
+local function makeHeadless(char)
+	local head = char:FindFirstChild("Head")
+	if not head then return end
+
+	for _, d in ipairs(head:GetChildren()) do
+		if d:IsA("Decal") or d:IsA("Texture") then
+			d:Destroy() -- yüz
+		end
+	end
+	lock(head, "Transparency", 1)
+
+	head.ChildAdded:Connect(function(c)
+		if c:IsA("Decal") or c:IsA("Texture") then
+			task.defer(function() c:Destroy() end)
+		end
+	end)
+end
+
+----------------------------------------------------------------
+-- GİYSİLER
+----------------------------------------------------------------
+local function applyClothes(char)
+	for _, c in ipairs(char:GetChildren()) do
+		if c:IsA("Shirt") or c:IsA("Pants") or c:IsA("ShirtGraphic") then
+			c:Destroy()
+		end
+	end
+	local shirt = Instance.new("Shirt")
+	shirt.ShirtTemplate = SHIRT
+	shirt.Parent = char
+	local pants = Instance.new("Pants")
+	pants.PantsTemplate = PANTS
+	pants.Parent = char
+end
+
+----------------------------------------------------------------
+-- AKSESUAR
+----------------------------------------------------------------
+local cachedAcc
+local function getAccessory()
+	if cachedAcc then return cachedAcc:Clone() end
+	local objs
+	pcall(function() objs = game:GetObjects("rbxassetid://" .. ACCESSORY_ID) end)
+	if not objs then
+		pcall(function()
+			objs = { game:GetService("InsertService"):LoadAsset(ACCESSORY_ID) }
+		end)
+	end
+	if objs then
+		for _, o in ipairs(objs) do
+			local acc = o:IsA("Accessory") and o or o:FindFirstChildWhichIsA("Accessory", true)
+			if acc then
+				cachedAcc = acc
+				return acc:Clone()
+			end
+		end
+	end
+	warn("Aksesuar yüklenemedi")
+end
+
+local function attachAccessory(char, acc)
+	local head = char:WaitForChild("Head")
+	local handle = acc:WaitForChild("Handle", 5)
+	if not handle then return end
+
+	acc:SetAttribute("Custom", true)
+	acc.Parent = char
+
+	for _, w in ipairs(handle:GetChildren()) do
+		if w:IsA("Weld") or w:IsA("WeldConstraint") or w:IsA("Motor6D") then
+			w:Destroy()
+		end
+	end
+
+	handle.Anchored = false
+	handle.CanCollide = false
+	handle.Massless = true
+
+	local weld = Instance.new("Weld")
+	weld.Name = "AccessoryWeld"
+
+	local handleAtt = handle:FindFirstChildWhichIsA("Attachment")
+	local target = handleAtt and char:FindFirstChild(handleAtt.Name, true)
+
+	if handleAtt and target and target:IsA("Attachment") then
+		weld.Part0 = target.Parent
+		weld.C0 = target.CFrame
+		weld.Part1 = handle
+		weld.C1 = handleAtt.CFrame
+	else
+		weld.Part0 = head
+		weld.C0 = CFrame.new(0, head.Size.Y / 2, 0)
+		weld.Part1 = handle
+	end
+	weld.Parent = handle
+end
+
+local function applyAccessories(char, hum)
+	hum:RemoveAccessories()
+	for _, c in ipairs(char:GetChildren()) do
+		if c:IsA("Accessory") then c:Destroy() end
+	end
+
+	-- Sonradan eklenen diğer aksesuarları sil
+	char.ChildAdded:Connect(function(c)
+		if c:IsA("Accessory") and not c:GetAttribute("Custom") then
+			task.defer(function() c:Destroy() end)
+		end
+	end)
+
+	local acc = getAccessory()
+	if acc then attachAccessory(char, acc) end
+end
+
+----------------------------------------------------------------
+-- ANİMASYONLAR
+----------------------------------------------------------------
+local function applyAnimations(char, hum)
+	local animate = char:WaitForChild("Animate", 10)
+	if not animate then return end
+
+	animate.Disabled = true
+	local animator = hum:FindFirstChildOfClass("Animator")
+	if animator then
+		for _, t in ipairs(animator:GetPlayingAnimationTracks()) do
+			t:Stop(0)
+		end
+	end
+
+	local function set(folder, name, id)
+		local f = animate:FindFirstChild(folder)
+		local a = f and f:FindFirstChild(name)
+		if a then a.AnimationId = id end
+	end
+	set("run", "RunAnim", ANIMS.run)
+	set("walk", "WalkAnim", ANIMS.walk)
+	set("jump", "JumpAnim", ANIMS.jump)
+	set("fall", "FallAnim", ANIMS.fall)
+	set("idle", "Animation1", ANIMS.idle1)
+	set("idle", "Animation2", ANIMS.idle2)
+
+	animate.Disabled = false
+end
+
+----------------------------------------------------------------
+-- ANA AKIŞ
+----------------------------------------------------------------
+local function apply(char)
+	local hum = char:WaitForChild("Humanoid")
+	if hum.RigType ~= Enum.HumanoidRigType.R15 then
+		warn("Animasyonlar ve Korblox R15 içindir, bu karakter R15 değil.")
+	end
+
+	char:WaitForChild("Head", 10)
+	if not player:HasAppearanceLoaded() then
+		player.CharacterAppearanceLoaded:Wait()
+	end
+	task.wait(0.3)
+
+	applyClothes(char)
+	if KORBLOX then applyKorblox(char) end
+	if HEADLESS then makeHeadless(char) end
+	applyAccessories(char, hum)
+	applyAnimations(char, hum)
+end
+
+player.CharacterAdded:Connect(apply)
+if player.Character then
+	task.spawn(apply, player.Character)
+end

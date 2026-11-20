@@ -18,6 +18,8 @@ getgenv().espEnabled = false
 getgenv().highlightEnabled = false
 getgenv().useTeamColor = false
 
+-- Aimbot Modları & Kilitleme Sistemi
+getgenv().aimbotType = "OtoLock" -- "OtoLock" veya "Manuel"
 getgenv().aimbotMode = "Closest to Mouse"
 getgenv().lockWithKey = false
 getgenv().lockKey = Enum.KeyCode.E
@@ -138,7 +140,7 @@ local page1 = Instance.new("ScrollingFrame")
 page1.Size = UDim2.new(1, -20, 1, -60)
 page1.Position = UDim2.new(0, 10, 0, 52)
 page1.BackgroundTransparency = 1
-page1.CanvasSize = UDim2.new(0, 0, 0, 680)
+page1.CanvasSize = UDim2.new(0, 0, 0, 780)
 page1.ScrollBarThickness = 4
 page1.Visible = true
 page1.Parent = frame
@@ -309,12 +311,18 @@ createLabel(page1, "MAIN SETTINGS", 0)
 createToggle(page1, "Enable Aimbot", 26, function(v) getgenv().aimbot = v end)
 createToggle(page1, "Wall Check", 66, function(v) getgenv().wc = v end)
 
-local nextY = createListDropdown(page1, "AIMBOT MODE", 108, {"Closest to Mouse", "Lowest Health"}, function(selected)
+-- Aimbot Tipi (OtoLock veya Manuel)
+local nextY = createListDropdown(page1, "AIMBOT TYPE", 108, {"OtoLock", "Manuel"}, function(selected)
+	getgenv().aimbotType = selected
+end)
+
+local modeY = nextY + 10
+nextY = createListDropdown(page1, "AIMBOT MODE", modeY, {"Closest to Mouse", "Lowest Health"}, function(selected)
 	getgenv().aimbotMode = selected
 end)
 
 createLabel(page1, "KEYBIND LOCK SETTINGS", nextY + 10)
-createToggle(page1, "Enable LockWithKey", nextY + 36, function(v) getgenv().lockWithKey = v end)
+createToggle(page1, "Enable LockWithKey (Manuel Mod İçin)", nextY + 36, function(v) getgenv().lockWithKey = v end)
 
 createLabel(page1, "Lock Keybind (örn: E, Q, F)", nextY + 78)
 createTextbox(page1, nextY + 104, getgenv().lockKey.Name, function(v)
@@ -529,45 +537,10 @@ end)
 
 
 -- =========================
--- KEYBIND & LOCK SYSTEM
+-- AIMBOT & TARGET LOGIC
 -- =========================
 local lockedTarget = nil
 
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-	if gameProcessed then return end
-	if getgenv().lockWithKey and input.KeyCode == getgenv().lockKey then
-		if lockedTarget then
-			lockedTarget = nil 
-		end
-	end
-	
-	-- X Tuşu ile Noclip Aç/Kapat
-	if input.KeyCode == Enum.KeyCode.X then
-		getgenv().noclip = not getgenv().noclip
-	end
-	
-	-- Z Tuşu ile Float Aç/Kapat
-	if input.KeyCode == Enum.KeyCode.Z then
-		getgenv().floatEnabled = not getgenv().floatEnabled
-	end
-	
-	-- T Tuşu ile Click Teleport
-	if getgenv().clickTpEnabled and input.KeyCode == Enum.KeyCode.T then
-		local char = LP.Character
-		if char and char:FindFirstChild("HumanoidRootPart") then
-			local hrp = char.HumanoidRootPart
-			local targetPos = Mouse.Hit.Position + Vector3.new(0, 3, 0)
-			if (targetPos - hrp.Position).Magnitude <= 300 then
-				hrp.CFrame = CFrame.new(targetPos)
-			end
-		end
-	end
-end)
-
-
--- =========================
--- AIMBOT & TARGET LOGIC
--- =========================
 local function wallCheck(pos, ignore)
 	if not getgenv().wc then return true end
 	local rp = RaycastParams.new()
@@ -625,20 +598,43 @@ local function getTarget()
 	return best
 end
 
+-- Manuel mod kilit açma/kapama kontrolü (Keybind)
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then return end
-	if getgenv().lockWithKey and input.KeyCode == getgenv().lockKey then
+	if getgenv().aimbotType == "Manuel" and getgenv().lockWithKey and input.KeyCode == getgenv().lockKey then
 		if not lockedTarget then
 			lockedTarget = getTarget()
 		else
 			lockedTarget = nil
 		end
 	end
+	
+	-- X Tuşu ile Noclip Aç/Kapat
+	if input.KeyCode == Enum.KeyCode.X then
+		getgenv().noclip = not getgenv().noclip
+	end
+	
+	-- Z Tuşu ile Float Aç/Kapat
+	if input.KeyCode == Enum.KeyCode.Z then
+		getgenv().floatEnabled = not getgenv().floatEnabled
+	end
+	
+	-- T Tuşu ile Click Teleport
+	if getgenv().clickTpEnabled and input.KeyCode == Enum.KeyCode.T then
+		local char = LP.Character
+		if char and char:FindFirstChild("HumanoidRootPart") then
+			local hrp = char.HumanoidRootPart
+			local targetPos = Mouse.Hit.Position + Vector3.new(0, 3, 0)
+			if (targetPos - hrp.Position).Magnitude <= 300 then
+				hrp.CFrame = CFrame.new(targetPos)
+			end
+		end
+	end
 end)
 
 
 -- =========================
--- PLAYER MODS (FLOAT & NOCLIP)
+-- PLAYER MODS & MAIN LOOP
 -- =========================
 local floatPart = nil
 
@@ -712,17 +708,41 @@ RunService.RenderStepped:Connect(function()
 	if not getgenv().aimbot then return end
 	
 	local t = nil
-	if getgenv().lockWithKey then
+	if getgenv().aimbotType == "OtoLock" then
+		-- OtoLock: FOV içerisindeki hedefe odaklanır, ölene veya FOV dışına çıkana kadar kilitli kalır
 		if lockedTarget and lockedTarget.Parent then
 			local hum = lockedTarget.Parent:FindFirstChildOfClass("Humanoid")
-			if hum and hum.Health > 0 then
+			local screenPos, onscreen = Camera:WorldToViewportPoint(lockedTarget.Position)
+			local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+			local distFromCenter = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
+			
+			-- Canı varsa ve FOV içinde/ekrandaysa kilidi koru
+			if hum and hum.Health > 0 and onscreen and (not getgenv().fovEnabled or distFromCenter <= getgenv().fovSize) then
 				t = lockedTarget
 			else
 				lockedTarget = nil
 			end
 		end
-	else
-		t = getTarget()
+		
+		if not lockedTarget then
+			lockedTarget = getTarget()
+		end
+		t = lockedTarget
+		
+	elseif getgenv().aimbotType == "Manuel" then
+		-- Manuel: Tuş ile (Keybind) kilitlenir / açılır
+		if getgenv().lockWithKey then
+			if lockedTarget and lockedTarget.Parent then
+				local hum = lockedTarget.Parent:FindFirstChildOfClass("Humanoid")
+				if hum and hum.Health > 0 then
+					t = lockedTarget
+				else
+					lockedTarget = nil
+				end
+			end
+		else
+			t = getTarget()
+		end
 	end
 
 	if t then

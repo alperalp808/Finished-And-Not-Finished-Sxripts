@@ -35,8 +35,8 @@ StatusGui.Parent = guiParent
 
 local StatusFrame = Instance.new("Frame")
 StatusFrame.Name = "StatusFrame"
-StatusFrame.Size = UDim2.new(0, 260, 0, 210)
-StatusFrame.Position = UDim2.new(0, 15, 1, -225) -- Sol alt köşe
+StatusFrame.Size = UDim2.new(0, 260, 0, 240)
+StatusFrame.Position = UDim2.new(0, 15, 1, -255) -- Sol alt köşe
 StatusFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 StatusFrame.BackgroundTransparency = 0.3
 StatusFrame.BorderSizePixel = 0
@@ -81,6 +81,8 @@ local LblAutoGun = createStatusLabel("AutoGun", "Auto Grab Gun: OFF")
 local LblAntiFling = createStatusLabel("AntiFling", "Anti Fling: OFF")
 local LblMurderer = createStatusLabel("Murderer", "Murderer: None")
 local LblSheriff = createStatusLabel("Sheriff", "Sheriff: None")
+local LblAssassin = createStatusLabel("Assassin", "Assassin: None")
+local LblTarget = createStatusLabel("Target", "Target: None")
 local LblGunDrop = createStatusLabel("GunDrop", "Gun Drop: Not Found")
 
 -- RightCtrl ile Ekranı Gizleme / Gösterme
@@ -183,6 +185,17 @@ local function ProcessPlayers(playerData)
 
     local foundMurderer = "None"
     local foundSheriff = "None"
+    local foundAssassin = "None"
+    local foundTarget = "None"
+
+    -- MainGUI üzerinden Target ismini al
+    pcall(function()
+        local mainGui = LocalPlayer:FindFirstChild("PlayerGui") and LocalPlayer.PlayerGui:FindFirstChild("MainGUI")
+        local targetNameObj = mainGui and mainGui:FindFirstChild("Game") and mainGui.Game:FindFirstChild("Target3") and mainGui.Game.Target3:FindFirstChild("TargetName")
+        if targetNameObj and targetNameObj.Text ~= "" then
+            foundTarget = targetNameObj.Text
+        end
+    end)
 
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer then
@@ -197,11 +210,21 @@ local function ProcessPlayers(playerData)
 
                 if hasKnife then role = "Murderer" end
                 if hasGun and (role == "None" or role == "Innocent") then role = "Sheriff" end
+                if role == "Assassin" then foundAssassin = player.Name end
 
                 local color = getgenv().LegitScriptMM.Colors.None
                 local hlAllowed, nameAllowed = false, false
 
-                if role == "Murderer" then
+                -- Target ise Kırmızı Yap
+                if player.Name == foundTarget then
+                    color = getgenv().LegitScriptMM.Colors.Target
+                    hlAllowed = true
+                    nameAllowed = true
+                elseif role == "Assassin" then
+                    color = getgenv().LegitScriptMM.Colors.Assassin
+                    hlAllowed = true
+                    nameAllowed = true
+                elseif role == "Murderer" then
                     color = getgenv().LegitScriptMM.Colors.Murderer
                     hlAllowed = getgenv().LegitScriptMM.MurdererHighlight
                     nameAllowed = getgenv().LegitScriptMM.MurdererName
@@ -226,6 +249,8 @@ local function ProcessPlayers(playerData)
     -- UI Etiketlerini Güncelle
     LblMurderer.Text = "Murderer: " .. foundMurderer
     LblSheriff.Text = "Sheriff: " .. foundSheriff
+    LblAssassin.Text = "Assassin: " .. foundAssassin
+    LblTarget.Text = "Target: " .. foundTarget
 end
 
 local function ProcessMapObjects()
@@ -237,10 +262,8 @@ local function ProcessMapObjects()
         if container then
             local gunDrop = container:FindFirstChild("GunDrop", true)
             if not gunDrop then
-                -- Alternatif olarak haritada düşmüş "Gun" objesini arayalım (oyuncunun üstündeki canlı silahı elemek için kontrol ediyoruz)
                 local possibleGun = container:FindFirstChild("Gun", true)
                 if possibleGun and not possibleGun:FindFirstAncestorOfClass("Model") and possibleGun.Parent ~= LocalPlayer.Character then
-                    -- Eğer model içinde değilse veya karakter elinde değilse yerdeki silahtır
                     gunDrop = possibleGun
                 end
             end
@@ -273,7 +296,6 @@ local function GrabGunAction()
         local searchContainers = {activeMap, Workspace}
         for _, container in ipairs(searchContainers) do
             if container then
-                -- Sadece gerçek düşen silahı (GunDrop veya haritadaki bağımsız Gun objesini) arıyoruz
                 local gunDrop = container:FindFirstChild("GunDrop", true)
                 if not gunDrop then
                     local possibleGun = container:FindFirstChild("Gun", true)

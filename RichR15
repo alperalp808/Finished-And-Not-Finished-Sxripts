@@ -18,7 +18,7 @@ local ANIMS = {
 
 local PANTS = "rbxassetid://103978361845108"
 local SHIRT = "rbxassetid://6143579290"
-local ACCESSORY_ID = 93762663362787
+local ACCESSORY_ID = 74457178768653
 
 local HEADLESS = true -- false yaparsan orijinal kafa görünür kalır
 local KORBLOX = true  -- false yaparsan sağ bacak değişmez

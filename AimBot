@@ -364,13 +364,6 @@ end)
 
 local teamCheckStartY = nextY + 238
 createLabel(page1, "TEAM CHECK", teamCheckStartY)
-createToggle(page1, "Enable Team Check", teamCheckStartY + 26, function(v)
-        getgenv().teamCheck = v
-        if v and LP.Team then
-                getgenv().ignoredTeams[LP.Team.Name] = true
-                refreshTeamCheckList()
-        end
-end)
 
 local multiDropdownFrame = Instance.new("ScrollingFrame")
 multiDropdownFrame.Size = UDim2.new(1, 0, 0, 90)
@@ -381,7 +374,18 @@ multiDropdownFrame.ScrollBarThickness = 3
 multiDropdownFrame.Parent = page1
 Instance.new("UICorner", multiDropdownFrame).CornerRadius = UDim.new(0, 6)
 
-local function refreshTeamCheckList()
+local refreshTeamCheckList -- Forward declaration
+
+createToggle(page1, "Enable Team Check", teamCheckStartY + 26, function(v)
+        getgenv().teamCheck = v
+        if v and LP.Team then
+                getgenv().ignoredTeams = {}
+                getgenv().ignoredTeams[LP.Team.Name] = true
+                refreshTeamCheckList()
+        end
+end)
+
+refreshTeamCheckList = function()
         for _, child in pairs(multiDropdownFrame:GetChildren()) do
                 if child:IsA("TextButton") then child:Destroy() end
         end
@@ -416,10 +420,13 @@ refreshTeamCheckList()
 Teams.ChildAdded:Connect(refreshTeamCheckList)
 Teams.ChildRemoved:Connect(refreshTeamCheckList)
 
--- Yerel oyuncu takım değiştirirse otomatik ekleme
+-- Yerel oyuncu takım değiştirdiğinde eski takımı temizle ve yenisini ekle
 LP:GetPropertyChangedSignal("Team"):Connect(function()
-        if getgenv().teamCheck and LP.Team then
-                getgenv().ignoredTeams[LP.Team.Name] = true
+        if getgenv().teamCheck then
+                getgenv().ignoredTeams = {}
+                if LP.Team then
+                        getgenv().ignoredTeams[LP.Team.Name] = true
+                end
                 refreshTeamCheckList()
         end
 end)
@@ -605,7 +612,6 @@ task.spawn(function()
                         if lockedTarget and lockedTarget.Parent then
                                 activeTargetChar = lockedTarget.Parent
                         else
-                                -- Rastgele ekrandaki oyunculardan birinin parçalarını topla
                                 local validChars = {}
                                 for _, p in pairs(Players:GetPlayers()) do
                                         if p ~= LP and p.Character and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then

@@ -6,13 +6,6 @@ getgenv().wc = false
 getgenv().hitpart = "HumanoidRootPart"
 getgenv().pred = 0.16
 
--- Smoothing (Yumuşak Nişan Alma)
-getgenv().smoothingEnabled = false
-getgenv().smoothing = 0.15
-
--- Random Hitpart (Rastgele Parça Değişimi)
-getgenv().randomPart = false
-
 getgenv().fovEnabled = false
 getgenv().fovSize = 120
 getgenv().fovColor = Color3.fromRGB(255,255,255)
@@ -27,7 +20,12 @@ getgenv().useTeamColor = false
 
 -- Aimbot Modları & Kilitleme Sistemi
 getgenv().aimbotType = "OtoLock" -- "OtoLock" veya "Manuel"
-getgenv().lockKey = Enum.UserInputType.MouseButton2 -- Sağ Tık veya KeyCode
+getgenv().lockKey = Enum.UserInputType.MouseButton2 -- Varsayılan Sağ Tık (RightClick)
+
+-- Yeni Eklenen Özellikler
+getgenv().randomPart = false
+getgenv().smoothingEnabled = false
+getgenv().smoothness = 0.1 -- 0 (Anlık) ile 1 (Çok yavaş) arası veya lerp katsayısı
 
 -- Player Tab Değişkenleri
 getgenv().noclip = false
@@ -87,8 +85,8 @@ btnCorner.Parent = menuBtn
 -- MAIN FRAME
 -- =========================
 local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 360, 0, 520)
-frame.Position = UDim2.new(0.5, -180, 0.5, -260)
+frame.Size = UDim2.new(0, 360, 0, 500)
+frame.Position = UDim2.new(0.5, -180, 0.5, -250)
 frame.BackgroundColor3 = Color3.fromRGB(22, 22, 28)
 frame.Visible = false
 frame.Parent = gui
@@ -145,7 +143,7 @@ local page1 = Instance.new("ScrollingFrame")
 page1.Size = UDim2.new(1, -20, 1, -60)
 page1.Position = UDim2.new(0, 10, 0, 52)
 page1.BackgroundTransparency = 1
-page1.CanvasSize = UDim2.new(0, 0, 0, 950)
+page1.CanvasSize = UDim2.new(0, 0, 0, 1050)
 page1.ScrollBarThickness = 4
 page1.Visible = true
 page1.Parent = frame
@@ -320,16 +318,16 @@ local nextY = createListDropdown(page1, "AIMBOT TYPE", 108, {"OtoLock", "Manuel"
         getgenv().aimbotType = selected
 end)
 
-createLabel(page1, "Manual Lock Keybind (RightClick, Shift, E, vb.)", nextY + 10)
+createLabel(page1, "Manual Lock Keybind (RightClick veya Tuş Adı)", nextY + 10)
 createTextbox(page1, nextY + 36, "RightClick", function(v)
-        local upper = v:upper()
-        if upper == "RIGHTCLICK" or upper == "MOUSEBUTTON2" then
+        local upperV = v:upper()
+        if upperV == "RIGHTCLICK" or upperV == "MOUSEBUTTON2" then
                 getgenv().lockKey = Enum.UserInputType.MouseButton2
-        elseif upper == "SHIFT" or upper == "LEFTSHIFT" then
-                getgenv().lockKey = Enum.KeyCode.LeftShift
+        elseif upperV == "LEFTCLICK" or upperV == "MOUSEBUTTON1" then
+                getgenv().lockKey = Enum.UserInputType.MouseButton1
         else
                 local success, key = pcall(function()
-                        return Enum.KeyCode[upper]
+                        return Enum.KeyCode[upperV]
                 end)
                 if success and key then
                         getgenv().lockKey = key
@@ -342,25 +340,31 @@ nextY = createListDropdown(page1, "HITPART", hitPartY, {"Head", "HumanoidRootPar
         getgenv().hitpart = selected
 end)
 
-createToggle(page1, "Enable Random Hitpart (0.5s Değişim)", nextY + 10, function(v) getgenv().randomPart = v end)
+-- Rastgele Parça (RandomPart) Toggle
+createToggle(page1, "Random HitPart (0.5s)", nextY + 10, function(v)
+        getgenv().randomPart = v
+end)
 
-createLabel(page1, "PREDICTION", nextY + 52)
-createTextbox(page1, nextY + 78, getgenv().pred, function(v)
+createLabel(page1, "PREDICTION", nextY + 56)
+createTextbox(page1, nextY + 82, getgenv().pred, function(v)
         local num = tonumber(v)
         if num then getgenv().pred = num end
 end)
 
-createLabel(page1, "SMOOTHING SETTINGS", nextY + 120)
-createToggle(page1, "Enable Smoothing", nextY + 146, function(v) getgenv().smoothingEnabled = v end)
-
-createLabel(page1, "Smoothing Value (Örn: 0.1)", nextY + 188)
-createTextbox(page1, nextY + 214, getgenv().smoothing, function(v)
-        local num = tonumber(v)
-        if num then getgenv().smoothing = num end
+-- Smoothing (Yumuşatma) Ayarları
+createToggle(page1, "Enable Smoothing", nextY + 124, function(v)
+        getgenv().smoothingEnabled = v
 end)
 
-createLabel(page1, "TEAM CHECK (MULTI-SELECT)", nextY + 256)
-createToggle(page1, "Enable Team Check", nextY + 282, function(v)
+createLabel(page1, "Smoothing Value (Örn: 0.1)", nextY + 170)
+createTextbox(page1, nextY + 196, getgenv().smoothness, function(v)
+        local num = tonumber(v)
+        if num then getgenv().smoothness = num end
+end)
+
+local teamCheckStartY = nextY + 238
+createLabel(page1, "TEAM CHECK", teamCheckStartY)
+createToggle(page1, "Enable Team Check", teamCheckStartY + 26, function(v)
         getgenv().teamCheck = v
         if v and LP.Team then
                 getgenv().ignoredTeams[LP.Team.Name] = true
@@ -370,14 +374,14 @@ end)
 
 local multiDropdownFrame = Instance.new("ScrollingFrame")
 multiDropdownFrame.Size = UDim2.new(1, 0, 0, 90)
-multiDropdownFrame.Position = UDim2.new(0, 0, 0, nextY + 322)
+multiDropdownFrame.Position = UDim2.new(0, 0, 0, teamCheckStartY + 66)
 multiDropdownFrame.BackgroundColor3 = Color3.fromRGB(26, 26, 34)
 multiDropdownFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
 multiDropdownFrame.ScrollBarThickness = 3
 multiDropdownFrame.Parent = page1
 Instance.new("UICorner", multiDropdownFrame).CornerRadius = UDim.new(0, 6)
 
-function refreshTeamCheckList()
+local function refreshTeamCheckList()
         for _, child in pairs(multiDropdownFrame:GetChildren()) do
                 if child:IsA("TextButton") then child:Destroy() end
         end
@@ -412,17 +416,26 @@ refreshTeamCheckList()
 Teams.ChildAdded:Connect(refreshTeamCheckList)
 Teams.ChildRemoved:Connect(refreshTeamCheckList)
 
-createLabel(page1, "FOV SETTINGS", nextY + 424)
-createToggle(page1, "Enable FOV Visual", nextY + 450, function(v) getgenv().fovEnabled = v end)
+-- Yerel oyuncu takım değiştirirse otomatik ekleme
+LP:GetPropertyChangedSignal("Team"):Connect(function()
+        if getgenv().teamCheck and LP.Team then
+                getgenv().ignoredTeams[LP.Team.Name] = true
+                refreshTeamCheckList()
+        end
+end)
 
-createLabel(page1, "FOV Size", nextY + 492)
-createTextbox(page1, nextY + 518, getgenv().fovSize, function(v)
+local fovStartY = teamCheckStartY + 168
+createLabel(page1, "FOV SETTINGS", fovStartY)
+createToggle(page1, "Enable FOV Visual", fovStartY + 26, function(v) getgenv().fovEnabled = v end)
+
+createLabel(page1, "FOV Size", fovStartY + 68)
+createTextbox(page1, fovStartY + 94, getgenv().fovSize, function(v)
         local num = tonumber(v)
         if num then getgenv().fovSize = num end
 end)
 
-createLabel(page1, "MAX DISTANCE", nextY + 560)
-createTextbox(page1, nextY + 586, getgenv().maxDistance, function(v)
+createLabel(page1, "MAX DISTANCE", fovStartY + 136)
+createTextbox(page1, fovStartY + 162, getgenv().maxDistance, function(v)
         local num = tonumber(v)
         if num then getgenv().maxDistance = num end
 end)
@@ -582,11 +595,49 @@ end)
 
 
 -- =========================
+-- RANDOM PART LOOP (R6 / R15 DİNAMİK SEÇİMİ)
+-- =========================
+local currentRandomPartName = "HumanoidRootPart"
+task.spawn(function()
+        while true do
+                if getgenv().randomPart then
+                        local activeTargetChar = nil
+                        if lockedTarget and lockedTarget.Parent then
+                                activeTargetChar = lockedTarget.Parent
+                        else
+                                -- Rastgele ekrandaki oyunculardan birinin parçalarını topla
+                                local validChars = {}
+                                for _, p in pairs(Players:GetPlayers()) do
+                                        if p ~= LP and p.Character and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
+                                                table.insert(validChars, p.Character)
+                                        end
+                                end
+                                if #validChars > 0 then
+                                        activeTargetChar = validChars[math.random(1, #validChars)]
+                                end
+                        end
+
+                        if activeTargetChar then
+                                local parts = {}
+                                for _, part in pairs(activeTargetChar:GetChildren()) do
+                                        if part:IsA("BasePart") then
+                                                table.insert(parts, part.Name)
+                                        end
+                                end
+                                if #parts > 0 then
+                                        currentRandomPartName = parts[math.random(1, #parts)]
+                                end
+                        end
+                end
+                task.wait(0.5)
+        end
+end)
+
+
+-- =========================
 -- AIMBOT & TARGET LOGIC
 -- =========================
 local lockedTarget = nil
-local currentHitPart = nil
-local lastPartChange = 0
 
 local function wallCheck(pos, ignore)
         if not getgenv().wc then return true end
@@ -596,52 +647,208 @@ local function wallCheck(pos, ignore)
         return workspace:Raycast(Camera.CFrame.Position, pos - Camera.CFrame.Position, rp) == nil
 end
 
-local function getEffectiveHitPart(char)
-        if not char then return nil end
+local function getTargetHitPartName()
         if getgenv().randomPart then
-                if tick() - lastPartChange > 0.5 or not currentHitPart or not currentHitPart.Parent then
-                        local parts = {}
-                        for _, child in pairs(char:GetChildren()) do
-                                if child:IsA("BasePart") then
-                                        table.insert(parts, child)
-                                end
-                        end
-                        if #parts > 0 then
-                                currentHitPart = parts[math.random(1, #parts)]
-                                lastPartChange = tick()
-                        else
-                                currentHitPart = char:FindFirstChild(getgenv().hitpart)
-                        end
-                end
-                return currentHitPart
+                return currentRandomPartName
         else
-                currentHitPart = nil
-                return char:FindFirstChild(getgenv().hitpart)
+                return getgenv().hitpart
         end
 end
 
 local function getTarget()
         local best, closest = nil, math.huge
         local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+        local targetPartName = getTargetHitPartName()
 
         for _, p in pairs(Players:GetPlayers()) do
-                if p ~= LP and p.Character then
-                        local part = getEffectiveHitPart(p.Character)
-                        if part then
-                                local skip = false
-                                if getgenv().teamCheck then
-                                        if p.Team and getgenv().ignoredTeams[p.Team.Name] then
-                                                skip = true
+                if p ~= LP and p.Character and p.Character:FindFirstChild(targetPartName) then
+                        local skip = false
+                        if getgenv().teamCheck then
+                                if p.Team and getgenv().ignoredTeams[p.Team.Name] then
+                                        skip = true
+                                end
+                        end
+
+                        if not skip then
+                                local hum = p.Character:FindFirstChildOfClass("Humanoid")
+                                if hum and hum.Health > 0 then
+                                        local part = p.Character[targetPartName]
+                                        local worldDist = (part.Position - Camera.CFrame.Position).Magnitude
+                                        if worldDist <= getgenv().maxDistance then
+                                                local screenPos, onscreen = Camera:WorldToViewportPoint(part.Position)
+                                                if onscreen then
+                                                        local distFromCenter = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
+                                                        if not getgenv().fovEnabled or distFromCenter <= getgenv().fovSize then
+                                                                if wallCheck(part.Position, p.Character) then
+                                                                        if distFromCenter < closest then
+                                                                                closest = distFromCenter
+                                                                                best = part
+                                                                        end
+                                                                end
+                                                        end
+                                                end
                                         end
                                 end
+                        end
+                end
+        end
+        return best
+end
 
-                                if not skip then
-                                        local hum = p.Character:FindFirstChildOfClass("Humanoid")
-                                        if hum and hum.Health > 0 then
-                                                local worldDist = (part.Position - Camera.CFrame.Position).Magnitude
-                                                if worldDist <= getgenv().maxDistance then
-                                                        local screenPos, onscreen = Camera:WorldToViewportPoint(part.Position)
-                                                        if onscreen then
-                                                                local distFromCenter = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
-                                                                if not getgenv().fovEnabled or distFromCenter <= getgenv().fovSize then
-                               
+-- Tuş & Fare Dinleme (RightClick ve Manuel Mod)
+local isLockKeyPressed = false
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+
+        if typeof(getgenv().lockKey) == "EnumItem" then
+                if getgenv().lockKey.EnumType == Enum.UserInputType and input.UserInputType == getgenv().lockKey then
+                        isLockKeyPressed = true
+                elseif getgenv().lockKey.EnumType == Enum.KeyCode and input.KeyCode == getgenv().lockKey then
+                        isLockKeyPressed = true
+                end
+        end
+
+        if input.KeyCode == Enum.KeyCode.X then
+                getgenv().noclip = not getgenv().noclip
+        end
+
+        if input.KeyCode == Enum.KeyCode.Z then
+                getgenv().floatEnabled = not getgenv().floatEnabled
+        end
+
+        if getgenv().clickTpEnabled and input.KeyCode == Enum.KeyCode.T then
+                local char = LP.Character
+                if char and char:FindFirstChild("HumanoidRootPart") then
+                        local hrp = char.HumanoidRootPart
+                        local targetPos = Mouse.Hit.Position + Vector3.new(0, 3, 0)
+                        if (targetPos - hrp.Position).Magnitude <= 300 then
+                                hrp.CFrame = CFrame.new(targetPos)
+                        end
+                end
+        end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+        if typeof(getgenv().lockKey) == "EnumItem" then
+                if getgenv().lockKey.EnumType == Enum.UserInputType and input.UserInputType == getgenv().lockKey then
+                        isLockKeyPressed = false
+                elseif getgenv().lockKey.EnumType == Enum.KeyCode and input.KeyCode == getgenv().lockKey then
+                        isLockKeyPressed = false
+                end
+        end
+end)
+
+
+-- =========================
+-- OPTIMIZED MAIN LOOP
+-- =========================
+local floatPart = nil
+local frameCounter = 0
+
+RunService.RenderStepped:Connect(function()
+        -- FOV Güncelleme
+        circle.Visible = getgenv().fovEnabled
+        if getgenv().fovEnabled then
+                circle.Radius = getgenv().fovSize
+                circle.Color = getgenv().fovColor
+                circle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+        end
+
+        -- ESP ve Highlight Güncelleme Throttle (CPU Optimizasyonu)
+        frameCounter = frameCounter + 1
+        if frameCounter >= 3 then
+                frameCounter = 0
+                for player, data in pairs(espCache) do
+                        local charValid = data.character and data.character.Parent and data.character:FindFirstChild("Head")
+
+                        if data.billboard then
+                                local shouldShowESP = getgenv().espEnabled and charValid
+                                if data.billboard.Enabled ~= shouldShowESP then
+                                        data.billboard.Enabled = shouldShowESP
+                                end
+                                if shouldShowESP then
+                                        if getgenv().useTeamColor and player.Team then
+                                                data.textLabel.TextColor3 = player.TeamColor.Color
+                                        else
+                                                data.textLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+                                        end
+                                end
+                        end
+
+                        if data.highlight then
+                                local shouldShowHighlight = getgenv().highlightEnabled and charValid
+                                if data.highlight.Enabled ~= shouldShowHighlight then
+                                        data.highlight.Enabled = shouldShowHighlight
+                                end
+                                if shouldShowHighlight then
+                                        if getgenv().useTeamColor and player.Team then
+                                                data.highlight.FillColor = player.TeamColor.Color
+                                                data.highlight.OutlineColor = player.TeamColor.Color
+                                        else
+                                                data.highlight.FillColor = Color3.fromRGB(255, 255, 255)
+                                                data.highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+                                        end
+                                end
+                        end
+                end
+        end
+
+        -- Noclip Uygulaması
+        if getgenv().noclip and LP.Character then
+                for _, part in pairs(LP.Character:GetDescendants()) do
+                        if part:IsA("BasePart") then
+                                part.CanCollide = false
+                        end
+                end
+        end
+
+        -- Float Platform Uygulaması
+        if getgenv().floatEnabled and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
+                local hrp = LP.Character.HumanoidRootPart
+                if not floatPart or not floatPart.Parent then
+                        floatPart = Instance.new("Part")
+                        floatPart.Name = "FloatPlatform"
+                        floatPart.Size = Vector3.new(3, 0.6, 3)
+                        floatPart.Transparency = 1
+                        floatPart.Anchored = true
+                        floatPart.CanCollide = true
+                        floatPart.Parent = workspace
+                end
+                floatPart.CFrame = hrp.CFrame - Vector3.new(0, 3.5, 0)
+        else
+                if floatPart then
+                        floatPart:Destroy()
+                        floatPart = nil
+                end
+        end
+
+        -- Aimbot Mantığı
+        if not getgenv().aimbot then return end
+
+        local t = nil
+        if getgenv().aimbotType == "OtoLock" then
+                t = getTarget()
+        elseif getgenv().aimbotType == "Manuel" then
+                if isLockKeyPressed then
+                        if not lockedTarget or not lockedTarget.Parent or lockedTarget.Parent.Humanoid.Health <= 0 then
+                                lockedTarget = getTarget()
+                        end
+                        t = lockedTarget
+                else
+                        lockedTarget = nil
+                end
+        end
+
+        if t then
+                local vel = t.AssemblyLinearVelocity or Vector3.zero
+                local aimPos = t.Position + (vel * getgenv().pred)
+                local targetCFrame = CFrame.new(Camera.CFrame.Position, aimPos)
+
+                if getgenv().smoothingEnabled then
+                        Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, math.clamp(getgenv().smoothness, 0.01, 1))
+                else
+                        Camera.CFrame = targetCFrame
+                end
+        end
+end)

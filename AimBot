@@ -25,6 +25,7 @@ getgenv().lockKey = Enum.UserInputType.MouseButton2
 
 -- Features
 getgenv().randomPart = false
+getgenv().visiblePartCheck = false -- Yeni Eklenen Toggle: Duvar arkasında olmayan parçaya kilitlenme
 getgenv().smoothingEnabled = false
 getgenv().smoothness = 0.1
 
@@ -228,7 +229,7 @@ local function createPage()
 end
 
 local page1 = createPage()
-page1.CanvasSize = UDim2.new(0, 0, 0, 1450)
+page1.CanvasSize = UDim2.new(0, 0, 0, 1500)
 local page2 = createPage()
 page2.CanvasSize = UDim2.new(0, 0, 0, 300)
 page2.Visible = false
@@ -445,22 +446,23 @@ nextY = createListDropdown(page1, "HITPART", hitPartY, {"Head", "HumanoidRootPar
 end)
 
 createToggle(page1, "Random HitPart (0.5s)", nextY + 10, function(v) getgenv().randomPart = v end)
+createToggle(page1, "Visible Part Check (Random)", nextY + 50, function(v) getgenv().visiblePartCheck = v end)
 
-createLabel(page1, "PREDICTION", nextY + 58)
-createTextbox(page1, nextY + 84, getgenv().pred, function(v)
+createLabel(page1, "PREDICTION", nextY + 98)
+createTextbox(page1, nextY + 124, getgenv().pred, function(v)
         local num = tonumber(v)
         if num then getgenv().pred = num end
 end)
 
-createToggle(page1, "Enable Smoothing", nextY + 128, function(v) getgenv().smoothingEnabled = v end)
+createToggle(page1, "Enable Smoothing", nextY + 168, function(v) getgenv().smoothingEnabled = v end)
 
-createLabel(page1, "Smoothing Value", nextY + 174)
-createTextbox(page1, nextY + 200, getgenv().smoothness, function(v)
+createLabel(page1, "Smoothing Value", nextY + 214)
+createTextbox(page1, nextY + 240, getgenv().smoothness, function(v)
         local num = tonumber(v)
         if num then getgenv().smoothness = num end
 end)
 
-local teamCheckStartY = nextY + 244
+local teamCheckStartY = nextY + 284
 createLabel(page1, "TEAM CHECK", teamCheckStartY)
 
 local multiDropdownFrame = Instance.new("ScrollingFrame")
@@ -694,9 +696,18 @@ Players.PlayerRemoving:Connect(cleanESP)
 
 
 -- =========================
--- RANDOM PART LOOP
+-- RANDOM & VISUAL PART LOOP
 -- =========================
 local currentRandomPartName = "HumanoidRootPart"
+
+local function isPartVisible(part, character)
+        local rp = RaycastParams.new()
+        rp.FilterDescendantsInstances = {LP.Character, character}
+        rp.FilterType = Enum.RaycastFilterType.Blacklist
+        local result = workspace:Raycast(Camera.CFrame.Position, part.Position - Camera.CFrame.Position, rp)
+        return result == nil
+end
+
 task.spawn(function()
         while true do
                 if getgenv().randomPart then
@@ -712,12 +723,25 @@ task.spawn(function()
                                 end
                                 if #validChars > 0 then activeTargetChar = validChars[math.random(1, #validChars)] end
                         end
+
                         if activeTargetChar then
                                 local parts = {}
                                 for _, part in pairs(activeTargetChar:GetChildren()) do
-                                        if part:IsA("BasePart") then table.insert(parts, part.Name) end
+                                        if part:IsA("BasePart") then
+                                                if getgenv().visiblePartCheck then
+                                                        if isPartVisible(part, activeTargetChar) then
+                                                                table.insert(parts, part.Name)
+                                                        end
+                                                else
+                                                        table.insert(parts, part.Name)
+                                                end
+                                        end
                                 end
-                                if #parts > 0 then currentRandomPartName = parts[math.random(1, #parts)] end
+                                if #parts > 0 then
+                                        currentRandomPartName = parts[math.random(1, #parts)]
+                                else
+                                        currentRandomPartName = "HumanoidRootPart"
+                                end
                         end
                 end
                 task.wait(0.5)

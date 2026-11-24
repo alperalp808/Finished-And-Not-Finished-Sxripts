@@ -18,20 +18,29 @@ getgenv().espEnabled = false
 getgenv().highlightEnabled = false
 getgenv().useTeamColor = false
 
--- Aimbot Modları & Kilitleme Sistemi
-getgenv().aimbotType = "OtoLock" -- "OtoLock" veya "Manuel"
-getgenv().lockKey = Enum.UserInputType.MouseButton2 -- Varsayılan Sağ Tık (RightClick)
+-- Aimbot Modes & Locking System
+getgenv().aimbotType = "OtoLock" -- "OtoLock" or "Manuel"
+getgenv().manualModeType = "Toggle" -- "Toggle" or "Hold"
+getgenv().lockKey = Enum.UserInputType.MouseButton2
 
--- Yeni Eklenen Özellikler
+-- Features
 getgenv().randomPart = false
 getgenv().smoothingEnabled = false
-getgenv().smoothness = 0.1 -- 0 (Anlık) ile 1 (Çok yavaş) arası veya lerp katsayısı
+getgenv().smoothness = 0.1
 
--- Player Tab Değişkenleri
+-- Player Tab Variables
 getgenv().noclip = false
 getgenv().floatEnabled = false
 getgenv().clickTpEnabled = false
 getgenv().clickTpKey = Enum.KeyCode.T
+
+-- New Mods
+getgenv().antiVehicle = false
+getgenv().lockNpc = false
+getgenv().explosiveMode = false
+getgenv().explosiveKey = Enum.KeyCode.E
+getgenv().explosivePred = 0.25
+getgenv().explosiveStuds = 6
 
 
 -- =========================
@@ -41,6 +50,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
 local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
 local Teams = game:GetService("Teams")
 local Camera = workspace.CurrentCamera
 local LP = Players.LocalPlayer
@@ -48,16 +58,22 @@ local Mouse = LP:GetMouse()
 
 
 -- =========================
--- GUI (COREGUI)
+-- GUI (COREGUI CONNECTION)
 -- =========================
 local gui = Instance.new("ScreenGui")
 gui.Name = "AimbotAdvancedMobileGUI"
 gui.ResetOnSpawn = false
 gui.IgnoreGuiInset = true
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
 pcall(function()
         gui.Parent = CoreGui
 end)
+if not gui.Parent then
+        pcall(function()
+                gui.Parent = game:GetService("CoreGui")
+        end)
+end
 if not gui.Parent then
         gui.Parent = LP:WaitForChild("PlayerGui")
 end
@@ -67,127 +83,174 @@ end
 -- MENU TOGGLE BUTTON
 -- =========================
 local menuBtn = Instance.new("TextButton")
-menuBtn.Size = UDim2.new(0, 150, 0, 40)
-menuBtn.Position = UDim2.new(0.5, -75, 0, 10)
+menuBtn.Size = UDim2.new(0, 140, 0, 45)
+menuBtn.Position = UDim2.new(0.5, -70, 0, 15)
 menuBtn.Text = "MENU"
-menuBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+menuBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
 menuBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-menuBtn.TextSize = 14
+menuBtn.TextSize = 15
 menuBtn.Font = Enum.Font.GothamBold
+menuBtn.ZIndex = 10
 menuBtn.Parent = gui
 
 local btnCorner = Instance.new("UICorner")
-btnCorner.CornerRadius = UDim.new(0, 8)
+btnCorner.CornerRadius = UDim.new(0, 10)
 btnCorner.Parent = menuBtn
+
+local btnStroke = Instance.new("UIStroke")
+btnStroke.Color = Color3.fromRGB(90, 90, 130)
+btnStroke.Thickness = 1.5
+btnStroke.Parent = menuBtn
+
+
+-- =========================
+-- EXPLOSIVE MODE MOBILE BUTTON (Sadece Mobilde Görünür)
+-- =========================
+local explosiveMobBtn = Instance.new("TextButton")
+explosiveMobBtn.Size = UDim2.new(0, 60, 0, 60)
+explosiveMobBtn.Position = UDim2.new(1, -80, 0.4, 0)
+explosiveMobBtn.Text = "Ex"
+explosiveMobBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+explosiveMobBtn.BackgroundTransparency = 0.3
+explosiveMobBtn.TextColor3 = Color3.fromRGB(255, 70, 70)
+explosiveMobBtn.TextSize = 18
+explosiveMobBtn.Font = Enum.Font.GothamBold
+explosiveMobBtn.ZIndex = 10
+explosiveMobBtn.Visible = UserInputService.TouchEnabled
+explosiveMobBtn.Parent = gui
+
+local exCorner = Instance.new("UICorner")
+exCorner.CornerRadius = UDim.new(1, 0)
+exCorner.Parent = explosiveMobBtn
+
+local exStroke = Instance.new("UIStroke")
+exStroke.Color = Color3.fromRGB(255, 50, 50)
+exStroke.Thickness = 2.5
+exStroke.Parent = explosiveMobBtn
+
+-- Draggable Logic for Mobile Button
+local dragging, dragInput, dragStart, startPos
+explosiveMobBtn.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                dragging = true
+                dragStart = input.Position
+                startPos = explosiveMobBtn.Position
+                input.Changed:Connect(function()
+                        if input.UserInputState == Enum.UserInputState.End then
+                                dragging = false
+                        end
+                end)
+        end
+end)
+
+explosiveMobBtn.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+                dragInput = input
+        end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+                local delta = input.Position - dragStart
+                explosiveMobBtn.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+end)
+
+explosiveMobBtn.MouseButton1Click:Connect(function()
+        getgenv().explosiveMode = not getgenv().explosiveMode
+        exStroke.Color = getgenv().explosiveMode and Color3.fromRGB(50, 255, 50) or Color3.fromRGB(255, 50, 50)
+        explosiveMobBtn.TextColor3 = getgenv().explosiveMode and Color3.fromRGB(50, 255, 50) or Color3.fromRGB(255, 70, 70)
+end)
 
 
 -- =========================
 -- MAIN FRAME
 -- =========================
 local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 360, 0, 500)
-frame.Position = UDim2.new(0.5, -180, 0.5, -250)
-frame.BackgroundColor3 = Color3.fromRGB(22, 22, 28)
+frame.Size = UDim2.new(0, 380, 0, 520)
+frame.Position = UDim2.new(0.5, -190, 0.5, -260)
+frame.BackgroundColor3 = Color3.fromRGB(18, 18, 24)
+frame.BackgroundTransparency = 0.05
 frame.Visible = false
+frame.ZIndex = 5
 frame.Parent = gui
 
 local frameCorner = Instance.new("UICorner")
-frameCorner.CornerRadius = UDim.new(0, 12)
+frameCorner.CornerRadius = UDim.new(0, 14)
 frameCorner.Parent = frame
 
+local frameStroke = Instance.new("UIStroke")
+frameStroke.Color = Color3.fromRGB(70, 70, 100)
+frameStroke.Thickness = 1.5
+frameStroke.Parent = frame
+
 
 -- =========================
--- TOP BAR & TABS (3 SEKME)
+-- TOP BAR & TABS
 -- =========================
 local tabContainer = Instance.new("Frame")
-tabContainer.Size = UDim2.new(1, -20, 0, 36)
-tabContainer.Position = UDim2.new(0, 10, 0, 10)
+tabContainer.Size = UDim2.new(1, -24, 0, 40)
+tabContainer.Position = UDim2.new(0, 12, 0, 12)
 tabContainer.BackgroundTransparency = 1
+tabContainer.ZIndex = 6
 tabContainer.Parent = frame
 
-local tab1Btn = Instance.new("TextButton")
-tab1Btn.Size = UDim2.new(0.32, 0, 1, 0)
-tab1Btn.Text = "Aimbot"
-tab1Btn.BackgroundColor3 = Color3.fromRGB(45, 45, 60)
-tab1Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-tab1Btn.Font = Enum.Font.GothamBold
-tab1Btn.TextSize = 12
-tab1Btn.Parent = tabContainer
-Instance.new("UICorner", tab1Btn).CornerRadius = UDim.new(0, 6)
+local function createTabBtn(posScale, text)
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(0.31, 0, 1, 0)
+        btn.Position = UDim2.new(posScale, 0, 0, 0)
+        btn.Text = text
+        btn.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
+        btn.TextColor3 = Color3.fromRGB(160, 160, 180)
+        btn.Font = Enum.Font.GothamBold
+        btn.TextSize = 13
+        btn.ZIndex = 6
+        btn.Parent = tabContainer
+        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+        return btn
+end
 
-local tab2Btn = Instance.new("TextButton")
-tab2Btn.Size = UDim2.new(0.32, 0, 1, 0)
-tab2Btn.Position = UDim2.new(0.34, 0, 0, 0)
-tab2Btn.Text = "Visuals"
-tab2Btn.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
-tab2Btn.TextColor3 = Color3.fromRGB(150, 150, 150)
-tab2Btn.Font = Enum.Font.GothamBold
-tab2Btn.TextSize = 12
-tab2Btn.Parent = tabContainer
-Instance.new("UICorner", tab2Btn).CornerRadius = UDim.new(0, 6)
-
-local tab3Btn = Instance.new("TextButton")
-tab3Btn.Size = UDim2.new(0.32, 0, 1, 0)
-tab3Btn.Position = UDim2.new(0.68, 0, 0, 0)
-tab3Btn.Text = "Player"
-tab3Btn.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
-tab3Btn.TextColor3 = Color3.fromRGB(150, 150, 150)
-tab3Btn.Font = Enum.Font.GothamBold
-tab3Btn.TextSize = 12
-tab3Btn.Parent = tabContainer
-Instance.new("UICorner", tab3Btn).CornerRadius = UDim.new(0, 6)
+local tab1Btn = createTabBtn(0, "Aimbot")
+local tab2Btn = createTabBtn(0.345, "Visuals")
+local tab3Btn = createTabBtn(0.69, "Player")
 
 
 -- SCROLLING PAGES
-local page1 = Instance.new("ScrollingFrame")
-page1.Size = UDim2.new(1, -20, 1, -60)
-page1.Position = UDim2.new(0, 10, 0, 52)
-page1.BackgroundTransparency = 1
-page1.CanvasSize = UDim2.new(0, 0, 0, 1050)
-page1.ScrollBarThickness = 4
-page1.Visible = true
-page1.Parent = frame
+local function createPage()
+        local page = Instance.new("ScrollingFrame")
+        page.Size = UDim2.new(1, -24, 1, -68)
+        page.Position = UDim2.new(0, 12, 0, 60)
+        page.BackgroundTransparency = 1
+        page.ScrollBarThickness = 3
+        page.ZIndex = 6
+        page.Parent = frame
+        return page
+end
 
-local page2 = Instance.new("ScrollingFrame")
-page2.Size = UDim2.new(1, -20, 1, -60)
-page2.Position = UDim2.new(0, 10, 0, 52)
-page2.BackgroundTransparency = 1
+local page1 = createPage()
+page1.CanvasSize = UDim2.new(0, 0, 0, 1450)
+local page2 = createPage()
 page2.CanvasSize = UDim2.new(0, 0, 0, 300)
-page2.ScrollBarThickness = 4
 page2.Visible = false
-page2.Parent = frame
-
-local page3 = Instance.new("ScrollingFrame")
-page3.Size = UDim2.new(1, -20, 1, -60)
-page3.Position = UDim2.new(0, 10, 0, 52)
-page3.BackgroundTransparency = 1
+local page3 = createPage()
 page3.CanvasSize = UDim2.new(0, 0, 0, 350)
-page3.ScrollBarThickness = 4
 page3.Visible = false
-page3.Parent = frame
 
+local function switchTab(activeBtn, activePage)
+        for _, p in pairs({page1, page2, page3}) do p.Visible = false end
+        for _, b in pairs({tab1Btn, tab2Btn, tab3Btn}) do
+                TweenService:Create(b, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(28, 28, 38), TextColor3 = Color3.fromRGB(160, 160, 180)}):Play()
+        end
+        activePage.Visible = true
+        TweenService:Create(activeBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(65, 95, 220), TextColor3 = Color3.fromRGB(255, 255, 255)}):Play()
+end
 
--- Tab Geçiş Mantığı
-tab1Btn.MouseButton1Click:Connect(function()
-        page1.Visible, page2.Visible, page3.Visible = true, false, false
-        tab1Btn.BackgroundColor3, tab1Btn.TextColor3 = Color3.fromRGB(45, 45, 60), Color3.fromRGB(255, 255, 255)
-        tab2Btn.BackgroundColor3, tab2Btn.TextColor3 = Color3.fromRGB(28, 28, 38), Color3.fromRGB(150, 150, 150)
-        tab3Btn.BackgroundColor3, tab3Btn.TextColor3 = Color3.fromRGB(28, 28, 38), Color3.fromRGB(150, 150, 150)
-end)
+tab1Btn.MouseButton1Click:Connect(function() switchTab(tab1Btn, page1) end)
+tab2Btn.MouseButton1Click:Connect(function() switchTab(tab2Btn, page2) end)
+tab3Btn.MouseButton1Click:Connect(function() switchTab(tab3Btn, page3) end)
 
-tab2Btn.MouseButton1Click:Connect(function()
-        page1.Visible, page2.Visible, page3.Visible = false, true, false
-        tab2Btn.BackgroundColor3, tab2Btn.TextColor3 = Color3.fromRGB(45, 45, 60), Color3.fromRGB(255, 255, 255)
-        tab1Btn.BackgroundColor3, tab1Btn.TextColor3 = Color3.fromRGB(28, 28, 38), Color3.fromRGB(150, 150, 150)
-        tab3Btn.BackgroundColor3, tab3Btn.TextColor3 = Color3.fromRGB(28, 28, 38), Color3.fromRGB(150, 150, 150)
-end)
-
-tab3Btn.MouseButton1Click:Connect(function()
-        page1.Visible, page2.Visible, page3.Visible = false, false, true
-        tab3Btn.BackgroundColor3, tab3Btn.TextColor3 = Color3.fromRGB(45, 45, 60), Color3.fromRGB(255, 255, 255)
-        tab1Btn.BackgroundColor3, tab1Btn.TextColor3 = Color3.fromRGB(28, 28, 38), Color3.fromRGB(150, 150, 150)
-        tab2Btn.BackgroundColor3, tab2Btn.TextColor3 = Color3.fromRGB(28, 28, 38), Color3.fromRGB(150, 150, 150)
-end)
+tab1Btn.BackgroundColor3 = Color3.fromRGB(65, 95, 220)
+tab1Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
 
 
 -- =========================
@@ -195,51 +258,65 @@ end)
 -- =========================
 local function createLabel(parent, text, y)
         local l = Instance.new("TextLabel")
-        l.Size = UDim2.new(1, 0, 0, 22)
+        l.Size = UDim2.new(1, 0, 0, 24)
         l.Position = UDim2.new(0, 0, 0, y)
         l.Text = text
-        l.TextColor3 = Color3.fromRGB(180, 180, 190)
+        l.TextColor3 = Color3.fromRGB(140, 140, 170)
         l.BackgroundTransparency = 1
         l.TextXAlignment = Enum.TextXAlignment.Left
-        l.Font = Enum.Font.GothamMedium
-        l.TextSize = 12
+        l.Font = Enum.Font.GothamBold
+        l.TextSize = 11
+        l.ZIndex = 6
         l.Parent = parent
 end
 
 local function createToggle(parent, text, y, callback)
         local b = Instance.new("TextButton")
-        b.Size = UDim2.new(1, 0, 0, 34)
+        b.Size = UDim2.new(1, 0, 0, 36)
         b.Position = UDim2.new(0, 0, 0, y)
-        b.Text = "  "..text.." : OFF"
-        b.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-        b.TextColor3 = Color3.fromRGB(220, 220, 220)
-        b.Font = Enum.Font.Gotham
+        b.Text = "  "..text
+        b.BackgroundColor3 = Color3.fromRGB(26, 26, 36)
+        b.TextColor3 = Color3.fromRGB(200, 200, 210)
+        b.Font = Enum.Font.GothamMedium
         b.TextSize = 13
         b.TextXAlignment = Enum.TextXAlignment.Left
+        b.ZIndex = 6
         b.Parent = parent
-        Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
+        Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
+
+        local indicator = Instance.new("Frame")
+        indicator.Size = UDim2.new(0, 12, 0, 12)
+        indicator.Position = UDim2.new(1, -26, 0.5, -6)
+        indicator.BackgroundColor3 = Color3.fromRGB(70, 70, 85)
+        indicator.ZIndex = 7
+        indicator.Parent = b
+        Instance.new("UICorner", indicator).CornerRadius = UDim.new(1, 0)
 
         local s = false
         b.MouseButton1Click:Connect(function()
                 s = not s
-                b.Text = "  "..text.." : "..(s and "ON" or "OFF")
-                b.BackgroundColor3 = s and Color3.fromRGB(45, 75, 45) or Color3.fromRGB(30, 30, 40)
+                local targetColor = s and Color3.fromRGB(65, 220, 95) or Color3.fromRGB(70, 70, 85)
+                local btnBg = s and Color3.fromRGB(32, 45, 35) or Color3.fromRGB(26, 26, 36)
+                
+                TweenService:Create(indicator, TweenInfo.new(0.2), {BackgroundColor3 = targetColor}):Play()
+                TweenService:Create(b, TweenInfo.new(0.2), {BackgroundColor3 = btnBg}):Play()
                 callback(s)
         end)
 end
 
 local function createTextbox(parent, y, default, callback)
         local t = Instance.new("TextBox")
-        t.Size = UDim2.new(1, 0, 0, 34)
+        t.Size = UDim2.new(1, 0, 0, 36)
         t.Position = UDim2.new(0, 0, 0, y)
         t.Text = tostring(default)
-        t.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+        t.BackgroundColor3 = Color3.fromRGB(26, 26, 36)
         t.TextColor3 = Color3.fromRGB(255, 255, 255)
-        t.Font = Enum.Font.Gotham
+        t.Font = Enum.Font.GothamMedium
         t.TextSize = 13
         t.ClearTextOnFocus = false
+        t.ZIndex = 6
         t.Parent = parent
-        Instance.new("UICorner", t).CornerRadius = UDim.new(0, 6)
+        Instance.new("UICorner", t).CornerRadius = UDim.new(0, 8)
 
         t.FocusLost:Connect(function()
                 callback(t.Text)
@@ -250,50 +327,51 @@ local function createListDropdown(parent, titleText, y, options, callback)
         createLabel(parent, titleText, y)
 
         local mainBtn = Instance.new("TextButton")
-        mainBtn.Size = UDim2.new(1, 0, 0, 34)
-        mainBtn.Position = UDim2.new(0, 0, 0, y + 26)
-        mainBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+        mainBtn.Size = UDim2.new(1, 0, 0, 36)
+        mainBtn.Position = UDim2.new(0, 0, 0, y + 24)
+        mainBtn.BackgroundColor3 = Color3.fromRGB(26, 26, 36)
         mainBtn.TextColor3 = Color3.fromRGB(220, 220, 220)
-        mainBtn.Font = Enum.Font.Gotham
+        mainBtn.Font = Enum.Font.GothamMedium
         mainBtn.TextSize = 13
         mainBtn.TextXAlignment = Enum.TextXAlignment.Left
-        mainBtn.Text = "  Seçiniz... ▾"
+        mainBtn.Text = "  Select... ▾"
+        mainBtn.ZIndex = 6
         mainBtn.Parent = parent
-        Instance.new("UICorner", mainBtn).CornerRadius = UDim.new(0, 6)
+        Instance.new("UICorner", mainBtn).CornerRadius = UDim.new(0, 8)
 
         local listFrame = Instance.new("ScrollingFrame")
         listFrame.Size = UDim2.new(1, 0, 0, 0)
-        listFrame.Position = UDim2.new(0, 0, 0, y + 62)
-        listFrame.BackgroundColor3 = Color3.fromRGB(24, 24, 32)
+        listFrame.Position = UDim2.new(0, 0, 0, y + 64)
+        listFrame.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
         listFrame.BorderSizePixel = 0
         listFrame.Visible = false
-        listFrame.ZIndex = 5
-        listFrame.CanvasSize = UDim2.new(0, 0, 0, #options * 30)
+        listFrame.ZIndex = 10
+        listFrame.CanvasSize = UDim2.new(0, 0, 0, #options * 32)
         listFrame.ScrollBarThickness = 3
         listFrame.Parent = parent
-        Instance.new("UICorner", listFrame).CornerRadius = UDim.new(0, 6)
+        Instance.new("UICorner", listFrame).CornerRadius = UDim.new(0, 8)
 
         local isOpen = false
 
         mainBtn.MouseButton1Click:Connect(function()
                 isOpen = not isOpen
                 listFrame.Visible = isOpen
-                listFrame.Size = isOpen and UDim2.new(1, 0, 0, math.min(#options * 30, 120)) or UDim2.new(1, 0, 0, 0)
+                listFrame.Size = isOpen and UDim2.new(1, 0, 0, math.min(#options * 32, 130)) or UDim2.new(1, 0, 0, 0)
         end)
 
         for i, opt in ipairs(options) do
                 local optBtn = Instance.new("TextButton")
-                optBtn.Size = UDim2.new(1, -4, 0, 28)
-                optBtn.Position = UDim2.new(0, 2, 0, (i - 1) * 30 + 2)
-                optBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+                optBtn.Size = UDim2.new(1, -6, 0, 30)
+                optBtn.Position = UDim2.new(0, 3, 0, (i - 1) * 32 + 2)
+                optBtn.BackgroundColor3 = Color3.fromRGB(32, 32, 42)
                 optBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
                 optBtn.Font = Enum.Font.Gotham
                 optBtn.TextSize = 12
                 optBtn.Text = "  "..tostring(opt)
                 optBtn.TextXAlignment = Enum.TextXAlignment.Left
-                optBtn.ZIndex = 6
+                optBtn.ZIndex = 11
                 optBtn.Parent = listFrame
-                Instance.new("UICorner", optBtn).CornerRadius = UDim.new(0, 4)
+                Instance.new("UICorner", optBtn).CornerRadius = UDim.new(0, 6)
 
                 optBtn.MouseButton1Click:Connect(function()
                         mainBtn.Text = "  "..tostring(opt).." ▾"
@@ -303,7 +381,7 @@ local function createListDropdown(parent, titleText, y, options, callback)
                 end)
         end
 
-        return y + 66
+        return y + 68
 end
 
 
@@ -311,72 +389,92 @@ end
 -- TAB 1 CONTENT (AIMBOT)
 -- =========================
 createLabel(page1, "MAIN SETTINGS", 0)
-createToggle(page1, "Enable Aimbot", 26, function(v) getgenv().aimbot = v end)
-createToggle(page1, "Wall Check", 66, function(v) getgenv().wc = v end)
+createToggle(page1, "Aimbot Enabled", 28, function(v) getgenv().aimbot = v end)
+createToggle(page1, "Wall Check", 68, function(v) getgenv().wc = v end)
+createToggle(page1, "Anti Vehicle (LP Sit Check)", 108, function(v) getgenv().antiVehicle = v end)
+createToggle(page1, "Lock NPC", 148, function(v) getgenv().lockNpc = v end)
 
-local nextY = createListDropdown(page1, "AIMBOT TYPE", 108, {"OtoLock", "Manuel"}, function(selected)
+createToggle(page1, "Explosive Mode", 188, function(v)
+        getgenv().explosiveMode = v
+        exStroke.Color = v and Color3.fromRGB(50, 255, 50) or Color3.fromRGB(255, 50, 50)
+        explosiveMobBtn.TextColor3 = v and Color3.fromRGB(50, 255, 50) or Color3.fromRGB(255, 70, 70)
+end)
+
+createLabel(page1, "Explosive Keybind", 232)
+createTextbox(page1, 258, "E", function(v)
+        local success, key = pcall(function() return Enum.KeyCode[v:upper()] end)
+        if success and key then getgenv().explosiveKey = key end
+end)
+
+createLabel(page1, "Explosive Prediction", 302)
+createTextbox(page1, 328, getgenv().explosivePred, function(v)
+        local num = tonumber(v)
+        if num then getgenv().explosivePred = num end
+end)
+
+createLabel(page1, "Explosive Studs Offset", 372)
+createTextbox(page1, 398, getgenv().explosiveStuds, function(v)
+        local num = tonumber(v)
+        if num then getgenv().explosiveStuds = num end
+end)
+
+local nextY = createListDropdown(page1, "AIMBOT TYPE", 442, {"OtoLock", "Manuel"}, function(selected)
         getgenv().aimbotType = selected
 end)
 
-createLabel(page1, "Manual Lock Keybind (RightClick veya Tuş Adı)", nextY + 10)
-createTextbox(page1, nextY + 36, "RightClick", function(v)
+local manualTypeY = createListDropdown(page1, "MANUAL MODE TYPE", nextY, {"Toggle", "Hold"}, function(selected)
+        getgenv().manualModeType = selected
+end)
+
+createLabel(page1, "Manual Keybind", manualTypeY + 10)
+createTextbox(page1, manualTypeY + 36, "RightClick", function(v)
         local upperV = v:upper()
         if upperV == "RIGHTCLICK" or upperV == "MOUSEBUTTON2" then
                 getgenv().lockKey = Enum.UserInputType.MouseButton2
         elseif upperV == "LEFTCLICK" or upperV == "MOUSEBUTTON1" then
                 getgenv().lockKey = Enum.UserInputType.MouseButton1
         else
-                local success, key = pcall(function()
-                        return Enum.KeyCode[upperV]
-                end)
-                if success and key then
-                        getgenv().lockKey = key
-                end
+                local success, key = pcall(function() return Enum.KeyCode[upperV] end)
+                if success and key then getgenv().lockKey = key end
         end
 end)
 
-local hitPartY = nextY + 78
+local hitPartY = manualTypeY + 78
 nextY = createListDropdown(page1, "HITPART", hitPartY, {"Head", "HumanoidRootPart", "UpperTorso", "LowerTorso"}, function(selected)
         getgenv().hitpart = selected
 end)
 
--- Rastgele Parça (RandomPart) Toggle
-createToggle(page1, "Random HitPart (0.5s)", nextY + 10, function(v)
-        getgenv().randomPart = v
-end)
+createToggle(page1, "Random HitPart (0.5s)", nextY + 10, function(v) getgenv().randomPart = v end)
 
-createLabel(page1, "PREDICTION", nextY + 56)
-createTextbox(page1, nextY + 82, getgenv().pred, function(v)
+createLabel(page1, "PREDICTION", nextY + 58)
+createTextbox(page1, nextY + 84, getgenv().pred, function(v)
         local num = tonumber(v)
         if num then getgenv().pred = num end
 end)
 
--- Smoothing (Yumuşatma) Ayarları
-createToggle(page1, "Enable Smoothing", nextY + 124, function(v)
-        getgenv().smoothingEnabled = v
-end)
+createToggle(page1, "Enable Smoothing", nextY + 128, function(v) getgenv().smoothingEnabled = v end)
 
-createLabel(page1, "Smoothing Value (Örn: 0.1)", nextY + 170)
-createTextbox(page1, nextY + 196, getgenv().smoothness, function(v)
+createLabel(page1, "Smoothing Value", nextY + 174)
+createTextbox(page1, nextY + 200, getgenv().smoothness, function(v)
         local num = tonumber(v)
         if num then getgenv().smoothness = num end
 end)
 
-local teamCheckStartY = nextY + 238
+local teamCheckStartY = nextY + 244
 createLabel(page1, "TEAM CHECK", teamCheckStartY)
 
 local multiDropdownFrame = Instance.new("ScrollingFrame")
-multiDropdownFrame.Size = UDim2.new(1, 0, 0, 90)
-multiDropdownFrame.Position = UDim2.new(0, 0, 0, teamCheckStartY + 66)
-multiDropdownFrame.BackgroundColor3 = Color3.fromRGB(26, 26, 34)
+multiDropdownFrame.Size = UDim2.new(1, 0, 0, 95)
+multiDropdownFrame.Position = UDim2.new(0, 0, 0, teamCheckStartY + 28)
+multiDropdownFrame.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
 multiDropdownFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
 multiDropdownFrame.ScrollBarThickness = 3
+multiDropdownFrame.ZIndex = 7
 multiDropdownFrame.Parent = page1
-Instance.new("UICorner", multiDropdownFrame).CornerRadius = UDim.new(0, 6)
+Instance.new("UICorner", multiDropdownFrame).CornerRadius = UDim.new(0, 8)
 
-local refreshTeamCheckList -- Forward declaration
-
-createToggle(page1, "Enable Team Check", teamCheckStartY + 26, function(v)
+local refreshTeamCheckList
+createToggle(page1, "Enable Team Check Filter", teamCheckStartY + 130, function(v)
         getgenv().teamCheck = v
         if v and LP.Team then
                 getgenv().ignoredTeams = {}
@@ -389,23 +487,22 @@ refreshTeamCheckList = function()
         for _, child in pairs(multiDropdownFrame:GetChildren()) do
                 if child:IsA("TextButton") then child:Destroy() end
         end
-
         local teams = Teams:GetTeams()
         local yPos = 2
         for _, t in pairs(teams) do
                 local tBtn = Instance.new("TextButton")
                 tBtn.Size = UDim2.new(1, -6, 0, 28)
                 tBtn.Position = UDim2.new(0, 3, 0, yPos)
-
                 local isIgnored = getgenv().ignoredTeams[t.Name] == true
                 tBtn.Text = "  [ "..(isIgnored and "X" or " ").." ] Team: "..t.Name
-                tBtn.BackgroundColor3 = isIgnored and Color3.fromRGB(55, 35, 35) or Color3.fromRGB(35, 35, 45)
-                tBtn.TextColor3 = Color3.fromRGB(220, 220, 220)
+                tBtn.BackgroundColor3 = isIgnored and Color3.fromRGB(55, 30, 30) or Color3.fromRGB(30, 30, 40)
+                tBtn.TextColor3 = Color3.fromRGB(210, 210, 210)
                 tBtn.Font = Enum.Font.Gotham
                 tBtn.TextSize = 12
                 tBtn.TextXAlignment = Enum.TextXAlignment.Left
+                tBtn.ZIndex = 8
                 tBtn.Parent = multiDropdownFrame
-                Instance.new("UICorner", tBtn).CornerRadius = UDim.new(0, 4)
+                Instance.new("UICorner", tBtn).CornerRadius = UDim.new(0, 6)
 
                 tBtn.MouseButton1Click:Connect(function()
                         getgenv().ignoredTeams[t.Name] = not getgenv().ignoredTeams[t.Name]
@@ -420,29 +517,26 @@ refreshTeamCheckList()
 Teams.ChildAdded:Connect(refreshTeamCheckList)
 Teams.ChildRemoved:Connect(refreshTeamCheckList)
 
--- Yerel oyuncu takım değiştirdiğinde eski takımı temizle ve yenisini ekle
 LP:GetPropertyChangedSignal("Team"):Connect(function()
         if getgenv().teamCheck then
                 getgenv().ignoredTeams = {}
-                if LP.Team then
-                        getgenv().ignoredTeams[LP.Team.Name] = true
-                end
+                if LP.Team then getgenv().ignoredTeams[LP.Team.Name] = true end
                 refreshTeamCheckList()
         end
 end)
 
-local fovStartY = teamCheckStartY + 168
+local fovStartY = teamCheckStartY + 178
 createLabel(page1, "FOV SETTINGS", fovStartY)
-createToggle(page1, "Enable FOV Visual", fovStartY + 26, function(v) getgenv().fovEnabled = v end)
+createToggle(page1, "Enable FOV Circle", fovStartY + 26, function(v) getgenv().fovEnabled = v end)
 
-createLabel(page1, "FOV Size", fovStartY + 68)
-createTextbox(page1, fovStartY + 94, getgenv().fovSize, function(v)
+createLabel(page1, "FOV Size", fovStartY + 70)
+createTextbox(page1, fovStartY + 96, getgenv().fovSize, function(v)
         local num = tonumber(v)
         if num then getgenv().fovSize = num end
 end)
 
-createLabel(page1, "MAX DISTANCE", fovStartY + 136)
-createTextbox(page1, fovStartY + 162, getgenv().maxDistance, function(v)
+createLabel(page1, "Max Distance", fovStartY + 138)
+createTextbox(page1, fovStartY + 164, getgenv().maxDistance, function(v)
         local num = tonumber(v)
         if num then getgenv().maxDistance = num end
 end)
@@ -451,32 +545,33 @@ end)
 -- =========================
 -- TAB 2 CONTENT (ESP / VISUALS)
 -- =========================
-createLabel(page2, "ESP & HIGHLIGHT", 0)
-createToggle(page2, "Enable Name ESP", 26, function(v) getgenv().espEnabled = v end)
-createToggle(page2, "Enable Highlight", 66, function(v) getgenv().highlightEnabled = v end)
-createToggle(page2, "Use Team Color", 106, function(v) getgenv().useTeamColor = v end)
+createLabel(page2, "VISUALS & ESP", 0)
+createToggle(page2, "Enable Name ESP", 28, function(v) getgenv().espEnabled = v end)
+createToggle(page2, "Enable Highlight", 68, function(v) getgenv().highlightEnabled = v end)
+createToggle(page2, "Use Team Color", 108, function(v) getgenv().useTeamColor = v end)
 
 
 -- =========================
 -- TAB 3 CONTENT (PLAYER TOOLS)
 -- =========================
-createLabel(page3, "PLAYER MODS", 0)
-createToggle(page3, "Noclip (X Tuşu)", 26, function(v) getgenv().noclip = v end)
-createToggle(page3, "Float (Z Tuşu)", 66, function(v) getgenv().floatEnabled = v end)
-createToggle(page3, "Click Teleport (T Tuşu)", 106, function(v) getgenv().clickTpEnabled = v end)
+createLabel(page3, "PLAYER TOOLS", 0)
+createToggle(page3, "Noclip (X Key)", 28, function(v) getgenv().noclip = v end)
+createToggle(page3, "Float Platform (Z Key)", 68, function(v) getgenv().floatEnabled = v end)
+createToggle(page3, "Click Teleport (T Key)", 108, function(v) getgenv().clickTpEnabled = v end)
 
-createLabel(page3, "TELEPORT TOOL", 152)
+createLabel(page3, "TELEPORT TOOL", 154)
 local tpToolBtn = Instance.new("TextButton")
-tpToolBtn.Size = UDim2.new(1, 0, 0, 36)
-tpToolBtn.Position = UDim2.new(0, 0, 0, 178)
-tpToolBtn.Text = "  Give Teleport Tool (Alet Ver)"
-tpToolBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
+tpToolBtn.Size = UDim2.new(1, 0, 0, 38)
+tpToolBtn.Position = UDim2.new(0, 0, 0, 180)
+tpToolBtn.Text = "  Give Teleport Tool"
+tpToolBtn.BackgroundColor3 = Color3.fromRGB(45, 65, 140)
 tpToolBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 tpToolBtn.Font = Enum.Font.GothamBold
 tpToolBtn.TextSize = 13
 tpToolBtn.TextXAlignment = Enum.TextXAlignment.Left
+tpToolBtn.ZIndex = 6
 tpToolBtn.Parent = page3
-Instance.new("UICorner", tpToolBtn).CornerRadius = UDim.new(0, 6)
+Instance.new("UICorner", tpToolBtn).CornerRadius = UDim.new(0, 8)
 
 tpToolBtn.MouseButton1Click:Connect(function()
         local backpack = LP:FindFirstChildOfClass("Backpack")
@@ -484,7 +579,6 @@ tpToolBtn.MouseButton1Click:Connect(function()
                 local tool = Instance.new("Tool")
                 tool.Name = "TeleportTool"
                 tool.RequiresHandle = false
-
                 tool.Activated:Connect(function()
                         local char = LP.Character
                         if char and char:FindFirstChild("HumanoidRootPart") then
@@ -503,8 +597,27 @@ end)
 -- =========================
 -- MENU BUTTON EVENT
 -- =========================
+local menuOpen = false
 menuBtn.MouseButton1Click:Connect(function()
-        frame.Visible = not frame.Visible
+        menuOpen = not menuOpen
+        if menuOpen then
+                frame.Visible = true
+                frame.Size = UDim2.new(0, 320, 0, 400)
+                frame.BackgroundTransparency = 1
+                TweenService:Create(frame, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                        Size = UDim2.new(0, 380, 0, 520),
+                        BackgroundTransparency = 0.05
+                }):Play()
+        else
+                local tw = TweenService:Create(frame, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+                        Size = UDim2.new(0, 320, 0, 400),
+                        BackgroundTransparency = 1
+                })
+                tw:Play()
+                tw.Completed:Connect(function()
+                        if not menuOpen then frame.Visible = false end
+                end)
+        end
 end)
 
 
@@ -517,17 +630,20 @@ circle.Filled = false
 
 
 -- =========================
--- OPTIMIZED ESP & HIGHLIGHT MANAGER
+-- ROBUST ESP & HIGHLIGHT MANAGER
 -- =========================
 local espCache = {}
 
-local function applyESPToCharacter(player, char)
+local function cleanESP(player)
         if espCache[player] then
                 if espCache[player].billboard then espCache[player].billboard:Destroy() end
                 if espCache[player].highlight then espCache[player].highlight:Destroy() end
                 espCache[player] = nil
         end
+end
 
+local function applyESPToCharacter(player, char)
+        cleanESP(player)
         local head = char:WaitForChild("Head", 5)
         if not head then return end
 
@@ -563,46 +679,22 @@ end
 
 local function setupESP(player)
         if player == LP then return end
-
-        player.CharacterRemoving:Connect(function()
-                if espCache[player] then
-                        if espCache[player].billboard then espCache[player].billboard:Destroy() end
-                        if espCache[player].highlight then espCache[player].highlight:Destroy() end
-                        espCache[player] = nil
-                end
-        end)
-
-        player.CharacterAdded:Connect(function(char)
-                applyESPToCharacter(player, char)
-        end)
-
+        player.CharacterRemoving:Connect(function() cleanESP(player) end)
+        player.CharacterAdded:Connect(function(char) applyESPToCharacter(player, char) end)
         player:GetPropertyChangedSignal("Team"):Connect(function()
-                task.wait(0.3)
-                if player.Character and player.Character:FindFirstChild("Head") then
-                        applyESPToCharacter(player, player.Character)
-                end
+                task.wait(0.2)
+                if player.Character then applyESPToCharacter(player, player.Character) end
         end)
-
-        if player.Character then
-                applyESPToCharacter(player, player.Character)
-        end
+        if player.Character then applyESPToCharacter(player, player.Character) end
 end
 
-for _, p in pairs(Players:GetPlayers()) do
-        setupESP(p)
-end
+for _, p in pairs(Players:GetPlayers()) do setupESP(p) end
 Players.PlayerAdded:Connect(setupESP)
-Players.PlayerRemoving:Connect(function(p)
-        if espCache[p] then
-                if espCache[p].billboard then espCache[p].billboard:Destroy() end
-                if espCache[p].highlight then espCache[p].highlight:Destroy() end
-                espCache[p] = nil
-        end
-end)
+Players.PlayerRemoving:Connect(cleanESP)
 
 
 -- =========================
--- RANDOM PART LOOP (R6 / R15 DİNAMİK SEÇİMİ)
+-- RANDOM PART LOOP
 -- =========================
 local currentRandomPartName = "HumanoidRootPart"
 task.spawn(function()
@@ -618,21 +710,14 @@ task.spawn(function()
                                                 table.insert(validChars, p.Character)
                                         end
                                 end
-                                if #validChars > 0 then
-                                        activeTargetChar = validChars[math.random(1, #validChars)]
-                                end
+                                if #validChars > 0 then activeTargetChar = validChars[math.random(1, #validChars)] end
                         end
-
                         if activeTargetChar then
                                 local parts = {}
                                 for _, part in pairs(activeTargetChar:GetChildren()) do
-                                        if part:IsA("BasePart") then
-                                                table.insert(parts, part.Name)
-                                        end
+                                        if part:IsA("BasePart") then table.insert(parts, part.Name) end
                                 end
-                                if #parts > 0 then
-                                        currentRandomPartName = parts[math.random(1, #parts)]
-                                end
+                                if #parts > 0 then currentRandomPartName = parts[math.random(1, #parts)] end
                         end
                 end
                 task.wait(0.5)
@@ -654,42 +739,69 @@ local function wallCheck(pos, ignore)
 end
 
 local function getTargetHitPartName()
-        if getgenv().randomPart then
-                return currentRandomPartName
-        else
-                return getgenv().hitpart
-        end
+        if getgenv().explosiveMode then return "HumanoidRootPart"
+        elseif getgenv().randomPart then return currentRandomPartName
+        else return getgenv().hitpart end
+end
+
+local function isValidTarget(part)
+        if not part or not part.Parent then return false end
+        local model = part.Parent
+        local hum = model:FindFirstChildOfClass("Humanoid")
+        if not hum or hum.Health <= 0 then return false end
+        return true
 end
 
 local function getTarget()
+        if getgenv().antiVehicle and LP.Character then
+                local lpHum = LP.Character:FindFirstChildOfClass("Humanoid")
+                if lpHum and lpHum.Sit then
+                        return nil
+                end
+        end
+
         local best, closest = nil, math.huge
         local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
         local targetPartName = getTargetHitPartName()
 
         for _, p in pairs(Players:GetPlayers()) do
                 if p ~= LP and p.Character and p.Character:FindFirstChild(targetPartName) then
-                        local skip = false
-                        if getgenv().teamCheck then
-                                if p.Team and getgenv().ignoredTeams[p.Team.Name] then
-                                        skip = true
-                                end
-                        end
-
-                        if not skip then
-                                local hum = p.Character:FindFirstChildOfClass("Humanoid")
-                                if hum and hum.Health > 0 then
+                        local hum = p.Character:FindFirstChildOfClass("Humanoid")
+                        if hum and hum.Health > 0 then
+                                local skipTeam = getgenv().teamCheck and p.Team and getgenv().ignoredTeams[p.Team.Name]
+                                if not skipTeam then
                                         local part = p.Character[targetPartName]
-                                        local worldDist = (part.Position - Camera.CFrame.Position).Magnitude
-                                        if worldDist <= getgenv().maxDistance then
+                                        if (part.Position - Camera.CFrame.Position).Magnitude <= getgenv().maxDistance then
                                                 local screenPos, onscreen = Camera:WorldToViewportPoint(part.Position)
                                                 if onscreen then
                                                         local distFromCenter = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
                                                         if not getgenv().fovEnabled or distFromCenter <= getgenv().fovSize then
-                                                                if wallCheck(part.Position, p.Character) then
-                                                                        if distFromCenter < closest then
-                                                                                closest = distFromCenter
-                                                                                best = part
-                                                                        end
+                                                                if wallCheck(part.Position, p.Character) and distFromCenter < closest then
+                                                                        closest = distFromCenter
+                                                                        best = part
+                                                                end
+                                                        end
+                                                end
+                                        end
+                                end
+                        end
+                end
+        end
+
+        if getgenv().lockNpc then
+                for _, model in pairs(workspace:GetChildren()) do
+                        if model:IsA("Model") and model ~= LP.Character and not Players:GetPlayerFromCharacter(model) then
+                                local hum = model:FindFirstChildOfClass("Humanoid")
+                                local part = model:FindFirstChild(targetPartName)
+                                if hum and hum.Health > 0 and part then
+                                        if (part.Position - Camera.CFrame.Position).Magnitude <= getgenv().maxDistance then
+                                                local screenPos, onscreen = Camera:WorldToViewportPoint(part.Position)
+                                                if onscreen then
+                                                        local distFromCenter = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
+                                                        if not getgenv().fovEnabled or distFromCenter <= getgenv().fovSize then
+                                                                if wallCheck(part.Position, model) and distFromCenter < closest then
+                                                                        closest = distFromCenter
+                                                                        best = part
                                                                 end
                                                         end
                                                 end
@@ -701,35 +813,35 @@ local function getTarget()
         return best
 end
 
--- Tuş & Fare Dinleme (RightClick ve Manuel Mod)
 local isLockKeyPressed = false
-
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
         if gameProcessed then return end
-
         if typeof(getgenv().lockKey) == "EnumItem" then
-                if getgenv().lockKey.EnumType == Enum.UserInputType and input.UserInputType == getgenv().lockKey then
+                if (getgenv().lockKey.EnumType == Enum.UserInputType and input.UserInputType == getgenv().lockKey) or
+                   (getgenv().lockKey.EnumType == Enum.KeyCode and input.KeyCode == getgenv().lockKey) then
                         isLockKeyPressed = true
-                elseif getgenv().lockKey.EnumType == Enum.KeyCode and input.KeyCode == getgenv().lockKey then
-                        isLockKeyPressed = true
+                        if getgenv().aimbotType == "Manuel" and getgenv().manualModeType == "Toggle" then
+                                if lockedTarget then
+                                        lockedTarget = nil
+                                else
+                                        lockedTarget = getTarget()
+                                end
+                        end
                 end
         end
-
-        if input.KeyCode == Enum.KeyCode.X then
-                getgenv().noclip = not getgenv().noclip
+        if input.KeyCode == getgenv().explosiveKey then
+                getgenv().explosiveMode = not getgenv().explosiveMode
+                exStroke.Color = getgenv().explosiveMode and Color3.fromRGB(50, 255, 50) or Color3.fromRGB(255, 50, 50)
+                explosiveMobBtn.TextColor3 = getgenv().explosiveMode and Color3.fromRGB(50, 255, 50) or Color3.fromRGB(255, 70, 70)
         end
-
-        if input.KeyCode == Enum.KeyCode.Z then
-                getgenv().floatEnabled = not getgenv().floatEnabled
-        end
-
+        if input.KeyCode == Enum.KeyCode.X then getgenv().noclip = not getgenv().noclip end
+        if input.KeyCode == Enum.KeyCode.Z then getgenv().floatEnabled = not getgenv().floatEnabled end
         if getgenv().clickTpEnabled and input.KeyCode == Enum.KeyCode.T then
                 local char = LP.Character
                 if char and char:FindFirstChild("HumanoidRootPart") then
-                        local hrp = char.HumanoidRootPart
                         local targetPos = Mouse.Hit.Position + Vector3.new(0, 3, 0)
-                        if (targetPos - hrp.Position).Magnitude <= 300 then
-                                hrp.CFrame = CFrame.new(targetPos)
+                        if (targetPos - char.HumanoidRootPart.Position).Magnitude <= 300 then
+                                char.HumanoidRootPart.CFrame = CFrame.new(targetPos)
                         end
                 end
         end
@@ -737,9 +849,8 @@ end)
 
 UserInputService.InputEnded:Connect(function(input)
         if typeof(getgenv().lockKey) == "EnumItem" then
-                if getgenv().lockKey.EnumType == Enum.UserInputType and input.UserInputType == getgenv().lockKey then
-                        isLockKeyPressed = false
-                elseif getgenv().lockKey.EnumType == Enum.KeyCode and input.KeyCode == getgenv().lockKey then
+                if (getgenv().lockKey.EnumType == Enum.UserInputType and input.UserInputType == getgenv().lockKey) or
+                   (getgenv().lockKey.EnumType == Enum.KeyCode and input.KeyCode == getgenv().lockKey) then
                         isLockKeyPressed = false
                 end
         end
@@ -747,13 +858,12 @@ end)
 
 
 -- =========================
--- OPTIMIZED MAIN LOOP
+-- MAIN LOOP
 -- =========================
 local floatPart = nil
 local frameCounter = 0
 
 RunService.RenderStepped:Connect(function()
-        -- FOV Güncelleme
         circle.Visible = getgenv().fovEnabled
         if getgenv().fovEnabled then
                 circle.Radius = getgenv().fovSize
@@ -761,57 +871,36 @@ RunService.RenderStepped:Connect(function()
                 circle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
         end
 
-        -- ESP ve Highlight Güncelleme Throttle (CPU Optimizasyonu)
         frameCounter = frameCounter + 1
         if frameCounter >= 3 then
                 frameCounter = 0
                 for player, data in pairs(espCache) do
                         local charValid = data.character and data.character.Parent and data.character:FindFirstChild("Head")
-
                         if data.billboard then
-                                local shouldShowESP = getgenv().espEnabled and charValid
-                                if data.billboard.Enabled ~= shouldShowESP then
-                                        data.billboard.Enabled = shouldShowESP
-                                end
-                                if shouldShowESP then
-                                        if getgenv().useTeamColor and player.Team then
-                                                data.textLabel.TextColor3 = player.TeamColor.Color
-                                        else
-                                                data.textLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-                                        end
+                                local show = getgenv().espEnabled and charValid
+                                if data.billboard.Enabled ~= show then data.billboard.Enabled = show end
+                                if show then
+                                        data.textLabel.TextColor3 = (getgenv().useTeamColor and player.Team) and player.TeamColor.Color or Color3.fromRGB(255, 255, 255)
                                 end
                         end
-
                         if data.highlight then
-                                local shouldShowHighlight = getgenv().highlightEnabled and charValid
-                                if data.highlight.Enabled ~= shouldShowHighlight then
-                                        data.highlight.Enabled = shouldShowHighlight
-                                end
-                                if shouldShowHighlight then
-                                        if getgenv().useTeamColor and player.Team then
-                                                data.highlight.FillColor = player.TeamColor.Color
-                                                data.highlight.OutlineColor = player.TeamColor.Color
-                                        else
-                                                data.highlight.FillColor = Color3.fromRGB(255, 255, 255)
-                                                data.highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-                                        end
+                                local show = getgenv().highlightEnabled and charValid
+                                if data.highlight.Enabled ~= show then data.highlight.Enabled = show end
+                                if show and getgenv().useTeamColor and player.Team then
+                                        data.highlight.FillColor = player.TeamColor.Color
+                                        data.highlight.OutlineColor = player.TeamColor.Color
                                 end
                         end
                 end
         end
 
-        -- Noclip Uygulaması
         if getgenv().noclip and LP.Character then
                 for _, part in pairs(LP.Character:GetDescendants()) do
-                        if part:IsA("BasePart") then
-                                part.CanCollide = false
-                        end
+                        if part:IsA("BasePart") then part.CanCollide = false end
                 end
         end
 
-        -- Float Platform Uygulaması
         if getgenv().floatEnabled and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
-                local hrp = LP.Character.HumanoidRootPart
                 if not floatPart or not floatPart.Parent then
                         floatPart = Instance.new("Part")
                         floatPart.Name = "FloatPlatform"
@@ -821,40 +910,54 @@ RunService.RenderStepped:Connect(function()
                         floatPart.CanCollide = true
                         floatPart.Parent = workspace
                 end
-                floatPart.CFrame = hrp.CFrame - Vector3.new(0, 3.5, 0)
+                floatPart.CFrame = LP.Character.HumanoidRootPart.CFrame - Vector3.new(0, 3.5, 0)
         else
-                if floatPart then
-                        floatPart:Destroy()
-                        floatPart = nil
-                end
+                if floatPart then floatPart:Destroy(); floatPart = nil end
         end
 
-        -- Aimbot Mantığı
         if not getgenv().aimbot then return end
 
         local t = nil
         if getgenv().aimbotType == "OtoLock" then
                 t = getTarget()
         elseif getgenv().aimbotType == "Manuel" then
-                if isLockKeyPressed then
-                        if not lockedTarget or not lockedTarget.Parent or lockedTarget.Parent.Humanoid.Health <= 0 then
-                                lockedTarget = getTarget()
+                if getgenv().manualModeType == "Hold" then
+                        if isLockKeyPressed then
+                                if not lockedTarget or not isValidTarget(lockedTarget) then
+                                        lockedTarget = getTarget()
+                                end
+                                t = lockedTarget
+                        else
+                                lockedTarget = nil
+                        end
+                else -- Toggle Mode
+                        if lockedTarget and not isValidTarget(lockedTarget) then
+                                lockedTarget = nil
                         end
                         t = lockedTarget
-                else
-                        lockedTarget = nil
                 end
         end
 
         if t then
+                local targetPos = t.Position
+                local currentPred = getgenv().pred
+                if getgenv().explosiveMode then
+                        targetPos = targetPos - Vector3.new(0, getgenv().explosiveStuds, 0)
+                        currentPred = getgenv().explosivePred
+                end
+
                 local vel = t.AssemblyLinearVelocity or Vector3.zero
-                local aimPos = t.Position + (vel * getgenv().pred)
+                local aimPos = targetPos + (vel * currentPred)
                 local targetCFrame = CFrame.new(Camera.CFrame.Position, aimPos)
 
                 if getgenv().smoothingEnabled then
                         Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, math.clamp(getgenv().smoothness, 0.01, 1))
                 else
                         Camera.CFrame = targetCFrame
+                end
+        else
+                if getgenv().aimbotType == "Manuel" and getgenv().manualModeType == "Hold" and not isLockKeyPressed then
+                        lockedTarget = nil
                 end
         end
 end)

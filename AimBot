@@ -16,8 +16,6 @@ getgenv().ignoredTeams = {}
 
 getgenv().espEnabled = false
 getgenv().highlightEnabled = false
-getgenv().npcEspEnabled = false
-getgenv().npcHighlightEnabled = false
 getgenv().useTeamColor = false
 
 -- Aimbot Modes & Locking System
@@ -27,7 +25,7 @@ getgenv().lockKey = Enum.UserInputType.MouseButton2
 
 -- Features
 getgenv().randomPart = false
-getgenv().visiblePartCheck = false
+getgenv().visiblePartCheck = false -- Yeni Eklenen Toggle: Duvar arkasında olmayan parçaya kilitlenme
 getgenv().smoothingEnabled = false
 getgenv().smoothness = 0.1
 
@@ -107,7 +105,7 @@ btnStroke.Parent = menuBtn
 
 
 -- =========================
--- EXPLOSIVE MODE MOBILE BUTTON
+-- EXPLOSIVE MODE MOBILE BUTTON (Sadece Mobilde Görünür)
 -- =========================
 local explosiveMobBtn = Instance.new("TextButton")
 explosiveMobBtn.Size = UDim2.new(0, 60, 0, 60)
@@ -131,6 +129,7 @@ exStroke.Color = Color3.fromRGB(255, 50, 50)
 exStroke.Thickness = 2.5
 exStroke.Parent = explosiveMobBtn
 
+-- Draggable Logic for Mobile Button
 local dragging, dragInput, dragStart, startPos
 explosiveMobBtn.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -232,7 +231,7 @@ end
 local page1 = createPage()
 page1.CanvasSize = UDim2.new(0, 0, 0, 1500)
 local page2 = createPage()
-page2.CanvasSize = UDim2.new(0, 0, 0, 350)
+page2.CanvasSize = UDim2.new(0, 0, 0, 300)
 page2.Visible = false
 local page3 = createPage()
 page3.CanvasSize = UDim2.new(0, 0, 0, 350)
@@ -480,9 +479,8 @@ local refreshTeamCheckList
 createToggle(page1, "Enable Team Check Filter", teamCheckStartY + 130, function(v)
         getgenv().teamCheck = v
         if v and LP.Team then
-                if not getgenv().ignoredTeams[LP.Team.Name] then
-                        getgenv().ignoredTeams[LP.Team.Name] = true
-                end
+                getgenv().ignoredTeams = {}
+                getgenv().ignoredTeams[LP.Team.Name] = true
                 refreshTeamCheckList()
         end
 end)
@@ -522,8 +520,9 @@ Teams.ChildAdded:Connect(refreshTeamCheckList)
 Teams.ChildRemoved:Connect(refreshTeamCheckList)
 
 LP:GetPropertyChangedSignal("Team"):Connect(function()
-        if getgenv().teamCheck and LP.Team then
-                getgenv().ignoredTeams[LP.Team.Name] = true
+        if getgenv().teamCheck then
+                getgenv().ignoredTeams = {}
+                if LP.Team then getgenv().ignoredTeams[LP.Team.Name] = true end
                 refreshTeamCheckList()
         end
 end)
@@ -551,9 +550,7 @@ end)
 createLabel(page2, "VISUALS & ESP", 0)
 createToggle(page2, "Enable Name ESP", 28, function(v) getgenv().espEnabled = v end)
 createToggle(page2, "Enable Highlight", 68, function(v) getgenv().highlightEnabled = v end)
-createToggle(page2, "Show NPC Name", 108, function(v) getgenv().npcEspEnabled = v end)
-createToggle(page2, "NPC Highlight", 148, function(v) getgenv().npcHighlightEnabled = v end)
-createToggle(page2, "Use Team Color", 188, function(v) getgenv().useTeamColor = v end)
+createToggle(page2, "Use Team Color", 108, function(v) getgenv().useTeamColor = v end)
 
 
 -- =========================
@@ -635,10 +632,9 @@ circle.Filled = false
 
 
 -- =========================
--- ESP & HIGHLIGHT MANAGER (PLAYERS & NPCS)
+-- ROBUST ESP & HIGHLIGHT MANAGER
 -- =========================
 local espCache = {}
-local npcCache = {}
 
 local function cleanESP(player)
         if espCache[player] then
@@ -697,69 +693,6 @@ end
 for _, p in pairs(Players:GetPlayers()) do setupESP(p) end
 Players.PlayerAdded:Connect(setupESP)
 Players.PlayerRemoving:Connect(cleanESP)
-
--- NPC ESP Management
-local function cleanNPC(model)
-        if npcCache[model] then
-                if npcCache[model].billboard then npcCache[model].billboard:Destroy() end
-                if npcCache[model].highlight then npcCache[model].highlight:Destroy() end
-                npcCache[model] = nil
-        end
-end
-
-local function setupNPC(model)
-        if not model:IsA("Model") or model == LP.Character or Players:GetPlayerFromCharacter(model) then return end
-        local hum = model:FindFirstChildOfClass("Humanoid")
-        local head = model:WaitForChild("Head", 3)
-        if not hum or not head then return end
-
-        local bb = Instance.new("BillboardGui")
-        bb.Name = "NPCNameESP"
-        bb.Size = UDim2.new(0, 100, 0, 40)
-        bb.StudsOffset = Vector3.new(0, 2.5, 0)
-        bb.AlwaysOnTop = true
-        bb.Adornee = head
-        bb.Enabled = false
-        bb.Parent = model
-
-        local txt = Instance.new("TextLabel")
-        txt.Size = UDim2.new(1, 0, 1, 0)
-        txt.BackgroundTransparency = 1
-        txt.Text = "[NPC] " .. model.Name
-        txt.TextColor3 = Color3.fromRGB(255, 170, 50)
-        txt.TextSize = 13
-        txt.Font = Enum.Font.GothamBold
-        txt.TextStrokeTransparency = 0.3
-        txt.Parent = bb
-
-        local hl = Instance.new("Highlight")
-        hl.Name = "NPCHighlight"
-        hl.Adornee = model
-        hl.Enabled = false
-        hl.FillColor = Color3.fromRGB(255, 120, 0)
-        hl.OutlineColor = Color3.fromRGB(255, 200, 0)
-        hl.FillTransparency = 0.6
-        hl.OutlineTransparency = 0
-        hl.Parent = model
-
-        npcCache[model] = {billboard = bb, highlight = hl, model = model}
-
-        model.AncestryChanged:Connect(function(_, parent)
-                if not parent then cleanNPC(model) end
-        end)
-end
-
-for _, obj in pairs(workspace:GetDescendants()) do
-        if obj:IsA("Model") and obj:FindFirstChildOfClass("Humanoid") then
-                setupNPC(obj)
-        end
-end
-
-workspace.DescendantAdded:Connect(function(obj)
-        if obj:IsA("Model") and obj:FindFirstChildOfClass("Humanoid") then
-                setupNPC(obj)
-        end
-end)
 
 
 -- =========================
@@ -965,7 +898,6 @@ RunService.RenderStepped:Connect(function()
         frameCounter = frameCounter + 1
         if frameCounter >= 3 then
                 frameCounter = 0
-                -- Player ESP Update
                 for player, data in pairs(espCache) do
                         local charValid = data.character and data.character.Parent and data.character:FindFirstChild("Head")
                         if data.billboard then
@@ -982,19 +914,6 @@ RunService.RenderStepped:Connect(function()
                                         data.highlight.FillColor = player.TeamColor.Color
                                         data.highlight.OutlineColor = player.TeamColor.Color
                                 end
-                        end
-                end
-
-                -- NPC ESP Update
-                for model, data in pairs(npcCache) do
-                        local modelValid = model and model.Parent and model:FindFirstChild("Head") and model:FindFirstChildOfClass("Humanoid") and model.Humanoid.Health > 0
-                        if data.billboard then
-                                local showNpc = getgenv().npcEspEnabled and modelValid
-                                if data.billboard.Enabled ~= showNpc then data.billboard.Enabled = showNpc end
-                        end
-                        if data.highlight then
-                                local showNpcHl = getgenv().npcHighlightEnabled and modelValid
-                                if data.highlight.Enabled ~= showNpcHl then data.highlight.Enabled = showNpcHl end
                         end
                 end
         end
@@ -1035,7 +954,7 @@ RunService.RenderStepped:Connect(function()
                         else
                                 lockedTarget = nil
                         end
-                else
+                else -- Toggle Mode
                         if lockedTarget and not isValidTarget(lockedTarget) then
                                 lockedTarget = nil
                         end
